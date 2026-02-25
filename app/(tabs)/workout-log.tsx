@@ -1,0 +1,230 @@
+import { useState, useCallback } from "react";
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`;
+}
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
+import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
+import { useRouter } from "expo-router";
+import { useWorkouts } from "../../hooks/useWorkouts";
+import { Card } from "../../components/Card";
+import { Button } from "../../components/Button";
+import { EmptyState } from "../../components/EmptyState";
+import { CalendarGrid } from "../../components/CalendarGrid";
+import { useAppTheme } from "../../contexts/ThemeContext";
+import { spacing, radius } from "../../lib/theme";
+import type { WorkoutSession } from "../../lib/types";
+
+function today(): string {
+  return new Date().toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export default function WorkoutLogScreen() {
+  const router = useRouter();
+  const { theme } = useAppTheme();
+  const { workouts, loading, addWorkout, deleteWorkout } = useWorkouts();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [name, setName] = useState("");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  function handleDayPress(dateKey: string, daySessions: WorkoutSession[]) {
+    if (daySessions.length === 0) return;
+    setSelectedDate((prev) => (prev === dateKey ? null : dateKey));
+  }
+
+  const displayedWorkouts = selectedDate
+    ? workouts.filter((w) => {
+        const iso = w.completedAt ?? w.startedAt;
+        const key = iso
+          ? new Date(iso).toISOString().slice(0, 10)
+          : new Date(w.date).toISOString().slice(0, 10);
+        return key === selectedDate;
+      })
+    : workouts;
+
+  function handleAdd() {
+    if (!name.trim()) return;
+    const session: WorkoutSession = {
+      id: Date.now().toString(),
+      name: name.trim(),
+      date: today(),
+      exercises: [],
+    };
+    addWorkout(session);
+    setName("");
+    setModalVisible(false);
+  }
+
+  function handleCancel() {
+    setName("");
+    setModalVisible(false);
+  }
+
+  const renderRightActions = useCallback((onDelete: () => void) => (
+    <Pressable style={[styles.deleteAction, { backgroundColor: theme.colors.danger }]} onPress={onDelete}>
+      <Text style={[styles.deleteText, { color: theme.colors.dangerText }]}>Delete</Text>
+    </Pressable>
+  ), [theme]);
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Workout Log</Text>
+          <Button label="+ Add" onPress={() => setModalVisible(true)} small />
+        </View>
+
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 48 }} color={theme.colors.primary} />
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <CalendarGrid sessions={workouts} onDayPress={handleDayPress} />
+
+            {/* List header */}
+            <View style={styles.listHeader}>
+              {selectedDate ? (
+                <Pressable style={styles.dateChip} onPress={() => setSelectedDate(null)}>
+                  <Text style={[styles.dateChipText, { color: theme.colors.primary }]}>
+                    {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </Text>
+                  <Text style={[styles.dateChipClear, { color: theme.colors.muted }]}>  ×</Text>
+                </Pressable>
+              ) : (
+                <Text style={[styles.listTitle, { color: theme.colors.muted }]}>ALL SESSIONS</Text>
+              )}
+            </View>
+
+            {displayedWorkouts.length === 0 ? (
+              <EmptyState
+                icon="📋"
+                title={selectedDate ? "No sessions on this day" : "No workouts yet"}
+                subtitle={selectedDate ? "Tap another day or clear the filter." : "Tap + Add to log your first workout."}
+              />
+            ) : (
+              displayedWorkouts.map((item) => (
+                <Swipeable key={item.id} renderRightActions={() => renderRightActions(() => deleteWorkout(item.id))}>
+                  <Pressable onPress={() => router.push(`/session/${item.id}`)}>
+                    <Card style={styles.row}>
+                      <View style={styles.rowContent}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Text style={[styles.rowName, { color: theme.colors.text }]}>{item.name}</Text>
+                          {item.completedAt ? (
+                            <Text style={{ backgroundColor: theme.colors.success, color: theme.colors.successText, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>✓ Done</Text>
+                          ) : item.isActive ? (
+                            <Text style={{ backgroundColor: theme.colors.danger, color: theme.colors.dangerText, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>● Active</Text>
+                          ) : null}
+                        </View>
+                        <Text style={[styles.rowMeta, { color: theme.colors.muted }]}>
+                          {fmtDate(item.date)}
+                          {item.exercises.length > 0
+                            ? ` · ${item.exercises.length} exercise${item.exercises.length !== 1 ? "s" : ""} · ${item.exercises.reduce((a, ex) => a + ex.sets.filter(s => s.completed).length, 0)}/${item.exercises.reduce((a, ex) => a + ex.sets.length, 0)} sets`
+                            : ""}
+                        </Text>
+                      </View>
+                      <Text style={[styles.chevron, { color: theme.colors.muted }]}>›</Text>
+                    </Card>
+                  </Pressable>
+                </Swipeable>
+              ))
+            )}
+          </ScrollView>
+        )}
+
+        <Modal visible={modalVisible} transparent animationType="slide">
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Workout</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.bg, color: theme.colors.text }]}
+                placeholder="e.g. Upper Body, Run 5k..."
+                placeholderTextColor={theme.colors.muted}
+                value={name}
+                onChangeText={setName}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleAdd}
+              />
+              <View style={styles.modalActions}>
+                <Button label="Cancel" onPress={handleCancel} variant="secondary" />
+                <View style={{ width: 12 }} />
+                <Button label="Save" onPress={handleAdd} />
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </View>
+    </GestureHandlerRootView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 64,
+    paddingHorizontal: spacing.lg,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.lg,
+  },
+  title: { fontSize: 32, fontWeight: "700" },
+  row: { marginBottom: 0, flexDirection: "row", alignItems: "center" },
+  rowContent: { flex: 1 },
+  rowName: { fontSize: 16, fontWeight: "600" },
+  rowMeta: { fontSize: 12, marginTop: 2 },
+  chevron: { fontSize: 20 },
+  deleteAction: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+    borderRadius: radius.lg,
+    marginBottom: spacing.sm + 4,
+  },
+  deleteText: { fontWeight: "700", fontSize: 14 },
+  listHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8, marginTop: 4 },
+  listTitle: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.0 },
+  dateChip: { flexDirection: "row", alignItems: "center" },
+  dateChipText: { fontSize: 13, fontWeight: "700" },
+  dateChipClear: { fontSize: 16, fontWeight: "400" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    paddingBottom: 40,
+  },
+  modalTitle: { fontSize: 22, fontWeight: "700", marginBottom: spacing.md },
+  input: {
+    borderRadius: radius.md,
+    padding: 14,
+    fontSize: 16,
+    marginBottom: spacing.md + 4,
+  },
+  modalActions: { flexDirection: "row" },
+});
