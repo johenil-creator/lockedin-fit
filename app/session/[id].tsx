@@ -7,15 +7,13 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Modal,
   FlatList,
   Alert,
   Image,
-  ActivityIndicator,
   AppState,
   AppStateStatus,
 } from "react-native";
-import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
+import { Swipeable } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -38,6 +36,9 @@ import { RANK_IMAGES } from "../../components/RankEvolutionPath";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
+import { BackButton } from "../../components/BackButton";
+import { Skeleton } from "../../components/Skeleton";
+import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import type { WorkoutSession, SessionExercise, SetEntry } from "../../lib/types";
@@ -232,8 +233,13 @@ export default function SessionScreen() {
 
   if (workoutsLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.bg, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator color={theme.colors.primary} />
+      <View style={[styles.container, { backgroundColor: theme.colors.bg, alignItems: "center", paddingTop: 80 }]}>
+        <Skeleton.Circle size={120} />
+        <View style={{ height: 16 }} />
+        <Skeleton.Rect width="60%" height={20} />
+        <View style={{ height: 16 }} />
+        <Skeleton.Card />
+        <Skeleton.Card />
       </View>
     );
   }
@@ -241,9 +247,7 @@ export default function SessionScreen() {
   if (!session) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
-        <Pressable onPress={() => router.back()}>
-          <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>←</Text>
-        </Pressable>
+        <BackButton />
         <Text style={[styles.notFound, { color: theme.colors.muted }]}>Workout not found.</Text>
       </View>
     );
@@ -544,11 +548,10 @@ export default function SessionScreen() {
     : -1;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => {
+        <BackButton onPress={() => {
           if (activeExerciseId) {
             setActiveExerciseId(null);
           } else if (session.isActive) {
@@ -563,9 +566,7 @@ export default function SessionScreen() {
           } else {
             router.back();
           }
-        }}>
-          <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>←</Text>
-        </Pressable>
+        }} />
         <View style={styles.headerCenter}>
           <Text style={[styles.sessionName, { color: theme.colors.text }]} numberOfLines={1}>{session.name}</Text>
         </View>
@@ -969,124 +970,116 @@ export default function SessionScreen() {
         )}
       </ScrollView>
 
-      {/* Exercise picker modal */}
-      <Modal visible={pickerVisible} transparent animationType="slide">
-        <View style={[styles.modalOverlay]}>
-          <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Exercise</Text>
+      {/* Exercise picker bottom sheet */}
+      <AppBottomSheet visible={pickerVisible} onClose={() => { setPickerVisible(false); setManualName(""); }} snapPoints={["60%"]}>
+        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Exercise</Text>
 
-            {planExercises.length > 0 ? (
-              <FlatList
-                data={planExercises.filter(
-                  (pe) => !session.exercises.some((se) => se.name === pe.exercise)
-                )}
-                keyExtractor={(_, idx) => idx.toString()}
-                style={{ maxHeight: 300 }}
-                renderItem={({ item }) => (
-                  <Pressable style={[styles.planRow, { borderBottomColor: theme.colors.border }]} onPress={() => addExercise(item.exercise, item.sets, item.reps)}>
-                    <Text style={[styles.planRowName, { color: theme.colors.text }]}>{item.exercise}</Text>
-                    {item.sets && <Badge label={`${item.sets}x${item.reps}`} />}
-                  </Pressable>
-                )}
-                ListEmptyComponent={<Text style={[styles.noPlanText, { color: theme.colors.muted }]}>All plan exercises added.</Text>}
-              />
-            ) : null}
+        {planExercises.length > 0 ? (
+          <FlatList
+            data={planExercises.filter(
+              (pe) => !session.exercises.some((se) => se.name === pe.exercise)
+            )}
+            keyExtractor={(_, idx) => idx.toString()}
+            style={{ maxHeight: 300 }}
+            renderItem={({ item }) => (
+              <Pressable style={[styles.planRow, { borderBottomColor: theme.colors.border }]} onPress={() => addExercise(item.exercise, item.sets, item.reps)}>
+                <Text style={[styles.planRowName, { color: theme.colors.text }]}>{item.exercise}</Text>
+                {item.sets && <Badge label={`${item.sets}x${item.reps}`} />}
+              </Pressable>
+            )}
+            ListEmptyComponent={<Text style={[styles.noPlanText, { color: theme.colors.muted }]}>All plan exercises added.</Text>}
+          />
+        ) : null}
 
-            <Text style={[styles.orLabel, { color: theme.colors.muted }]}>Or enter manually:</Text>
-            <TextInput
-              style={[styles.manualInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text }]}
-              placeholder="Exercise name"
-              placeholderTextColor={theme.colors.muted}
-              value={manualName}
-              onChangeText={setManualName}
-              returnKeyType="done"
-              onSubmitEditing={() => addExercise(manualName)}
-            />
+        <Text style={[styles.orLabel, { color: theme.colors.muted }]}>Or enter manually:</Text>
+        <TextInput
+          style={[styles.manualInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text }]}
+          placeholder="Exercise name"
+          placeholderTextColor={theme.colors.muted}
+          value={manualName}
+          onChangeText={setManualName}
+          returnKeyType="done"
+          onSubmitEditing={() => addExercise(manualName)}
+        />
 
-            <View style={styles.modalActions}>
-              <Button label="Cancel" onPress={() => { setPickerVisible(false); setManualName(""); }} variant="secondary" />
-              <View style={{ width: 12 }} />
-              <Button label="Add" onPress={() => addExercise(manualName)} disabled={!manualName.trim()} />
-            </View>
-          </View>
+        <View style={styles.modalActions}>
+          <Button label="Cancel" onPress={() => { setPickerVisible(false); setManualName(""); }} variant="secondary" />
+          <View style={{ width: 12 }} />
+          <Button label="Add" onPress={() => addExercise(manualName)} disabled={!manualName.trim()} />
         </View>
-      </Modal>
+      </AppBottomSheet>
 
-      {/* Classify exercise modal */}
-      <Modal visible={classifyVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Classify Exercise</Text>
-            <Text style={{ color: theme.colors.muted, fontSize: 13, marginBottom: 16, lineHeight: 18 }}>
-              "{classifyName}" isn't in the catalog yet. Pick a category so weights auto-fill next time.
-            </Text>
+      {/* Classify exercise bottom sheet */}
+      <AppBottomSheet visible={classifyVisible} onClose={() => setClassifyVisible(false)}>
+        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Classify Exercise</Text>
+        <Text style={{ color: theme.colors.muted, fontSize: 13, marginBottom: 16, lineHeight: 18 }}>
+          "{classifyName}" isn't in the catalog yet. Pick a category so weights auto-fill next time.
+        </Text>
 
-            <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
-              Movement Pattern
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 40 }}>
-              {(["squat", "hinge", "horizontal_push", "horizontal_pull", "vertical_push", "vertical_pull", "isolation_upper", "isolation_lower", "core", "conditioning", "carry"] as const).map((p) => (
-                <Pressable
-                  key={p}
-                  onPress={() => setClassifyPattern(p)}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                    backgroundColor: classifyPattern === p ? theme.colors.primary : theme.colors.mutedBg,
-                    marginRight: 6,
-                  }}
-                >
-                  <Text style={{
-                    color: classifyPattern === p ? theme.colors.primaryText : theme.colors.text,
-                    fontSize: 12,
-                    fontWeight: "600",
-                  }}>
-                    {p.replace(/_/g, " ")}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+        <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          Movement Pattern
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 40 }}>
+          {(["squat", "hinge", "horizontal_push", "horizontal_pull", "vertical_push", "vertical_pull", "isolation_upper", "isolation_lower", "core", "conditioning", "carry"] as const).map((p) => (
+            <Pressable
+              key={p}
+              onPress={() => setClassifyPattern(p)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+                backgroundColor: classifyPattern === p ? theme.colors.primary : theme.colors.mutedBg,
+                marginRight: 6,
+              }}
+            >
+              <Text style={{
+                color: classifyPattern === p ? theme.colors.primaryText : theme.colors.text,
+                fontSize: 12,
+                fontWeight: "600",
+              }}>
+                {p.replace(/_/g, " ")}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
-            <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
-              Anchor Lift (for auto-fill)
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
-              {(["none", "squat", "deadlift", "bench", "ohp"] as const).map((l) => (
-                <Pressable
-                  key={l}
-                  onPress={() => setClassifyAnchor(l)}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                    backgroundColor: classifyAnchor === l ? theme.colors.primary : theme.colors.mutedBg,
-                  }}
-                >
-                  <Text style={{
-                    color: classifyAnchor === l ? theme.colors.primaryText : theme.colors.text,
-                    fontSize: 13,
-                    fontWeight: "600",
-                    textTransform: "capitalize",
-                  }}>
-                    {l}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <View style={styles.modalActions}>
-              <Button
-                label="Skip"
-                onPress={() => { addExerciseWithLoad(classifyName); }}
-                variant="secondary"
-              />
-              <View style={{ width: 12 }} />
-              <Button label="Save & Add" onPress={handleClassifyAndAdd} />
-            </View>
-          </View>
+        <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          Anchor Lift (for auto-fill)
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
+          {(["none", "squat", "deadlift", "bench", "ohp"] as const).map((l) => (
+            <Pressable
+              key={l}
+              onPress={() => setClassifyAnchor(l)}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                borderRadius: 8,
+                backgroundColor: classifyAnchor === l ? theme.colors.primary : theme.colors.mutedBg,
+              }}
+            >
+              <Text style={{
+                color: classifyAnchor === l ? theme.colors.primaryText : theme.colors.text,
+                fontSize: 13,
+                fontWeight: "600",
+                textTransform: "capitalize",
+              }}>
+                {l}
+              </Text>
+            </Pressable>
+          ))}
         </View>
-      </Modal>
+
+        <View style={styles.modalActions}>
+          <Button
+            label="Skip"
+            onPress={() => { addExerciseWithLoad(classifyName); }}
+            variant="secondary"
+          />
+          <View style={{ width: 12 }} />
+          <Button label="Save & Add" onPress={handleClassifyAndAdd} />
+        </View>
+      </AppBottomSheet>
 
       {/* Floating pause bar */}
       {session.isActive && (
@@ -1104,14 +1097,12 @@ export default function SessionScreen() {
       {/* Auto-pause overlay */}
       <PauseOverlay visible={paused && !!session.isActive} onResume={handleResumePause} />
     </View>
-    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 56, paddingHorizontal: 20 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 0, marginBottom: 16 },
-  exitBtn: { fontSize: 24, padding: 8 },
   floatingPauseBar: {
     position: "absolute",
     bottom: 0,
@@ -1265,13 +1256,6 @@ const styles = StyleSheet.create({
   exerciseListChevron: {
     fontSize: 20,
     fontWeight: "400",
-  },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  modalCard: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
   },
   modalTitle: { fontSize: 20, fontWeight: "700", marginBottom: 16 },
   planRow: {

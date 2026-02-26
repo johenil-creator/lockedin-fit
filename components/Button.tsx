@@ -1,4 +1,10 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text, ActivityIndicator } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { radius } from "../lib/theme";
 
@@ -15,6 +21,11 @@ type Props = {
 
 export function Button({ label, onPress, variant = "primary", disabled, loading, small }: Props) {
   const { theme } = useAppTheme();
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const bg = {
     primary: theme.colors.primary,
@@ -29,25 +40,36 @@ export function Button({ label, onPress, variant = "primary", disabled, loading,
   }[variant];
 
   return (
-    <Pressable
-      style={[
-        styles.base,
-        { backgroundColor: bg },
-        variant === "secondary" && { borderWidth: 1.5, borderColor: theme.colors.accent },
-        small && styles.small,
-        (disabled || loading) && styles.disabled,
-      ]}
-      onPress={onPress}
-      disabled={disabled || loading}
-    >
-      {loading ? (
-        <ActivityIndicator color={textColor} size="small" />
-      ) : (
-        <Text style={[styles.text, { color: textColor }, small && styles.smallText]}>
-          {label}
-        </Text>
-      )}
-    </Pressable>
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        style={[
+          styles.base,
+          { backgroundColor: bg },
+          variant === "secondary" && { borderWidth: 1.5, borderColor: theme.colors.accent },
+          small && styles.small,
+          (disabled || loading) && styles.disabled,
+        ]}
+        onPress={onPress}
+        onPressIn={() => {
+          if (!disabled && !loading) {
+            scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+        }}
+        disabled={disabled || loading}
+      >
+        {loading ? (
+          <ActivityIndicator color={textColor} size="small" />
+        ) : (
+          <Text style={[styles.text, { color: textColor }, small && styles.smallText]}>
+            {label}
+          </Text>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 

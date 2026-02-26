@@ -1,4 +1,12 @@
+import { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { radius } from "../lib/theme";
 import type { RankLevel } from "../lib/types";
@@ -13,6 +21,18 @@ type Props = {
 export function XPBar({ totalXP, progress, toNext, nextRank }: Props) {
   const { theme } = useAppTheme();
   const fillPct = Math.max(0, Math.min(progress, 1)) * 100;
+  const animatedWidth = useSharedValue(0);
+
+  useEffect(() => {
+    animatedWidth.value = withDelay(
+      200,
+      withTiming(fillPct, { duration: 600, easing: Easing.out(Easing.cubic) })
+    );
+  }, [fillPct]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${animatedWidth.value}%`,
+  }));
 
   return (
     <View style={styles.container}>
@@ -34,13 +54,11 @@ export function XPBar({ totalXP, progress, toNext, nextRank }: Props) {
 
       {/* Track */}
       <View style={[styles.track, { backgroundColor: theme.colors.mutedBg }]}>
-        <View
+        <Animated.View
           style={[
             styles.fill,
-            {
-              width:           `${fillPct}%`,
-              backgroundColor: theme.colors.primary,
-            },
+            { backgroundColor: theme.colors.primary },
+            fillStyle,
           ]}
         />
       </View>

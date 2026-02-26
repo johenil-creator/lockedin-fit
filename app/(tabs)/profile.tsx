@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Alert,
   Pressable,
-  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,6 +18,7 @@ import { clearAllData } from "../../lib/storage";
 import { spacing, radius, typography } from "../../lib/theme";
 import { RankEvolutionPath } from "../../components/RankEvolutionPath";
 import { Button } from "../../components/Button";
+import { Skeleton } from "../../components/Skeleton";
 import { useHealthKit } from "../../hooks/useHealthKit";
 
 const BIG_4 = [
@@ -141,7 +141,12 @@ export default function ProfileScreen() {
   if (profileLoading || workoutsLoading) {
     return (
       <View style={[styles.center, { backgroundColor: theme.colors.bg, paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Skeleton.Group>
+          <Skeleton.Rect width="40%" height={24} />
+          <View style={{ height: 12 }} />
+          <Skeleton.Card />
+          <Skeleton.Card />
+        </Skeleton.Group>
       </View>
     );
   }

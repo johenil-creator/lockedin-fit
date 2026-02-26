@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { Card } from "../components/Card";
+import { BackButton } from "../components/BackButton";
 import { spacing, typography } from "../lib/theme";
 
 const KG_TO_LBS = 2.20462;
@@ -53,9 +54,7 @@ export default function SettingsScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backText, { color: theme.colors.primary }]}>{"< Back"}</Text>
-        </Pressable>
+        <BackButton />
         <Text style={[typography.title, { color: theme.colors.text }]}>Settings</Text>
       </View>
 
@@ -116,8 +115,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
   header: { marginBottom: spacing.lg },
-  backBtn: { marginBottom: spacing.sm, paddingVertical: 4 },
-  backText: { fontSize: 15, fontWeight: "600" },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",

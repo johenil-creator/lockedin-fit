@@ -6,9 +6,7 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Modal,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -26,6 +24,9 @@ import { useLocke } from "../contexts/LockeContext";
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { BackButton } from "../components/BackButton";
+import { Skeleton } from "../components/Skeleton";
+import { AppBottomSheet } from "../components/AppBottomSheet";
 
 // ── Progress Bar ────────────────────────────────────────────────────────────
 
@@ -235,10 +236,14 @@ export default function OrmTestScreen() {
       <View
         style={[
           styles.container,
-          { backgroundColor: theme.colors.bg, alignItems: "center", justifyContent: "center" },
+          { backgroundColor: theme.colors.bg, alignItems: "center", paddingTop: 80 },
         ]}
       >
-        <ActivityIndicator color={theme.colors.primary} size="large" />
+        <Skeleton.Circle size={80} />
+        <View style={{ height: 16 }} />
+        <Skeleton.Rect width="60%" height={20} />
+        <View style={{ height: 16 }} />
+        <Skeleton.Card />
       </View>
     );
   }
@@ -249,9 +254,7 @@ export default function OrmTestScreen() {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
-            <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>✕</Text>
-          </Pressable>
+          <BackButton variant="close" />
         </View>
         <View style={styles.unitPickerCenter}>
           <LockeMascot size="icon" mood="intense" />
@@ -687,57 +690,46 @@ export default function OrmTestScreen() {
         : `You've completed ${completedCount} of 4 lifts. Your progress will be saved.`;
 
     return (
-      <Modal
-        visible={exitModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setExitModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}
-          >
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-              Exit 1RM Test?
-            </Text>
-            <Text style={[styles.modalBody, { color: theme.colors.muted }]}>
-              {bodyText}
-            </Text>
+      <AppBottomSheet visible={exitModalVisible} onClose={() => setExitModalVisible(false)}>
+        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+          Exit 1RM Test?
+        </Text>
+        <Text style={[styles.modalBody, { color: theme.colors.muted }]}>
+          {bodyText}
+        </Text>
 
-            <View style={styles.modalActions}>
-              <Button
-                label={completedCount > 0 ? "Save & Exit" : "Exit"}
-                onPress={handleSaveAndExit}
-              />
-              <View style={{ height: 10 }} />
-              <Button
-                label="Restart Test"
-                onPress={() => {
-                  Alert.alert(
-                    "Restart Test?",
-                    "This will discard your current progress and start fresh.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Restart",
-                        style: "destructive",
-                        onPress: handleRestart,
-                      },
-                    ]
-                  );
-                }}
-                variant="danger"
-              />
-              <View style={{ height: 10 }} />
-              <Button
-                label="Continue Test"
-                onPress={() => setExitModalVisible(false)}
-                variant="secondary"
-              />
-            </View>
-          </View>
+        <View style={styles.modalActions}>
+          <Button
+            label={completedCount > 0 ? "Save & Exit" : "Exit"}
+            onPress={handleSaveAndExit}
+          />
+          <View style={{ height: 10 }} />
+          <Button
+            label="Restart Test"
+            onPress={() => {
+              Alert.alert(
+                "Restart Test?",
+                "This will discard your current progress and start fresh.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Restart",
+                    style: "destructive",
+                    onPress: handleRestart,
+                  },
+                ]
+              );
+            }}
+            variant="danger"
+          />
+          <View style={{ height: 10 }} />
+          <Button
+            label="Continue Test"
+            onPress={() => setExitModalVisible(false)}
+            variant="secondary"
+          />
         </View>
-      </Modal>
+      </AppBottomSheet>
     );
   }
 
@@ -747,9 +739,7 @@ export default function OrmTestScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       {/* Fixed header */}
       <View style={styles.header}>
-        <Pressable onPress={() => setExitModalVisible(true)}>
-          <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>✕</Text>
-        </Pressable>
+        <BackButton variant="close" onPress={() => setExitModalVisible(true)} />
         <Text style={[styles.unitLabel, { color: theme.colors.muted }]}>{unit.toUpperCase()}</Text>
       </View>
 
@@ -786,10 +776,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
     marginBottom: 12,
-  },
-  exitBtn: {
-    fontSize: 24,
-    padding: 4,
   },
   unitLabel: {
     fontSize: 13,
@@ -1002,17 +988,6 @@ const styles = StyleSheet.create({
   },
 
   // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
-  },
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",

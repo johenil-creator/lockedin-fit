@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const { theme } = useAppTheme();
@@ -18,11 +18,11 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🏠</Text> }} />
-      <Tabs.Screen name="workout-log" options={{ title: "Log", tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📋</Text> }} />
-      <Tabs.Screen name="plan" options={{ title: "Plan", tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📊</Text> }} />
-      <Tabs.Screen name="progress" options={{ title: "Progress", tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📈</Text> }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>👤</Text> }} />
+      <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "home" : "home-outline"} size={22} color={color} /> }} />
+      <Tabs.Screen name="workout-log" options={{ title: "Log", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "clipboard" : "clipboard-outline"} size={22} color={color} /> }} />
+      <Tabs.Screen name="plan" options={{ title: "Plan", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "calendar" : "calendar-outline"} size={22} color={color} /> }} />
+      <Tabs.Screen name="progress" options={{ title: "Progress", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "trending-up" : "trending-up-outline"} size={22} color={color} /> }} />
+      <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} /> }} />
     </Tabs>
   );
 }

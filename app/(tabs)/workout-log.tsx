@@ -10,20 +10,18 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Modal,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
   ScrollView,
 } from "react-native";
-import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
+import { Swipeable } from "react-native-gesture-handler";
 import { useRouter } from "expo-router";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { CalendarGrid } from "../../components/CalendarGrid";
+import { Skeleton } from "../../components/Skeleton";
+import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { spacing, radius } from "../../lib/theme";
 import type { WorkoutSession } from "../../lib/types";
@@ -84,7 +82,6 @@ export default function WorkoutLogScreen() {
   ), [theme]);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Workout Log</Text>
@@ -92,7 +89,12 @@ export default function WorkoutLogScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 48 }} color={theme.colors.primary} />
+          <Skeleton.Group>
+            <Skeleton.Rect width="50%" height={20} style={{ marginTop: 48 }} />
+            <Skeleton.Card />
+            <Skeleton.Card />
+            <Skeleton.Card />
+          </Skeleton.Group>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
             <CalendarGrid sessions={workouts} onDayPress={handleDayPress} />
@@ -147,33 +149,25 @@ export default function WorkoutLogScreen() {
           </ScrollView>
         )}
 
-        <Modal visible={modalVisible} transparent animationType="slide">
-          <KeyboardAvoidingView
-            style={styles.modalOverlay}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-          >
-            <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Workout</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: theme.colors.bg, color: theme.colors.text }]}
-                placeholder="e.g. Upper Body, Run 5k..."
-                placeholderTextColor={theme.colors.muted}
-                value={name}
-                onChangeText={setName}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={handleAdd}
-              />
-              <View style={styles.modalActions}>
-                <Button label="Cancel" onPress={handleCancel} variant="secondary" />
-                <View style={{ width: 12 }} />
-                <Button label="Save" onPress={handleAdd} />
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        <AppBottomSheet visible={modalVisible} onClose={handleCancel}>
+          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Workout</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.bg, color: theme.colors.text }]}
+            placeholder="e.g. Upper Body, Run 5k..."
+            placeholderTextColor={theme.colors.muted}
+            value={name}
+            onChangeText={setName}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleAdd}
+          />
+          <View style={styles.modalActions}>
+            <Button label="Cancel" onPress={handleCancel} variant="secondary" />
+            <View style={{ width: 12 }} />
+            <Button label="Save" onPress={handleAdd} />
+          </View>
+        </AppBottomSheet>
       </View>
-    </GestureHandlerRootView>
   );
 }
 
@@ -208,17 +202,6 @@ const styles = StyleSheet.create({
   dateChip: { flexDirection: "row", alignItems: "center" },
   dateChipText: { fontSize: 13, fontWeight: "700" },
   dateChipClear: { fontSize: 16, fontWeight: "400" },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    paddingBottom: 40,
-  },
   modalTitle: { fontSize: 22, fontWeight: "700", marginBottom: spacing.md },
   input: {
     borderRadius: radius.md,

@@ -7,11 +7,8 @@ import {
   FlatList,
   Pressable,
   Alert,
-  Modal,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
@@ -24,7 +21,10 @@ import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
 import { EmptyState } from "../../components/EmptyState";
+import { Skeleton } from "../../components/Skeleton";
+import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { useToast } from "../../contexts/ToastContext";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { spacing, radius } from "../../lib/theme";
 import type { Exercise } from "../../lib/types";
@@ -225,6 +225,7 @@ export default function PlanScreen() {
   const { planName, exercises, loading, setPlan, clearPlan, isDayCompleted, completedDays } = usePlanContext();
   const { startSessionFromPlan, getActiveSession } = useWorkouts();
   const { profile } = useProfileContext();
+  const { showToast } = useToast();
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [urlModalVisible, setUrlModalVisible] = useState(false);
   const [sheetUrl, setSheetUrl] = useState("");
@@ -253,7 +254,7 @@ export default function PlanScreen() {
         copyToCacheDirectory: true,
       });
     } catch {
-      Alert.alert("Error", "Could not open file picker.");
+      showToast({ message: "Could not open file picker.", type: "error" });
       return;
     }
     if (result.canceled) return;
@@ -275,23 +276,23 @@ export default function PlanScreen() {
         });
         rawRows = Papa.parse<string[]>(text, { header: false }).data;
       }
-      if (!rawRows.length) { Alert.alert("Empty file", "No data rows found."); return; }
+      if (!rawRows.length) { showToast({ message: "No data rows found.", type: "error" }); return; }
       const normalized = smartParse(rawRows);
       if (!normalized.length) {
-        Alert.alert("No exercises found", "Could not find an 'Exercise' column header in the file. Check that your sheet has a column labelled 'Exercise'.");
+        showToast({ message: "No exercises found. Check that your sheet has a column labelled 'Exercise'.", type: "error" });
         return;
       }
       setPlan(file.name.replace(/\.(csv|xlsx?)$/i, ""), normalized);
       setSelectedWeek(0);
     } catch {
-      Alert.alert("Error", "Failed to parse the file.");
+      showToast({ message: "Failed to parse the file.", type: "error" });
     }
   }
 
   // ── Google Sheets import ────────────────────────────────────────────────────
   async function handleUrlImport() {
     const parsed = parseGoogleSheetsUrl(sheetUrl.trim());
-    if (!parsed) { Alert.alert("Invalid URL", "Paste a Google Sheets share link."); return; }
+    if (!parsed) { showToast({ message: "Invalid URL. Paste a Google Sheets share link.", type: "error" }); return; }
 
     const exportUrl =
       `https://docs.google.com/spreadsheets/d/${parsed.id}/export?format=csv` +
@@ -311,7 +312,7 @@ export default function PlanScreen() {
       if (!rawRows.length) throw new Error("No rows found");
       const normalized = smartParse(rawRows);
       if (!normalized.length) {
-        Alert.alert("No exercises found", "Could not find an 'Exercise' column header in the sheet. Check that your sheet has a column labelled 'Exercise'.");
+        showToast({ message: "No exercises found. Check that your sheet has a column labelled 'Exercise'.", type: "error" });
         return;
       }
       setPlan("Google Sheet", normalized);
@@ -320,10 +321,7 @@ export default function PlanScreen() {
       setSheetUrl("");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert(
-        "Import failed",
-        `${msg}\n\nMake sure the sheet is set to "Anyone with the link can view".`
-      );
+      showToast({ message: `Import failed: ${msg}`, type: "error", duration: 5000 });
     } finally {
       setImporting(false);
     }
@@ -377,8 +375,13 @@ export default function PlanScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.bg, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator />
+      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+        <Skeleton.Group>
+          <Skeleton.Rect width="50%" height={24} />
+          <View style={{ height: 8 }} />
+          <Skeleton.Card />
+          <Skeleton.Card />
+        </Skeleton.Group>
       </View>
     );
   }
@@ -543,43 +546,36 @@ export default function PlanScreen() {
         </>
       )}
 
-      {/* Google Sheets URL modal */}
-      <Modal visible={urlModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Google Sheets URL</Text>
-            <Text style={[styles.modalHint, { color: theme.colors.muted }]}>
-              Sheet must be shared as "Anyone with the link can view"
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.colors.bg, color: theme.colors.text }]}
-              placeholder="https://docs.google.com/spreadsheets/d/..."
-              placeholderTextColor={theme.colors.muted}
-              value={sheetUrl}
-              onChangeText={setSheetUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-            <View style={styles.modalActions}>
-              <Button
-                label="Cancel"
-                onPress={() => { setUrlModalVisible(false); setSheetUrl(""); }}
-                variant="secondary"
-              />
-              <View style={{ width: 12 }} />
-              <Button
-                label="Import"
-                onPress={handleUrlImport}
-                loading={importing}
-              />
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      {/* Google Sheets URL bottom sheet */}
+      <AppBottomSheet visible={urlModalVisible} onClose={() => { setUrlModalVisible(false); setSheetUrl(""); }}>
+        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Google Sheets URL</Text>
+        <Text style={[styles.modalHint, { color: theme.colors.muted }]}>
+          Sheet must be shared as "Anyone with the link can view"
+        </Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.colors.bg, color: theme.colors.text }]}
+          placeholder="https://docs.google.com/spreadsheets/d/..."
+          placeholderTextColor={theme.colors.muted}
+          value={sheetUrl}
+          onChangeText={setSheetUrl}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+        />
+        <View style={styles.modalActions}>
+          <Button
+            label="Cancel"
+            onPress={() => { setUrlModalVisible(false); setSheetUrl(""); }}
+            variant="secondary"
+          />
+          <View style={{ width: 12 }} />
+          <Button
+            label="Import"
+            onPress={handleUrlImport}
+            loading={importing}
+          />
+        </View>
+      </AppBottomSheet>
     </View>
   );
 }
@@ -660,17 +656,6 @@ const styles = StyleSheet.create({
   },
 
   // URL modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    paddingBottom: 40,
-  },
   modalTitle: { fontSize: 22, fontWeight: "700", marginBottom: 6 },
   modalHint: { fontSize: 13, marginBottom: spacing.md },
   input: {

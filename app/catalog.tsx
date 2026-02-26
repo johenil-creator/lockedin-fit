@@ -16,6 +16,7 @@ import { useProfileContext } from "../contexts/ProfileContext";
 import { Card } from "../components/Card";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { BackButton } from "../components/BackButton";
 import type { CatalogPlan } from "../lib/types";
 
 function DifficultyChip({ difficulty }: { difficulty: CatalogPlan["difficulty"] }) {
@@ -134,9 +135,7 @@ export default function CatalogScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backText, { color: theme.colors.primary }]}>{"< Back"}</Text>
-        </Pressable>
+        <BackButton />
       </View>
 
       <Text style={[styles.title, { color: theme.colors.text }]}>Workout Plans</Text>
@@ -156,8 +155,6 @@ export default function CatalogScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 64, paddingHorizontal: 24 },
   header: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  backBtn: { paddingVertical: 4 },
-  backText: { fontSize: 16, fontWeight: "600" },
   title: { fontSize: 32, fontWeight: "700", marginBottom: 4 },
   subtitle: { fontSize: 15, marginBottom: 20 },
   list: { paddingBottom: 40 },

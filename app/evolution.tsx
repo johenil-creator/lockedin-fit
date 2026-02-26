@@ -22,6 +22,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { BackButton } from "../components/BackButton";
 import { useXP } from "../hooks/useXP";
 import { useStreak } from "../hooks/useStreak";
 import { XP_AWARDS } from "../lib/xpService";
@@ -291,13 +292,11 @@ export default function EvolutionScreen() {
     <View style={[styles.screen, { backgroundColor: theme.colors.bg, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backText, { color: theme.colors.muted }]}>{"‹ Back"}</Text>
-        </Pressable>
+        <BackButton />
         <Text style={[typography.heading, { color: theme.colors.text }]}>
           Evolution Path
         </Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollBody}>
@@ -451,8 +450,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  backBtn: { width: 60 },
-  backText: { fontSize: 16, fontWeight: "600" },
   scrollBody: { padding: spacing.md },
 
   // Hero card
