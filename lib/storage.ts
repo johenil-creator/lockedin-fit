@@ -28,7 +28,12 @@ const KEYS = {
 
 async function load<T>(key: string): Promise<T | null> {
   const raw = await AsyncStorage.getItem(key);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 async function save<T>(key: string, value: T): Promise<void> {

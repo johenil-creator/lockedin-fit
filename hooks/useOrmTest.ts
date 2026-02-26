@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { loadOrmTest, saveOrmTest, clearOrmTest } from '../lib/storage';
 import type {
   UserProfile,
@@ -74,12 +74,14 @@ export function useOrmTest(
   updateProfile: (patch: Partial<UserProfile>) => Promise<void>,
 ) {
   const [session, setSession] = useState<OrmTestSession | null>(null);
+  const sessionRef = useRef<OrmTestSession | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Auto-load on mount (resume logic)
   useEffect(() => {
     loadOrmTest().then((stored) => {
       if (stored && stored.status === 'in_progress') {
+        sessionRef.current = stored;
         setSession(stored);
       }
       setLoading(false);
@@ -116,6 +118,7 @@ export function useOrmTest(
       status: 'in_progress',
     };
     await saveOrmTest(newSession);
+    sessionRef.current = newSession;
     setSession(newSession);
   }, []);
 
@@ -125,7 +128,9 @@ export function useOrmTest(
       if (!prev) return prev;
       const lifts = [...prev.lifts];
       lifts[liftIndex] = { ...lifts[liftIndex], estimatedInput: capped };
-      return { ...prev, lifts };
+      const next = { ...prev, lifts };
+      sessionRef.current = next;
+      return next;
     });
   }, []);
 
@@ -138,7 +143,9 @@ export function useOrmTest(
       const sets = buildSets(est, prev.unit);
       const lifts = [...prev.lifts];
       lifts[liftIndex] = { ...lift, sets };
-      return { ...prev, lifts };
+      const next = { ...prev, lifts };
+      sessionRef.current = next;
+      return next;
     });
   }, []);
 
@@ -151,7 +158,9 @@ export function useOrmTest(
       sets[setIndex] = { ...sets[setIndex], reps: capped };
       const lifts = [...prev.lifts];
       lifts[liftIndex] = { ...lift, sets };
-      return { ...prev, lifts };
+      const next = { ...prev, lifts };
+      sessionRef.current = next;
+      return next;
     });
   }, []);
 
@@ -164,7 +173,9 @@ export function useOrmTest(
       sets[setIndex] = { ...sets[setIndex], weight: capped };
       const lifts = [...prev.lifts];
       lifts[liftIndex] = { ...lift, sets };
-      return { ...prev, lifts };
+      const next = { ...prev, lifts };
+      sessionRef.current = next;
+      return next;
     });
   }, []);
 
@@ -182,36 +193,46 @@ export function useOrmTest(
       sets[setIndex] = { ...set, completed: true };
       const lifts = [...prev.lifts];
       lifts[liftIndex] = { ...lift, sets };
-      return { ...prev, lifts };
+      const next = { ...prev, lifts };
+      sessionRef.current = next;
+      return next;
     });
   }, []);
 
   const completeLift = useCallback(async () => {
-    let updated: OrmTestSession | null = null;
-    setSession((prev) => {
-      if (!prev) return prev;
-      const lift = prev.lifts[prev.currentLiftIndex];
-      // Calculate finalOrm from set 7 (index 6) using Epley
-      const set7 = lift.sets[6];
-      const w = parseFloat(set7.weight);
-      const r = parseFloat(set7.reps || '0');
-      const orm = isNaN(w) ? 0 : Math.round(w * (1 + r / 30));
-      const lifts = [...prev.lifts];
-      lifts[prev.currentLiftIndex] = {
-        ...lift,
-        finalOrm: String(orm),
-        completed: true,
-      };
-      updated = {
-        ...prev,
-        lifts,
-        currentLiftIndex: prev.currentLiftIndex + 1,
-      };
-      return updated;
-    });
-    if (updated) {
-      await saveOrmTest(updated);
+    const prev = sessionRef.current;
+    if (!prev) return;
+
+    const lift = prev.lifts[prev.currentLiftIndex];
+    // Calculate finalOrm from set 7 (index 6)
+    const set7 = lift.sets[6];
+    const w = parseFloat(set7.weight);
+    const r = parseFloat(set7.reps || '0');
+    let orm: number;
+    if (isNaN(w)) {
+      orm = 0;
+    } else if (r <= 1) {
+      // At very low reps, back-calculate from the 90% set weight
+      orm = Math.round(w / 0.9);
+    } else {
+      orm = Math.round(w * (1 + r / 30));
     }
+
+    const lifts = [...prev.lifts];
+    lifts[prev.currentLiftIndex] = {
+      ...lift,
+      finalOrm: String(orm),
+      completed: true,
+    };
+    const updated: OrmTestSession = {
+      ...prev,
+      lifts,
+      currentLiftIndex: prev.currentLiftIndex + 1,
+    };
+
+    sessionRef.current = updated;
+    setSession(updated);
+    await saveOrmTest(updated);
   }, []);
 
   const finishTest = useCallback(async () => {
@@ -225,6 +246,7 @@ export function useOrmTest(
     };
 
     // Update local state
+    sessionRef.current = completedSession;
     setSession(completedSession);
 
     // Write ALL 4 finalOrm values atomically to profile
@@ -288,11 +310,13 @@ export function useOrmTest(
       status: 'in_progress',
     };
     await saveOrmTest(newSession);
+    sessionRef.current = newSession;
     setSession(newSession);
   }, [session]);
 
   const clearSession = useCallback(async () => {
     await clearOrmTest();
+    sessionRef.current = null;
     setSession(null);
   }, []);
 

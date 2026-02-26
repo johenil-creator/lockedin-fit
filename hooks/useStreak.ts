@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { loadStreak, saveStreak } from "../lib/storage";
 import type { StreakData } from "../lib/types";
 
@@ -24,11 +24,14 @@ function daysBetween(a: string, b: string): number {
 
 export function useStreak() {
   const [streak, setStreak] = useState<StreakData>(DEFAULT_STREAK);
+  const streakRef = useRef<StreakData>(DEFAULT_STREAK);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadStreak().then((data) => {
-      setStreak(data ?? DEFAULT_STREAK);
+      const resolved = data ?? DEFAULT_STREAK;
+      streakRef.current = resolved;
+      setStreak(resolved);
       setLoading(false);
     });
   }, []);
@@ -40,34 +43,27 @@ export function useStreak() {
   const recordActivity = useCallback(
     async (activityDate: Date = new Date()): Promise<StreakData> => {
       const today = toDateStr(activityDate);
-      let updated: StreakData = DEFAULT_STREAK;
+      const prev = streakRef.current;
+      const gap = daysBetween(prev.lastActivityDate, today);
 
-      setStreak((prev) => {
-        const gap = daysBetween(prev.lastActivityDate, today);
+      let newCurrent: number;
+      if (gap === 0) {
+        newCurrent = prev.current || 1;
+      } else if (gap === 1) {
+        newCurrent = (prev.current || 0) + 1;
+      } else {
+        newCurrent = 1;
+      }
 
-        let newCurrent: number;
-        if (gap === 0) {
-          // Already recorded today — no change
-          newCurrent = prev.current || 1;
-        } else if (gap === 1) {
-          // Consecutive day
-          newCurrent = (prev.current || 0) + 1;
-        } else {
-          // Gap — streak resets
-          newCurrent = 1;
-        }
+      const updated: StreakData = {
+        current: newCurrent,
+        longest: Math.max(prev.longest, newCurrent),
+        lastActivityDate: today,
+      };
 
-        updated = {
-          current: newCurrent,
-          longest: Math.max(prev.longest, newCurrent),
-          lastActivityDate: today,
-        };
-
-        saveStreak(updated);
-        return updated;
-      });
-
-      await Promise.resolve();
+      streakRef.current = updated;
+      setStreak(updated);
+      await saveStreak(updated);
       return updated;
     },
     []

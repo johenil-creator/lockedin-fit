@@ -39,7 +39,7 @@ export function applyXP(
   return {
     total:   newTotal,
     rank:    rankForXP(newTotal),
-    history: [...record.history, entry],
+    history: [...record.history, entry].slice(-200),
   };
 }
 
