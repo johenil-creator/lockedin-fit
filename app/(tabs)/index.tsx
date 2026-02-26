@@ -54,7 +54,7 @@ export default function HomeScreen() {
     // Read from ref — always up-to-date even before React commits the batched
     // setProfile update that may have been triggered by the previous screen.
     if (!profileRef.current.onboardingComplete) {
-      router.push("/onboarding");
+      router.replace("/onboarding");
     }
   }, [hydrated]);
 
