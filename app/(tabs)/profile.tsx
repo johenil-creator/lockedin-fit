@@ -8,6 +8,7 @@ import {
   Alert,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,6 +20,7 @@ import { clearAllData } from "../../lib/storage";
 import { spacing, radius, typography } from "../../lib/theme";
 import { RankEvolutionPath } from "../../components/RankEvolutionPath";
 import { Button } from "../../components/Button";
+import { useHealthKit } from "../../hooks/useHealthKit";
 
 const BIG_4 = [
   { key: "deadlift" as const, label: "Deadlift" },
@@ -40,6 +42,7 @@ export default function ProfileScreen() {
   const { profile, loading: profileLoading, updateProfile } = useProfileContext();
   const { workouts, loading: workoutsLoading } = useWorkouts();
   const { xp, rank, progress, toNext } = useXP();
+  const { loading: hkLoading, error: hkError, available: hkAvailable, fetchWeight: hkFetchWeight } = useHealthKit();
 
   const [name, setName] = useState("");
   const [weight, setWeight] = useState("");
@@ -101,6 +104,14 @@ export default function ProfileScreen() {
     });
   }
 
+  async function handleSyncWeight() {
+    const value = await hkFetchWeight(profile.weightUnit);
+    if (value) {
+      setWeight(value);
+      updateProfile({ weight: value });
+    }
+  }
+
   function handleClearData() {
     Alert.alert(
       "Clear All Data",
@@ -155,19 +166,33 @@ export default function ProfileScreen() {
           Your Info
         </Text>
 
-        <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: 4 }]}>Name</Text>
+        <Text style={[typography.small, { color: theme.colors.muted, fontWeight: "500", marginBottom: 6 }]}>Name</Text>
         <TextInput
           style={[styles.input, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
           value={name}
           onChangeText={setName}
           onBlur={handleNameBlur}
           placeholder="Enter your name"
-          placeholderTextColor={theme.colors.muted}
+          placeholderTextColor="#BDC4CE"
         />
 
-        <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: 4, marginTop: spacing.sm }]}>
-          Body Weight
-        </Text>
+        <View style={styles.weightLabelRow}>
+          <Text style={[typography.small, { color: theme.colors.muted, fontWeight: "500" }]}>
+            Body Weight
+          </Text>
+          {Platform.OS === "ios" && hkAvailable && (
+            <Pressable onPress={handleSyncWeight} disabled={hkLoading}>
+              <Text style={[typography.small, { color: theme.colors.accent, fontWeight: "600" }]}>
+                {hkLoading ? "Syncing..." : "Sync from Health"}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+        {hkError ? (
+          <Text style={[typography.caption, { color: theme.colors.danger, marginBottom: 6 }]}>
+            {hkError}
+          </Text>
+        ) : null}
         <View style={styles.weightRow}>
           <TextInput
             style={[styles.input, styles.weightInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
@@ -175,11 +200,11 @@ export default function ProfileScreen() {
             onChangeText={setWeight}
             onBlur={handleWeightBlur}
             placeholder="0"
-            placeholderTextColor={theme.colors.muted}
+            placeholderTextColor="#BDC4CE"
             keyboardType="numeric"
           />
           <View style={[styles.unitLabel, { backgroundColor: theme.colors.mutedBg }]}>
-            <Text style={[typography.body, { color: theme.colors.muted, fontWeight: "600" }]}>
+            <Text style={[typography.body, { color: theme.colors.text, fontWeight: "600" }]}>
               {profile.weightUnit}
             </Text>
           </View>
@@ -207,7 +232,7 @@ export default function ProfileScreen() {
               <Text style={[typography.body, { color: theme.colors.text, fontWeight: "600", marginBottom: 4 }]}>
                 {lift.label}
               </Text>
-              <Text style={[typography.small, { color: theme.colors.muted, marginBottom: 4 }]}>
+              <Text style={[typography.small, { color: theme.colors.accent, fontWeight: "500", marginBottom: 4 }]}>
                 {est > 0
                   ? `Est. 1RM: ${Math.round(est)} ${profile.weightUnit}`
                   : "No data yet"}
@@ -220,14 +245,14 @@ export default function ProfileScreen() {
                 }
                 onBlur={() => handleManualBlur(lift.key)}
                 placeholder={`Manual override (${profile.weightUnit})`}
-                placeholderTextColor={theme.colors.muted}
+                placeholderTextColor="#BDC4CE"
                 keyboardType="numeric"
               />
             </View>
           );
         })}
 
-        <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: spacing.sm }]}>
+        <Text style={[typography.caption, { color: theme.colors.muted, marginTop: spacing.sm, marginBottom: spacing.md }]}>
           Recalibrate your maxes to update training loads.
         </Text>
         <Button
@@ -238,7 +263,7 @@ export default function ProfileScreen() {
       </View>
 
       {/* Section 4: Danger Zone */}
-      <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.danger, borderWidth: 1 }]}>
+      <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.danger, borderWidth: 1.5 }]}>
         <Text style={[typography.subheading, { color: theme.colors.danger, marginBottom: spacing.sm }]}>
           Danger Zone
         </Text>
@@ -263,8 +288,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   card: {
     borderRadius: radius.lg,
-    padding: spacing.md + 2,
-    marginBottom: spacing.sm + 4,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -277,6 +302,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     fontSize: 15,
+  },
+  weightLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+    marginTop: spacing.md,
   },
   weightRow: {
     flexDirection: "row",
@@ -292,7 +324,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   liftRow: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   dangerButton: {
     paddingVertical: 15,
@@ -308,6 +340,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   gearBtn: {
-    padding: 8,
+    padding: 12,
   },
 });

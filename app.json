@@ -17,7 +17,8 @@
       "bundleIdentifier": "com.anonymous.LockedInFit",
       "icon": "./assets/icon.png",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthShareUsageDescription": "LockedIn FIT reads your body weight from Apple Health to auto-fill your profile."
       }
     },
     "android": {
@@ -42,6 +43,12 @@
           "assetsPaths": [
             "./assets/locke"
           ]
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "isClinicalDataEnabled": false
         }
       ]
     ],
