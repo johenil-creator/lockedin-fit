@@ -56,4 +56,5 @@ export interface ExerciseCatalogEntry {
   equipment: Equipment;
   anchorLift?: BaseLift;
   modifier?: number;
+  cues?: string[];
 }

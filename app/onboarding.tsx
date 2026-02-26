@@ -92,9 +92,13 @@ export default function OnboardingScreen() {
   }
 
   function updateLiftInput(lift: string, field: keyof LiftInput, value: string) {
+    // Cap reps at 2 digits, weight at 4 digits
+    const cleaned = value.replace(/[^0-9.]/g, "");
+    const maxLen = field === "reps" ? 2 : 4;
+    const capped = cleaned.slice(0, maxLen);
     setLiftInputs((prev) => ({
       ...prev,
-      [lift]: { ...prev[lift], [field]: value },
+      [lift]: { ...prev[lift], [field]: capped },
     }));
   }
 

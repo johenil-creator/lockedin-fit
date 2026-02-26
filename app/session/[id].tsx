@@ -32,6 +32,7 @@ import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
 import { loadCustomCatalog, saveCustomCatalog } from "../../lib/storage";
+import { EXERCISE_CUES } from "../../src/data/exerciseCues";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
@@ -160,6 +161,7 @@ export default function SessionScreen() {
   const [classifyName, setClassifyName] = useState("");
   const [classifyPattern, setClassifyPattern] = useState("squat");
   const [classifyAnchor, setClassifyAnchor] = useState("none");
+  const [showCues, setShowCues] = useState(false);
 
   // Rest timers: key = `${exerciseId}-${setIdx}`, value = seconds remaining
   const [restTimers, setRestTimers] = useState<Record<string, number>>({});
@@ -174,7 +176,11 @@ export default function SessionScreen() {
   const [sessionNotesOpen, setSessionNotesOpen] = useState(false);
 
   // Exercise list / focused view state
-  const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
+  const [activeExerciseId, _setActiveExerciseId] = useState<string | null>(null);
+  const setActiveExerciseId = useCallback((id: string | null) => {
+    _setActiveExerciseId(id);
+    setShowCues(false);
+  }, []);
 
   // ── Auto-pause state ──────────────────────────────────────────────────────
   const [paused, setPaused] = useState(false);
@@ -424,6 +430,14 @@ export default function SessionScreen() {
   function updateSet(exId: string, setIdx: number, patch: Partial<SetEntry>) {
     if (!session) return;
 
+    // Cap reps to 2 digits, weight to 4 characters
+    if (patch.reps !== undefined && typeof patch.reps === "string") {
+      patch = { ...patch, reps: patch.reps.replace(/[^0-9]/g, "").slice(0, 2) };
+    }
+    if (patch.weight !== undefined && typeof patch.weight === "string") {
+      patch = { ...patch, weight: patch.weight.replace(/[^0-9.]/g, "").slice(0, 4) };
+    }
+
     const ex = session.exercises.find((e) => e.exerciseId === exId);
     if (!ex) return;
 
@@ -613,28 +627,13 @@ export default function SessionScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={[styles.sessionName, { color: theme.colors.text }]} numberOfLines={1}>{session.name}</Text>
             {session.isActive && (
-              <>
-                <Text style={{ color: theme.colors.success, fontSize: 12, fontWeight: "600" }}>● Active</Text>
-                {session.startedAt && (
-                  <Text style={{ color: theme.colors.muted, fontSize: 12, fontFamily: "monospace" }}>
-                    {formatElapsed(elapsed)}
-                  </Text>
-                )}
-              </>
+              <Text style={{ color: theme.colors.success, fontSize: 12, fontWeight: "600" }}>● Active</Text>
             )}
           </View>
           <Text style={[styles.sessionDate, { color: theme.colors.muted }]}>
             {(() => { const d = new Date(session.date); return `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`; })()}
           </Text>
         </View>
-        {session.isActive && (
-          <Pressable
-            onPress={() => setPaused(true)}
-            style={[styles.pauseBtn, { backgroundColor: theme.colors.mutedBg }]}
-          >
-            <Text style={{ color: theme.colors.muted, fontSize: 14, fontWeight: "700" }}>⏸</Text>
-          </Pressable>
-        )}
       </View>
 
       {/* Progress bar */}
@@ -709,6 +708,28 @@ export default function SessionScreen() {
               <Text style={{ color: theme.colors.muted, fontSize: 9, fontFamily: "monospace", marginBottom: 6, opacity: 0.7 }}>
                 Catalog match: {activeExercise.catalogId ?? "none"} | pattern: {activeExercise.matchedPattern ?? "?"} | anchor: {activeExercise.matchedAnchor ?? "none"} | modifier: {activeExercise.matchedModifier ?? "—"}
               </Text>
+            )}
+
+            {/* How To cues */}
+            {activeExercise.catalogId && EXERCISE_CUES[activeExercise.catalogId] && (
+              <Pressable
+                onPress={() => setShowCues((v) => !v)}
+                style={[styles.howToHeader, { borderColor: theme.colors.border }]}
+              >
+                <Text style={{ color: theme.colors.primary, fontSize: 13, fontWeight: "700" }}>
+                  {showCues ? "▾" : "▸"}  How To
+                </Text>
+              </Pressable>
+            )}
+            {showCues && activeExercise.catalogId && EXERCISE_CUES[activeExercise.catalogId] && (
+              <View style={[styles.howToBody, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]}>
+                {EXERCISE_CUES[activeExercise.catalogId]!.map((cue, i) => (
+                  <View key={i} style={styles.howToCueRow}>
+                    <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: "700", width: 18 }}>{i + 1}.</Text>
+                    <Text style={{ color: theme.colors.text, fontSize: 13, flex: 1, lineHeight: 18 }}>{cue}</Text>
+                  </View>
+                ))}
+              </View>
             )}
 
             <View style={styles.focusedContent}>
@@ -1186,6 +1207,24 @@ export default function SessionScreen() {
         </View>
       </Modal>
 
+      {/* Floating pause bar */}
+      {session.isActive && (
+        <View style={[styles.floatingPauseBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ color: theme.colors.success, fontSize: 10, fontWeight: "700" }}>●</Text>
+            <Text style={{ color: theme.colors.text, fontSize: 14, fontWeight: "600", fontFamily: "monospace" }}>
+              {formatElapsed(elapsed)}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setPaused(true)}
+            style={[styles.floatingPauseBtn, { backgroundColor: theme.colors.primary }]}
+          >
+            <Text style={{ color: theme.colors.primaryText, fontSize: 15, fontWeight: "700" }}>⏸  Pause</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Auto-pause overlay */}
       <PauseOverlay visible={paused && !!session.isActive} onResume={handleResumePause} />
     </View>
@@ -1196,12 +1235,23 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 56, paddingHorizontal: 24 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 0, marginBottom: 12 },
   exitBtn: { fontSize: 24, padding: 4 },
-  pauseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  floatingPauseBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 32,
+    borderTopWidth: 1,
+  },
+  floatingPauseBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   unitLabel: { fontSize: 13, fontWeight: "700", letterSpacing: 0.5 },
   headerCenter: { flex: 1, marginHorizontal: 12 },
@@ -1374,6 +1424,21 @@ const styles = StyleSheet.create({
   },
   focusedContent: {
     marginBottom: 8,
+  },
+  howToHeader: {
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  howToBody: {
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  howToCueRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 6,
   },
   exerciseListRow: {
     flexDirection: "row",

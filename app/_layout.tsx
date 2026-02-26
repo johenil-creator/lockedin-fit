@@ -12,7 +12,7 @@ export default function RootLayout() {
           <PlanProvider>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="onboarding" />
+              <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
               <Stack.Screen name="session/[id]" />
               <Stack.Screen name="start-session" />
               <Stack.Screen name="catalog" />
