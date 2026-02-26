@@ -53,7 +53,7 @@ function StepSlide({ children }: { children: React.ReactNode }) {
   return <Animated.View style={[{ flex: 1 }, anim]}>{children}</Animated.View>;
 }
 
-type StepKey = "intro" | "explain" | "pick" | "enter" | "results" | "manual";
+type StepKey = "welcome" | "name" | "explain" | "pick" | "enter" | "results" | "manual";
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -62,7 +62,7 @@ export default function OnboardingScreen() {
   const { updateProfile } = useProfileContext();
   const { fire } = useLocke();
 
-  const [step, setStep] = useState<StepKey>(retake === "1" ? "explain" : "intro");
+  const [step, setStep] = useState<StepKey>(retake === "1" ? "explain" : "welcome");
   const [lockeMood, setLockeMood] = useState<LockeMascotMood>("neutral");
 
   // Fire Locke onboarding_guide on arrival
@@ -72,13 +72,14 @@ export default function OnboardingScreen() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [liftInputs, setLiftInputs] = useState<Record<string, LiftInput>>({});
   const [results, setResults] = useState<Record<string, number>>({});
+  const [userName, setUserName] = useState("");
   const [unit, setUnit] = useState<"kg" | "lbs">("kg");
   // For manual entry path — direct 1RM values
   const [manualInputs, setManualInputs] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
 
   async function skip() {
-    await updateProfile({ onboardingComplete: true });
+    await updateProfile({ name: userName.trim(), onboardingComplete: true });
     router.replace("/");
   }
 
@@ -125,7 +126,7 @@ export default function OnboardingScreen() {
       const key = LIFT_KEY_MAP[lift];
       if (key) manual1RM[key] = String(value);
     }
-    await updateProfile({ name: "", weight: "", weightUnit: unit, manual1RM, onboardingComplete: true });
+    await updateProfile({ name: userName.trim(), weight: "", weightUnit: unit, manual1RM, onboardingComplete: true });
     router.replace("/");
   }
 
@@ -140,12 +141,12 @@ export default function OnboardingScreen() {
         if (key) manual1RM[key] = val;
       }
     }
-    await updateProfile({ name: "", weight: "", weightUnit: unit, manual1RM, onboardingComplete: true });
+    await updateProfile({ name: userName.trim(), weight: "", weightUnit: unit, manual1RM, onboardingComplete: true });
     router.replace("/");
   }
 
-  // ── Step: Intro ───────────────────────────────────────────────────────────
-  if (step === "intro") {
+  // ── Step: Welcome ─────────────────────────────────────────────────────────
+  if (step === "welcome") {
     return (
       <StepSlide>
         <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -156,15 +157,57 @@ export default function OnboardingScreen() {
           <View style={styles.center}>
             <LockeMascot size="full" mood={lockeMood} />
             <Text style={[styles.lockeIntro, { color: theme.colors.primary }]}>I'm Locke.</Text>
-            <Text style={[styles.welcomeTitle, { color: theme.colors.text }]}>
-              Set your numbers — everything starts here.
+            <Text style={[styles.welcomeSub, { color: theme.colors.muted }]}>
+              I'll be your training partner.
             </Text>
           </View>
 
           <View style={styles.bottom}>
-            <Button label="Let's Go" onPress={() => { setLockeMood("encouraging"); setStep("explain"); }} />
+            <Button label="Continue" onPress={() => setStep("name")} />
           </View>
         </View>
+      </StepSlide>
+    );
+  }
+
+  // ── Step: Name ──────────────────────────────────────────────────────────────
+  if (step === "name") {
+    return (
+      <StepSlide>
+        <KeyboardAvoidingView
+          style={[styles.container, { backgroundColor: theme.colors.bg }]}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable onPress={skip} style={styles.skipBtn}>
+            <Text style={[styles.skipText, { color: theme.colors.muted }]}>Skip for now</Text>
+          </Pressable>
+
+          <View style={styles.center}>
+            <Text style={[styles.welcomeTitle, { color: theme.colors.text }]}>
+              What should I call you?
+            </Text>
+            <TextInput
+              style={[styles.nameInput, { backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border }]}
+              value={userName}
+              onChangeText={setUserName}
+              placeholder="Your name"
+              placeholderTextColor={theme.colors.muted}
+              autoFocus
+            />
+          </View>
+
+          <View style={styles.bottom}>
+            <Button
+              label="Continue"
+              onPress={() => {
+                updateProfile({ name: userName.trim() });
+                setLockeMood("encouraging");
+                setStep("explain");
+              }}
+              disabled={!userName.trim()}
+            />
+          </View>
+        </KeyboardAvoidingView>
       </StepSlide>
     );
   }
@@ -517,9 +560,10 @@ const styles = StyleSheet.create({
   skipTextBtn: { alignItems: "center", paddingVertical: 4 },
   skipText: { fontSize: 14, fontWeight: "500" },
 
-  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
   lockeIntro: { fontSize: 28, fontWeight: "800", marginBottom: 8 },
   welcomeTitle: { fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 12, lineHeight: 30 },
+  nameInput: { width: "100%", fontSize: 18, fontWeight: "600", borderWidth: 1, borderRadius: 14, padding: 14, textAlign: "center", marginTop: 16 },
   welcomeSub: { fontSize: 15, textAlign: "center", lineHeight: 22 },
 
   stepEyebrow: { fontSize: 11, fontWeight: "700", letterSpacing: 1.5, marginBottom: 6, textTransform: "uppercase" },

@@ -8,7 +8,6 @@ import {
   Alert,
   Pressable,
   ActivityIndicator,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -42,11 +41,12 @@ export default function ProfileScreen() {
   const { profile, loading: profileLoading, updateProfile } = useProfileContext();
   const { workouts, loading: workoutsLoading } = useWorkouts();
   const { xp, rank, progress, toNext } = useXP();
-  const { loading: hkLoading, error: hkError, available: hkAvailable, fetchWeight: hkFetchWeight } = useHealthKit();
+  const { error: hkError, available: hkAvailable, fetchWeight: hkFetchWeight } = useHealthKit();
 
   const [name, setName] = useState("");
   const [weight, setWeight] = useState("");
   const [manualOverrides, setManualOverrides] = useState<Record<string, string>>({});
+
 
   useEffect(() => {
     if (!profileLoading) {
@@ -58,6 +58,16 @@ export default function ProfileScreen() {
         ohp: profile.manual1RM.ohp ?? "",
         bench: profile.manual1RM.bench ?? "",
       });
+
+      // Auto-fill weight from HealthKit when empty
+      if (!profile.weight && hkAvailable) {
+        hkFetchWeight(profile.weightUnit).then((value) => {
+          if (value) {
+            setWeight(value);
+            updateProfile({ weight: value });
+          }
+        });
+      }
     }
   }, [profileLoading, profile.manual1RM]);
 
@@ -90,9 +100,6 @@ export default function ProfileScreen() {
     return results;
   }, [workouts, profile.manual1RM, profile.estimated1RM]);
 
-  function handleNameBlur() {
-    updateProfile({ name });
-  }
 
   function handleWeightBlur() {
     updateProfile({ weight });
@@ -104,13 +111,6 @@ export default function ProfileScreen() {
     });
   }
 
-  async function handleSyncWeight() {
-    const value = await hkFetchWeight(profile.weightUnit);
-    if (value) {
-      setWeight(value);
-      updateProfile({ weight: value });
-    }
-  }
 
   function handleClearData() {
     Alert.alert(
@@ -167,27 +167,11 @@ export default function ProfileScreen() {
         </Text>
 
         <Text style={[typography.small, { color: theme.colors.muted, fontWeight: "500", marginBottom: 6 }]}>Name</Text>
-        <TextInput
-          style={[styles.input, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
-          value={name}
-          onChangeText={setName}
-          onBlur={handleNameBlur}
-          placeholder="Enter your name"
-          placeholderTextColor="#BDC4CE"
-        />
+        <Text style={[typography.body, { color: theme.colors.text, fontWeight: "600" }]}>{name || "—"}</Text>
 
-        <View style={styles.weightLabelRow}>
-          <Text style={[typography.small, { color: theme.colors.muted, fontWeight: "500" }]}>
-            Body Weight
-          </Text>
-          {Platform.OS === "ios" && hkAvailable && (
-            <Pressable onPress={handleSyncWeight} disabled={hkLoading}>
-              <Text style={[typography.small, { color: theme.colors.accent, fontWeight: "600" }]}>
-                {hkLoading ? "Syncing..." : "Sync from Health"}
-              </Text>
-            </Pressable>
-          )}
-        </View>
+        <Text style={[typography.small, { color: theme.colors.muted, fontWeight: "500", marginBottom: 6, marginTop: spacing.md }]}>
+          Body Weight
+        </Text>
         {hkError ? (
           <Text style={[typography.caption, { color: theme.colors.danger, marginBottom: 6 }]}>
             {hkError}

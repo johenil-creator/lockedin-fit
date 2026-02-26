@@ -34,6 +34,12 @@ export function useHealthKit(): HealthKitResult {
         const AppleHealthKit =
           require("react-native-health") as import("react-native-health").AppleHealthKit;
 
+        if (!AppleHealthKit || typeof AppleHealthKit.initHealthKit !== "function") {
+          throw new Error(
+            "HealthKit native module not linked. Rebuild your dev client with: npx expo run:ios",
+          );
+        }
+
         const permissions = {
           permissions: {
             read: [AppleHealthKit.Constants.Permissions.BodyMass],

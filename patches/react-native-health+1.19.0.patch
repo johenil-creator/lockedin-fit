@@ -1,0 +1,27 @@
+diff --git a/node_modules/react-native-health/index.js b/node_modules/react-native-health/index.js
+index 06e5105..2c046af 100644
+--- a/node_modules/react-native-health/index.js
++++ b/node_modules/react-native-health/index.js
+@@ -2,13 +2,14 @@ import { Activities, Observers, Permissions, Units } from './src/constants'
+ 
+ const { AppleHealthKit } = require('react-native').NativeModules
+ 
+-export const HealthKit = Object.assign({}, AppleHealthKit, {
+-  Constants: {
+-    Activities,
+-    Observers,
+-    Permissions,
+-    Units,
+-  },
+-})
++const HealthKitObj = Object.create(AppleHealthKit)
++HealthKitObj.Constants = {
++  Activities,
++  Observers,
++  Permissions,
++  Units,
++}
++
++export const HealthKit = HealthKitObj
+ 
+ module.exports = HealthKit
