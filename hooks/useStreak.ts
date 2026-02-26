@@ -22,6 +22,21 @@ function daysBetween(a: string, b: string): number {
   );
 }
 
+/** Count how many days in the gap [a+1 … b-1] are NOT rest days. */
+function missedNonRestDays(a: string, b: string, restDays: number[]): number {
+  if (!a || !restDays.length) return daysBetween(a, b) - 1;
+  const start = new Date(a);
+  const end = new Date(b);
+  let missed = 0;
+  const d = new Date(start);
+  d.setDate(d.getDate() + 1); // start from day after last activity
+  while (d < end) {
+    if (!restDays.includes(d.getDay())) missed++;
+    d.setDate(d.getDate() + 1);
+  }
+  return missed;
+}
+
 export function useStreak() {
   const [streak, setStreak] = useState<StreakData>(DEFAULT_STREAK);
   const streakRef = useRef<StreakData>(DEFAULT_STREAK);
@@ -38,19 +53,44 @@ export function useStreak() {
 
   /**
    * Call this once per completed session (pass today's date or the session date).
-   * Returns the updated StreakData so callers can react to milestone crossings.
+   * @param activityDate  — the date of the activity
+   * @param restDays      — array of rest day numbers (0=Sun, 6=Sat) from profile
+   * @param freezesRemaining — how many streak freezes the user has left this week
+   * Returns the updated StreakData and how many freezes were consumed.
    */
   const recordActivity = useCallback(
-    async (activityDate: Date = new Date()): Promise<StreakData> => {
+    async (
+      activityDate: Date = new Date(),
+      restDays: number[] = [],
+      freezesRemaining: number = 2
+    ): Promise<{ streak: StreakData; freezesUsed: number }> => {
       const today = toDateStr(activityDate);
       const prev = streakRef.current;
       const gap = daysBetween(prev.lastActivityDate, today);
 
       let newCurrent: number;
+      let freezesUsed = 0;
+
       if (gap === 0) {
+        // Same day — no change
         newCurrent = prev.current || 1;
       } else if (gap === 1) {
+        // Consecutive day
         newCurrent = (prev.current || 0) + 1;
+      } else if (gap > 1 && prev.lastActivityDate) {
+        // Multi-day gap — check if all missed days were rest days or covered by freezes
+        const missed = missedNonRestDays(prev.lastActivityDate, today, restDays);
+        if (missed === 0) {
+          // All gap days were rest days — streak continues
+          newCurrent = (prev.current || 0) + 1;
+        } else if (missed <= freezesRemaining) {
+          // Freezes cover the gap
+          freezesUsed = missed;
+          newCurrent = (prev.current || 0) + 1;
+        } else {
+          // Streak broken
+          newCurrent = 1;
+        }
       } else {
         newCurrent = 1;
       }
@@ -64,7 +104,7 @@ export function useStreak() {
       streakRef.current = updated;
       setStreak(updated);
       await saveStreak(updated);
-      return updated;
+      return { streak: updated, freezesUsed };
     },
     []
   );

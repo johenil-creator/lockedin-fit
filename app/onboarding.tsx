@@ -3,24 +3,24 @@ import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet as RNStyleSheet,
 } from "react-native";
-import { LockeMascot } from "../components/Locke/LockeMascot";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import type { LockeMascotMood } from "../components/Locke/LockeMascot";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from "react-native-reanimated";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useLocke } from "../contexts/LockeContext";
 import { Button } from "../components/Button";
+import { WelcomeStep } from "../components/onboarding/WelcomeStep";
+import { NameStep } from "../components/onboarding/NameStep";
+import { ExplainStep } from "../components/onboarding/ExplainStep";
+import { StepSlide, onboardingStyles as styles } from "../components/onboarding/shared";
 
 const LIFTS = ["Deadlift", "Squat", "Bench Press", "Overhead Press"] as const;
 type LiftKey = "deadlift" | "squat" | "bench" | "ohp";
@@ -46,14 +46,37 @@ function roundToNearest(weight: number, step = 2.5) {
   return Math.round(weight / step) * step;
 }
 
-function StepSlide({ children }: { children: React.ReactNode }) {
-  const tx = useSharedValue(320);
-  useEffect(() => { tx.value = withTiming(0, { duration: 300 }); }, []);
-  const anim = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
-  return <Animated.View style={[{ flex: 1 }, anim]}>{children}</Animated.View>;
+type StepKey = "welcome" | "name" | "explain" | "pick" | "enter" | "results" | "manual";
+
+const STEP_ORDER: StepKey[] = ["welcome", "name", "explain", "manual"];
+function stepIndex(s: StepKey): number {
+  if (s === "pick" || s === "enter" || s === "results") return 3;
+  const idx = STEP_ORDER.indexOf(s);
+  return idx >= 0 ? idx : 0;
 }
 
-type StepKey = "welcome" | "name" | "explain" | "pick" | "enter" | "results" | "manual";
+function ProgressDots({ current, total }: { current: number; total: number }) {
+  const { theme } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[dotStyles.row, { top: insets.top + 12 }]}>
+      {Array.from({ length: total }, (_, i) => (
+        <View
+          key={i}
+          style={[
+            dotStyles.dot,
+            { backgroundColor: i === current ? theme.colors.primary : i < current ? theme.colors.primary + "55" : theme.colors.border },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+const dotStyles = RNStyleSheet.create({
+  row: { flexDirection: "row", justifyContent: "center", gap: 8, position: "absolute", left: 0, right: 0, zIndex: 5 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+});
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -65,16 +88,15 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState<StepKey>(retake === "1" ? "explain" : "welcome");
   const [lockeMood, setLockeMood] = useState<LockeMascotMood>("neutral");
 
-  // Fire Locke onboarding_guide on arrival
   useEffect(() => {
     fire({ trigger: "onboarding" }, 12000);
   }, []);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [liftInputs, setLiftInputs] = useState<Record<string, LiftInput>>({});
   const [results, setResults] = useState<Record<string, number>>({});
   const [userName, setUserName] = useState("");
   const [unit, setUnit] = useState<"kg" | "lbs">("kg");
-  // For manual entry path — direct 1RM values
   const [manualInputs, setManualInputs] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
 
@@ -93,7 +115,6 @@ export default function OnboardingScreen() {
   }
 
   function updateLiftInput(lift: string, field: keyof LiftInput, value: string) {
-    // Cap reps at 2 digits, weight at 3 digits
     const cleaned = value.replace(/[^0-9]/g, "");
     const maxLen = field === "reps" ? 2 : 3;
     const capped = cleaned.slice(0, maxLen);
@@ -145,112 +166,53 @@ export default function OnboardingScreen() {
     router.replace("/");
   }
 
-  // ── Step: Welcome ─────────────────────────────────────────────────────────
+  // ── Extracted steps ─────────────────────────────────────────────────────────
+
+  const currentStepIdx = stepIndex(step);
+
   if (step === "welcome") {
     return (
-      <StepSlide>
-        <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
-          <Pressable onPress={skip} style={styles.skipBtn}>
-            <Text style={[styles.skipText, { color: theme.colors.muted }]}>Skip for now</Text>
-          </Pressable>
-
-          <View style={styles.center}>
-            <LockeMascot size="full" mood={lockeMood} />
-            <Text style={[styles.lockeIntro, { color: theme.colors.primary }]}>I'm Locke.</Text>
-            <Text style={[styles.welcomeSub, { color: theme.colors.muted }]}>
-              I'll be your training partner.
-            </Text>
-          </View>
-
-          <View style={styles.bottom}>
-            <Button label="Continue" onPress={() => setStep("name")} />
-          </View>
-        </View>
-      </StepSlide>
+      <View style={{ flex: 1 }}>
+        <ProgressDots current={currentStepIdx} total={STEP_ORDER.length} />
+        <WelcomeStep
+          lockeMood={lockeMood}
+          onContinue={() => setStep("name")}
+        />
+      </View>
     );
   }
 
-  // ── Step: Name ──────────────────────────────────────────────────────────────
   if (step === "name") {
     return (
-      <StepSlide>
-        <KeyboardAvoidingView
-          style={[styles.container, { backgroundColor: theme.colors.bg }]}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <Pressable onPress={skip} style={styles.skipBtn}>
-            <Text style={[styles.skipText, { color: theme.colors.muted }]}>Skip for now</Text>
-          </Pressable>
-
-          <View style={styles.center}>
-            <Text style={[styles.welcomeTitle, { color: theme.colors.text }]}>
-              What should I call you?
-            </Text>
-            <TextInput
-              style={[styles.nameInput, { backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border }]}
-              value={userName}
-              onChangeText={setUserName}
-              placeholder="Your name"
-              placeholderTextColor={theme.colors.muted}
-              autoFocus
-            />
-          </View>
-
-          <View style={styles.bottom}>
-            <Button
-              label="Continue"
-              onPress={() => {
-                updateProfile({ name: userName.trim() });
-                setLockeMood("encouraging");
-                setStep("explain");
-              }}
-              disabled={!userName.trim()}
-            />
-          </View>
-        </KeyboardAvoidingView>
-      </StepSlide>
+      <View style={{ flex: 1 }}>
+        <ProgressDots current={currentStepIdx} total={STEP_ORDER.length} />
+        <NameStep
+          userName={userName}
+          onChangeUserName={setUserName}
+          onContinue={() => {
+            updateProfile({ name: userName.trim() });
+            setLockeMood("encouraging");
+            setStep("explain");
+          }}
+        />
+      </View>
     );
   }
 
-  // ── Step: Explain 1RM ────────────────────────────────────────────────────
   if (step === "explain") {
     return (
-      <StepSlide>
-        <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
-          <View style={styles.body}>
-            <Text style={[styles.stepEyebrow, { color: theme.colors.primary }]}>SETUP</Text>
-            <Text style={[styles.stepTitle, { color: theme.colors.text }]}>What's a 1RM?</Text>
-            <Text style={[styles.explainText, { color: theme.colors.muted }]}>
-              Your <Text style={{ color: theme.colors.text, fontWeight: "700" }}>1-Rep Max (1RM)</Text> is
-              the maximum weight you can lift for a single rep on a given exercise.
-            </Text>
-            <Text style={[styles.explainText, { color: theme.colors.muted }]}>
-              We use it to set intelligent load targets in your plans, track progress over time,
-              and award PRs when you break your personal records.
-            </Text>
-            <Text style={[styles.explainText, { color: theme.colors.muted }]}>
-              You don't need to test your true max — enter any weight and rep count and we'll
-              estimate it using the Epley formula.
-            </Text>
-          </View>
-
-          <View style={[styles.bottom, { gap: 12 }]}>
-            <Button label="Start 1RM Test" onPress={() => router.push("/orm-test?source=onboarding")} />
-            <Button
-              label="Skip – I Know My Numbers"
-              onPress={() => { setLockeMood("encouraging"); setStep("manual"); }}
-              variant="secondary"
-            />
-            <Pressable onPress={skip} style={styles.skipTextBtn}>
-              <Text style={[styles.skipText, { color: theme.colors.muted }]}>Skip for now</Text>
-            </Pressable>
-          </View>
-        </View>
-      </StepSlide>
+      <View style={{ flex: 1 }}>
+        <ProgressDots current={currentStepIdx} total={STEP_ORDER.length} />
+        <ExplainStep
+          onManual={() => { setLockeMood("encouraging"); setStep("manual"); }}
+          onSkip={skip}
+        />
+      </View>
     );
   }
 
-  // ── Step: Manual Entry ───────────────────────────────────────────────────
+  // ── Inline steps (heavy state dependencies) ─────────────────────────────────
+
   if (step === "manual") {
     return (
       <StepSlide>
@@ -272,25 +234,13 @@ export default function OnboardingScreen() {
 
             <View style={styles.unitPickerRow}>
               <Pressable
-                style={[
-                  styles.unitPickerBtnSmall,
-                  {
-                    backgroundColor: unit === "kg" ? theme.colors.primary : theme.colors.surface,
-                    borderColor: unit === "kg" ? theme.colors.primary : theme.colors.border,
-                  },
-                ]}
+                style={[styles.unitPickerBtnSmall, { backgroundColor: unit === "kg" ? theme.colors.primary : theme.colors.surface, borderColor: unit === "kg" ? theme.colors.primary : theme.colors.border }]}
                 onPress={() => setUnit("kg")}
               >
                 <Text style={[styles.unitPickerLabel, { fontSize: 16, color: unit === "kg" ? theme.colors.primaryText : theme.colors.text }]}>KG</Text>
               </Pressable>
               <Pressable
-                style={[
-                  styles.unitPickerBtnSmall,
-                  {
-                    backgroundColor: unit === "lbs" ? theme.colors.primary : theme.colors.surface,
-                    borderColor: unit === "lbs" ? theme.colors.primary : theme.colors.border,
-                  },
-                ]}
+                style={[styles.unitPickerBtnSmall, { backgroundColor: unit === "lbs" ? theme.colors.primary : theme.colors.surface, borderColor: unit === "lbs" ? theme.colors.primary : theme.colors.border }]}
                 onPress={() => setUnit("lbs")}
               >
                 <Text style={[styles.unitPickerLabel, { fontSize: 16, color: unit === "lbs" ? theme.colors.primaryText : theme.colors.text }]}>LBS</Text>
@@ -299,34 +249,19 @@ export default function OnboardingScreen() {
             <View style={{ height: 16 }} />
 
             {LIFTS.map((lift) => (
-              <View
-                key={lift}
-                style={[
-                  styles.liftCard,
-                  { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-                ]}
-              >
+              <View key={lift} style={[styles.liftCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                 <Text style={[styles.liftName, { color: theme.colors.text }]}>{lift}</Text>
                 <View style={styles.manualRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.inputLabel, { color: theme.colors.muted }]}>1RM ({unit})</Text>
                     <TextInput
-                      style={[
-                        styles.numInput,
-                        {
-                          backgroundColor: theme.colors.mutedBg,
-                          color: theme.colors.text,
-                          borderColor: theme.colors.border,
-                        },
-                      ]}
+                      style={[styles.numInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
                       keyboardType="numeric"
                       maxLength={3}
                       placeholder="e.g. 100"
                       placeholderTextColor={theme.colors.muted}
                       value={manualInputs[lift] ?? ""}
-                      onChangeText={(v) =>
-                        setManualInputs((prev) => ({ ...prev, [lift]: v.replace(/[^0-9]/g, "").slice(0, 3) }))
-                      }
+                      onChangeText={(v) => setManualInputs((prev) => ({ ...prev, [lift]: v.replace(/[^0-9]/g, "").slice(0, 3) }))}
                     />
                   </View>
                 </View>
@@ -344,7 +279,6 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ── Step: Pick Lifts ─────────────────────────────────────────────────────
   if (step === "pick") {
     return (
       <StepSlide>
@@ -355,35 +289,19 @@ export default function OnboardingScreen() {
 
           <View style={styles.body}>
             <Text style={[styles.stepEyebrow, { color: theme.colors.primary }]}>STEP 1 OF 3</Text>
-            <Text style={[styles.stepTitle, { color: theme.colors.text }]}>
-              Which lifts do you want to track?
-            </Text>
-            <Text style={[styles.stepSub, { color: theme.colors.muted }]}>
-              Select all that apply
-            </Text>
+            <Text style={[styles.stepTitle, { color: theme.colors.text }]}>Which lifts do you want to track?</Text>
+            <Text style={[styles.stepSub, { color: theme.colors.muted }]}>Select all that apply</Text>
 
             {LIFTS.map((lift) => {
               const isSelected = selected.has(lift);
               return (
                 <Pressable
                   key={lift}
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface,
-                      borderColor: isSelected ? theme.colors.primary : theme.colors.border,
-                    },
-                  ]}
+                  style={[styles.checkbox, { backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface, borderColor: isSelected ? theme.colors.primary : theme.colors.border }]}
                   onPress={() => toggleLift(lift)}
                 >
-                  <Text
-                    style={[
-                      styles.checkboxText,
-                      { color: isSelected ? theme.colors.primaryText : theme.colors.text },
-                    ]}
-                  >
-                    {isSelected ? "✓  " : "    "}
-                    {lift}
+                  <Text style={[styles.checkboxText, { color: isSelected ? theme.colors.primaryText : theme.colors.text }]}>
+                    {isSelected ? "✓  " : "    "}{lift}
                   </Text>
                 </Pressable>
               );
@@ -398,15 +316,11 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ── Step: Enter Numbers ──────────────────────────────────────────────────
   if (step === "enter") {
     const selectedLifts = LIFTS.filter((l) => selected.has(l));
     return (
       <StepSlide>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView
             style={[styles.container, { backgroundColor: theme.colors.bg }]}
             contentContainerStyle={styles.scrollBody}
@@ -416,59 +330,27 @@ export default function OnboardingScreen() {
             </Pressable>
 
             <Text style={[styles.stepEyebrow, { color: theme.colors.primary }]}>STEP 2 OF 3</Text>
-            <Text style={[styles.stepTitle, { color: theme.colors.text }]}>
-              Enter your numbers
-            </Text>
-            <Text style={[styles.stepSub, { color: theme.colors.muted }]}>
-              Your heaviest recent lift — any weight and rep count works
-            </Text>
+            <Text style={[styles.stepTitle, { color: theme.colors.text }]}>Enter your numbers</Text>
+            <Text style={[styles.stepSub, { color: theme.colors.muted }]}>Your heaviest recent lift — any weight and rep count works</Text>
 
             {selectedLifts.map((lift) => (
-              <View
-                key={lift}
-                style={[
-                  styles.liftCard,
-                  { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-                ]}
-              >
+              <View key={lift} style={[styles.liftCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                 <Text style={[styles.liftName, { color: theme.colors.text }]}>{lift}</Text>
                 <View style={styles.inputRow}>
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, { color: theme.colors.muted }]}>Weight ({unit})</Text>
                     <TextInput
-                      style={[
-                        styles.numInput,
-                        {
-                          backgroundColor: theme.colors.mutedBg,
-                          color: theme.colors.text,
-                          borderColor: theme.colors.border,
-                        },
-                      ]}
-                      keyboardType="numeric"
-                      maxLength={3}
-                      placeholder="0"
-                      placeholderTextColor={theme.colors.muted}
-                      value={liftInputs[lift]?.weight ?? ""}
-                      onChangeText={(v) => updateLiftInput(lift, "weight", v)}
+                      style={[styles.numInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
+                      keyboardType="numeric" maxLength={3} placeholder="0" placeholderTextColor={theme.colors.muted}
+                      value={liftInputs[lift]?.weight ?? ""} onChangeText={(v) => updateLiftInput(lift, "weight", v)}
                     />
                   </View>
                   <View style={styles.inputGroup}>
                     <Text style={[styles.inputLabel, { color: theme.colors.muted }]}>Reps</Text>
                     <TextInput
-                      style={[
-                        styles.numInput,
-                        {
-                          backgroundColor: theme.colors.mutedBg,
-                          color: theme.colors.text,
-                          borderColor: theme.colors.border,
-                        },
-                      ]}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      placeholder="0"
-                      placeholderTextColor={theme.colors.muted}
-                      value={liftInputs[lift]?.reps ?? ""}
-                      onChangeText={(v) => updateLiftInput(lift, "reps", v)}
+                      style={[styles.numInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
+                      keyboardType="numeric" maxLength={2} placeholder="0" placeholderTextColor={theme.colors.muted}
+                      value={liftInputs[lift]?.reps ?? ""} onChangeText={(v) => updateLiftInput(lift, "reps", v)}
                     />
                   </View>
                 </View>
@@ -501,41 +383,25 @@ export default function OnboardingScreen() {
         {selectedLifts.map((lift) => {
           const orm = results[lift];
           return (
-            <View
-              key={lift}
-              style={[
-                styles.resultCard,
-                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-              ]}
-            >
+            <View key={lift} style={[styles.resultCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
               <View style={styles.resultTopRow}>
                 <Text style={[styles.resultLift, { color: theme.colors.text }]}>{lift}</Text>
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={[styles.resultValue, { color: theme.colors.primary }]}>
-                    {orm ?? "—"} {unit}
-                  </Text>
+                  <Text style={[styles.resultValue, { color: theme.colors.primary }]}>{orm ?? "—"} {unit}</Text>
                   <Text style={[styles.resultLabel, { color: theme.colors.muted }]}>Est. 1RM</Text>
                 </View>
               </View>
 
               {orm != null && (
                 <View style={[styles.ladderSection, { borderTopColor: theme.colors.border }]}>
-                  <Text style={[styles.ladderTitle, { color: theme.colors.muted }]}>
-                    WARM-UP LADDER
-                  </Text>
+                  <Text style={[styles.ladderTitle, { color: theme.colors.muted }]}>WARM-UP LADDER</Text>
                   {WARMUP_STEPS.map(({ pct, reps }) => {
                     const w = roundToNearest(orm * pct);
                     return (
                       <View key={pct} style={styles.ladderRow}>
-                        <Text style={[styles.ladderWeight, { color: theme.colors.text }]}>
-                          {w} {unit}
-                        </Text>
-                        <Text style={[styles.ladderReps, { color: theme.colors.muted }]}>
-                          × {reps} reps
-                        </Text>
-                        <Text style={[styles.ladderPct, { color: theme.colors.muted }]}>
-                          {Math.round(pct * 100)}%
-                        </Text>
+                        <Text style={[styles.ladderWeight, { color: theme.colors.text }]}>{w} {unit}</Text>
+                        <Text style={[styles.ladderReps, { color: theme.colors.muted }]}>× {reps} reps</Text>
+                        <Text style={[styles.ladderPct, { color: theme.colors.muted }]}>{Math.round(pct * 100)}%</Text>
                       </View>
                     );
                   })}
@@ -552,104 +418,3 @@ export default function OnboardingScreen() {
     </StepSlide>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 56 },
-  scrollBody: { paddingHorizontal: 24, paddingTop: 32 },
-  body: { flex: 1, paddingHorizontal: 24, paddingTop: 32 },
-  bottom: { paddingHorizontal: 24, paddingBottom: 48 },
-
-  skipBtn: { position: "absolute", top: 56, right: 24, zIndex: 10, padding: 8 },
-  skipTextBtn: { alignItems: "center", paddingVertical: 4 },
-  skipText: { fontSize: 14, fontWeight: "500" },
-
-  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
-  lockeIntro: { fontSize: 28, fontWeight: "800", marginBottom: 8 },
-  welcomeTitle: { fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 12, lineHeight: 30 },
-  nameInput: { width: "100%", fontSize: 18, fontWeight: "600", borderWidth: 1, borderRadius: 14, padding: 14, textAlign: "center", marginTop: 16 },
-  welcomeSub: { fontSize: 15, textAlign: "center", lineHeight: 22 },
-
-  stepEyebrow: { fontSize: 11, fontWeight: "700", letterSpacing: 1.5, marginBottom: 6, textTransform: "uppercase" },
-  stepTitle: { fontSize: 22, fontWeight: "700", marginBottom: 6 },
-  stepSub: { fontSize: 14, marginBottom: 24, lineHeight: 20 },
-  explainText: { fontSize: 15, lineHeight: 24, marginBottom: 16 },
-
-  checkbox: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-  },
-  checkboxText: { fontSize: 16, fontWeight: "600" },
-
-  liftCard: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-  },
-  liftName: { fontSize: 16, fontWeight: "700", marginBottom: 12 },
-  inputRow: { flexDirection: "row", gap: 12 },
-  inputGroup: { flex: 1 },
-  inputLabel: { fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
-  numInput: {
-    fontSize: 18,
-    fontWeight: "600",
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    textAlign: "center",
-  },
-  manualRow: { flexDirection: "row", gap: 12 },
-  unitRow: { marginBottom: 20 },
-  unitReadOnly: { fontSize: 15, fontWeight: "700", marginTop: 2 },
-  unitPickerRow: { flexDirection: "row", gap: 12 },
-  unitPickerBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  unitPickerLabel: { fontSize: 24, fontWeight: "800" },
-  unitPickerSub: { fontSize: 12, marginTop: 4 },
-  unitPickerBtnSmall: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  resultCard: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-  },
-  resultTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  resultLift: { fontSize: 16, fontWeight: "600" },
-  resultValue: { fontSize: 28, fontWeight: "800" },
-  resultLabel: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 },
-
-  ladderSection: {
-    borderTopWidth: 1,
-    marginTop: 12,
-    paddingTop: 12,
-  },
-  ladderTitle: { fontSize: 10, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 },
-  ladderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  ladderWeight: { fontSize: 15, fontWeight: "700", width: 70 },
-  ladderReps: { fontSize: 14, flex: 1 },
-  ladderPct: { fontSize: 12 },
-});

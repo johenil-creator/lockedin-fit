@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,12 @@ import {
   FlatList,
   Pressable,
   Alert,
-  TextInput,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import RNAnimated, { FadeInDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import Papa from "papaparse";
@@ -27,6 +30,7 @@ import { useAppTheme } from "../../contexts/ThemeContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { spacing, radius } from "../../lib/theme";
+import { wasCompletedToday } from "../../lib/helpers";
 import type { Exercise } from "../../lib/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -222,6 +226,7 @@ function ExerciseCard({ exercise: ex }: { exercise: Exercise }) {
 export default function PlanScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { planName, exercises, loading, setPlan, clearPlan, isDayCompleted, completedDays } = usePlanContext();
   const { startSessionFromPlan, getActiveSession } = useWorkouts();
   const { profile } = useProfileContext();
@@ -348,21 +353,8 @@ export default function PlanScreen() {
     ]);
   }
 
-  const weeks = groupByWeekDay(exercises);
+  const weeks = useMemo(() => groupByWeekDay(exercises), [exercises]);
   const activeWeek = weeks[selectedWeek];
-
-  // Check if a day was completed today (same calendar date)
-  function wasCompletedToday(week: string, day: string): boolean {
-    const iso = completedDays[`${week}|${day}`];
-    if (!iso) return false;
-    const completed = new Date(iso);
-    const now = new Date();
-    return (
-      completed.getFullYear() === now.getFullYear() &&
-      completed.getMonth() === now.getMonth() &&
-      completed.getDate() === now.getDate()
-    );
-  }
 
   // A week is unlocked if it's the first week, or all days in the previous week are completed
   function isWeekUnlocked(weekIndex: number): boolean {
@@ -375,7 +367,7 @@ export default function PlanScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 12 }]}>
         <Skeleton.Group>
           <Skeleton.Rect width="50%" height={24} />
           <View style={{ height: 8 }} />
@@ -387,7 +379,7 @@ export default function PlanScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 12 }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>
@@ -456,7 +448,7 @@ export default function PlanScreen() {
               // Previous day must be completed AND not completed today (one plan day per calendar day)
               const prevDay = dayIdx > 0 ? activeWeek.days[dayIdx - 1] : null;
               const prevDayDone = !prevDay || isDayCompleted(activeWeek.week, prevDay.day);
-              const prevDoneToday = prevDay ? wasCompletedToday(activeWeek.week, prevDay.day) : false;
+              const prevDoneToday = prevDay ? wasCompletedToday(completedDays, activeWeek.week, prevDay.day) : false;
               const dayLocked = activeWeekLocked || (!dayDone && (!prevDayDone || prevDoneToday));
 
               const launchSession = async () => {
@@ -488,7 +480,7 @@ export default function PlanScreen() {
               };
 
               return (
-              <View key={dayGroup.day} style={[styles.daySection, dayDone && { opacity: 0.55 }]}>
+              <RNAnimated.View key={dayGroup.day} entering={FadeInDown.delay(dayIdx * 60).duration(300)} style={[styles.daySection, dayDone && { opacity: 0.55 }]}>
                 <Pressable onPress={() => toggleDay(dayKey)}>
                   <View style={styles.dayHeader}>
                     {hasDayColumn && (
@@ -539,7 +531,7 @@ export default function PlanScreen() {
                 {isExpanded && dayGroup.exercises.map((ex, i) => (
                   <ExerciseCard key={i} exercise={ex} />
                 ))}
-              </View>
+              </RNAnimated.View>
               );
             })}
           </ScrollView>
@@ -552,7 +544,7 @@ export default function PlanScreen() {
         <Text style={[styles.modalHint, { color: theme.colors.muted }]}>
           Sheet must be shared as "Anyone with the link can view"
         </Text>
-        <TextInput
+        <BottomSheetTextInput
           style={[styles.input, { backgroundColor: theme.colors.bg, color: theme.colors.text }]}
           placeholder="https://docs.google.com/spreadsheets/d/..."
           placeholderTextColor={theme.colors.muted}
@@ -585,7 +577,7 @@ export default function PlanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 64,
+    paddingTop: 0,
     paddingHorizontal: spacing.lg,
   },
   header: {

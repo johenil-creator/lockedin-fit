@@ -1,14 +1,25 @@
-import { View, Text, ScrollView, StyleSheet, Pressable, Switch } from "react-native";
+import { useState, useEffect } from "react";
+import { View, Text, ScrollView, StyleSheet, Pressable, Switch, Alert, Share } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { Card } from "../components/Card";
 import { BackButton } from "../components/BackButton";
 import { spacing, typography } from "../lib/theme";
+import {
+  requestNotificationPermission,
+  scheduleWorkoutReminder,
+  scheduleStreakRiskReminder,
+  cancelAllReminders,
+} from "../lib/notifications";
 
 const KG_TO_LBS = 2.20462;
 const LBS_TO_KG = 0.453592;
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const REST_TIMER_OPTIONS = [30, 60, 90, 120] as const;
 
 function convertValue(val: string | undefined, factor: number): string {
   if (!val) return "";
@@ -22,6 +33,12 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark, toggleTheme } = useAppTheme();
   const { profile, updateProfile } = useProfileContext();
+  const [exporting, setExporting] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  const restDays = profile.restDays ?? [];
+  const defaultRestTimer = profile.defaultRestTimer ?? 90;
+  const hapticsEnabled = profile.hapticsEnabled !== false; // default true
 
   function handleUnitChange(newUnit: "kg" | "lbs") {
     if (newUnit === profile.weightUnit) return;
@@ -45,6 +62,30 @@ export default function SettingsScreen() {
       manual1RM: convertedManual,
       ...(profile.estimated1RM ? { estimated1RM: convertedEstimated } : {}),
     });
+  }
+
+  function toggleRestDay(day: number) {
+    const next = restDays.includes(day) ? restDays.filter((d) => d !== day) : [...restDays, day];
+    updateProfile({ restDays: next });
+  }
+
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const stores = await AsyncStorage.multiGet(keys.filter((k) => k.startsWith("@lockedinfit/")));
+      const data: Record<string, unknown> = {};
+      for (const [key, value] of stores) {
+        try { data[key] = value ? JSON.parse(value) : null; } catch { data[key] = value; }
+      }
+      const json = JSON.stringify(data, null, 2);
+      await Share.share({ message: json, title: "LockedInFIT Data Export" });
+    } catch {
+      Alert.alert("Export Failed", "Could not export data.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -106,7 +147,115 @@ export default function SettingsScreen() {
             })}
           </View>
         </View>
+        <View style={styles.row}>
+          <Text style={[typography.body, { color: theme.colors.text }]}>Haptics</Text>
+          <Switch
+            value={hapticsEnabled}
+            onValueChange={(val) => updateProfile({ hapticsEnabled: val })}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+            thumbColor="#ffffff"
+          />
+        </View>
       </Card>
+
+      {/* Rest Timer */}
+      <Card>
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          Rest Timer Default
+        </Text>
+        <View style={styles.timerRow}>
+          {REST_TIMER_OPTIONS.map((sec) => {
+            const active = defaultRestTimer === sec;
+            return (
+              <Pressable
+                key={sec}
+                style={[styles.timerChip, { backgroundColor: active ? theme.colors.primary : theme.colors.mutedBg, borderColor: active ? theme.colors.primary : theme.colors.border }]}
+                onPress={() => updateProfile({ defaultRestTimer: sec })}
+              >
+                <Text style={[styles.timerChipText, { color: active ? theme.colors.primaryText : theme.colors.text }]}>
+                  {sec}s
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Card>
+
+      {/* Rest Days */}
+      <Card>
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: 4 }]}>
+          Rest Days
+        </Text>
+        <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: spacing.sm }]}>
+          Your streak won't break on rest days
+        </Text>
+        <View style={styles.daysRow}>
+          {DAY_LABELS.map((label, idx) => {
+            const active = restDays.includes(idx);
+            return (
+              <Pressable
+                key={idx}
+                style={[styles.dayChip, { backgroundColor: active ? theme.colors.primary : theme.colors.mutedBg, borderColor: active ? theme.colors.primary : theme.colors.border }]}
+                onPress={() => toggleRestDay(idx)}
+              >
+                <Text style={[styles.dayChipText, { color: active ? theme.colors.primaryText : theme.colors.text }]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Card>
+
+      {/* Notifications */}
+      <Card>
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          Notifications
+        </Text>
+        <View style={styles.row}>
+          <Text style={[typography.body, { color: theme.colors.text }]}>Workout Reminder</Text>
+          <Switch
+            value={notificationsEnabled}
+            onValueChange={async (val) => {
+              if (val) {
+                const granted = await requestNotificationPermission();
+                if (!granted) {
+                  Alert.alert("Notifications Disabled", "Enable notifications in your device settings.");
+                  return;
+                }
+                await scheduleWorkoutReminder(18); // 6pm
+                await scheduleStreakRiskReminder();
+              } else {
+                await cancelAllReminders();
+              }
+              setNotificationsEnabled(val);
+            }}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+            thumbColor="#ffffff"
+          />
+        </View>
+        <Text style={[typography.caption, { color: theme.colors.muted }]}>
+          Daily reminder at 6pm + streak-at-risk alert at 8pm
+        </Text>
+      </Card>
+
+      {/* Data */}
+      <Card>
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          Data
+        </Text>
+        <Pressable style={styles.row} onPress={handleExport}>
+          <Text style={[typography.body, { color: theme.colors.text }]}>Export All Data</Text>
+          <Text style={[typography.caption, { color: theme.colors.muted }]}>{exporting ? "Exporting…" : "JSON"}</Text>
+        </Pressable>
+        <Pressable style={styles.row} onPress={() => router.push("/onboarding?retake=1")}>
+          <Text style={[typography.body, { color: theme.colors.text }]}>Retake 1RM Setup</Text>
+          <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
+        </Pressable>
+      </Card>
+
+      {/* Version */}
+      <Text style={[styles.version, { color: theme.colors.muted }]}>LockedInFIT v1.0.0</Text>
     </ScrollView>
   );
 }
@@ -134,5 +283,40 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 13,
     fontWeight: "700",
+  },
+  timerRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  timerChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  timerChipText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  daysRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  dayChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  dayChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  version: {
+    textAlign: "center",
+    fontSize: 12,
+    marginTop: spacing.lg,
   },
 });

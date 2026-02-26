@@ -69,7 +69,8 @@ export default function ProfileScreen() {
         });
       }
     }
-  }, [profileLoading, profile.manual1RM]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs only when profile loads or 1RM changes
+  }, [profileLoading, profile.manual1RM, hkAvailable]);
 
   const estimated1RMs = useMemo(() => {
     const results: Record<string, number> = {};

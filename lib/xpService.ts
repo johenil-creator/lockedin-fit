@@ -4,13 +4,27 @@ import { rankForXP, didRankUp, rankProgress, xpToNextRank, nextRank } from "./ra
 // ── XP award amounts ──────────────────────────────────────────────────────────
 
 export const XP_AWARDS = {
-  PER_SET_COMPLETED:  0,
+  PER_SET_COMPLETED:  2,
   SESSION_COMPLETE:  15,
   PR_HIT:            10,
   STREAK_3_DAYS:      5,
   STREAK_7_DAYS:     10,
+  STREAK_14_DAYS:    30,
+  STREAK_30_DAYS:    75,
+  STREAK_60_DAYS:   150,
+  STREAK_100_DAYS:  300,
   RANK_UP:           20,
 } as const;
+
+/** Streak milestones: [days, xp, label] */
+const STREAK_MILESTONES: [number, number, string][] = [
+  [3,   XP_AWARDS.STREAK_3_DAYS,   "3-day streak"],
+  [7,   XP_AWARDS.STREAK_7_DAYS,   "7-day streak"],
+  [14,  XP_AWARDS.STREAK_14_DAYS,  "14-day streak"],
+  [30,  XP_AWARDS.STREAK_30_DAYS,  "30-day streak"],
+  [60,  XP_AWARDS.STREAK_60_DAYS,  "60-day streak"],
+  [100, XP_AWARDS.STREAK_100_DAYS, "100-day streak"],
+];
 
 // ── Default empty record ──────────────────────────────────────────────────────
 
@@ -95,14 +109,12 @@ export function awardSessionXP(
     breakdown.push({ reason: "Personal record", amount: XP_AWARDS.PR_HIT });
   }
 
-  // 4. Streak bonuses (only award each tier once per streak)
-  if (streakDays === 3) {
-    current = applyXP(current, XP_AWARDS.STREAK_3_DAYS, "3-day streak");
-    breakdown.push({ reason: "3-day streak", amount: XP_AWARDS.STREAK_3_DAYS });
-  }
-  if (streakDays === 7) {
-    current = applyXP(current, XP_AWARDS.STREAK_7_DAYS, "7-day streak");
-    breakdown.push({ reason: "7-day streak", amount: XP_AWARDS.STREAK_7_DAYS });
+  // 4. Streak milestones (only award when exact day count matches)
+  for (const [days, xp, label] of STREAK_MILESTONES) {
+    if (streakDays === days) {
+      current = applyXP(current, xp, label);
+      breakdown.push({ reason: label, amount: xp });
+    }
   }
 
   // 5. Rank-up bonus (applied after all other XP so threshold can be crossed)

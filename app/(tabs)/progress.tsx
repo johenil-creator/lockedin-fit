@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, FlatList } from "react-native";
 import { useWorkouts } from "../../hooks/useWorkouts";
+import { useProfileContext } from "../../contexts/ProfileContext";
 import { getExerciseProgress, getUniqueExerciseNames } from "../../lib/progress";
 import { ProgressChart } from "../../components/ProgressChart";
 import { EmptyState } from "../../components/EmptyState";
@@ -9,6 +10,7 @@ import { useAppTheme } from "../../contexts/ThemeContext";
 export default function ProgressScreen() {
   const { theme } = useAppTheme();
   const { workouts } = useWorkouts();
+  const { profile } = useProfileContext();
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [metric, setMetric] = useState<"maxWeight" | "totalReps">("maxWeight");
 
@@ -83,7 +85,7 @@ export default function ProgressScreen() {
                 {progressData.length > 0 && (
                   <View style={styles.summaryRow}>
                     <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
-                      <Text style={[styles.summaryVal, { color: theme.colors.text }]}>{bestWeight > 0 ? `${bestWeight}kg` : "—"}</Text>
+                      <Text style={[styles.summaryVal, { color: theme.colors.text }]}>{bestWeight > 0 ? `${bestWeight} ${profile.weightUnit}` : "—"}</Text>
                       <Text style={[styles.summaryLabel, { color: theme.colors.muted }]}>Best Weight</Text>
                     </View>
                     <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
@@ -122,7 +124,7 @@ export default function ProgressScreen() {
                     No completed sets for this exercise yet.
                   </Text>
                 ) : (
-                  <ProgressChart data={progressData} metric={metric} />
+                  <ProgressChart data={progressData} metric={metric} weightUnit={profile.weightUnit} />
                 )}
               </>
             )}

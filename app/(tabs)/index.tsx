@@ -1,9 +1,11 @@
-import { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, DevSettings } from "react-native";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, DevSettings, RefreshControl } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { fmtDate, wasCompletedToday } from "../../lib/helpers";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { useProfileContext } from "../../contexts/ProfileContext";
-import type { Exercise } from "../../lib/types";
+import type { Exercise, LockeTrigger, LockeState } from "../../lib/types";
 import { useXP } from "../../hooks/useXP";
 import { useStreak } from "../../hooks/useStreak";
 import { Card } from "../../components/Card";
@@ -17,11 +19,7 @@ import { useAppTheme } from "../../contexts/ThemeContext";
 import Logo from "../../components/Logo";
 import { usePlanContext } from "../../contexts/PlanContext";
 import { clearAllData } from "../../lib/storage";
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`;
-}
+import { pickMessage } from "../../lib/lockeMessages";
 
 function StatCell({ label, value, small }: { label: string; value: string; small?: boolean }) {
   const { theme } = useAppTheme();
@@ -39,14 +37,34 @@ function StatCell({ label, value, small }: { label: string; value: string; small
 export default function HomeScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { workouts, loading: workoutsLoading, startSessionFromPlan, getActiveSession } = useWorkouts();
+  const insets = useSafeAreaInsets();
+  const { workouts, loading: workoutsLoading, startSessionFromPlan, getActiveSession, reload: reloadWorkouts } = useWorkouts();
+  const [refreshing, setRefreshing] = useState(false);
   const { hydrated, profileRef } = useProfileContext();
   const { xp, rank, progress, toNext, nextTier } = useXP();
   const { streak, daysSinceActivity } = useStreak();
   const { fire } = useLocke();
-  const { exercises: planExercises, planName, isDayCompleted, completedDays } = usePlanContext();
+  const { exercises: planExercises, planName, isDayCompleted, completedDays, isPlanComplete, totalPlanDays } = usePlanContext();
   const didFireInactivity = useRef(false);
   const onboardingCheckDone = useRef(false);
+  const planCelebrationShown = useRef(false);
+
+  // ── Locke speech bubble ──────────────────────────────────────────────────────
+  const homeTrigger: LockeTrigger =
+    daysSinceActivity >= 3 && daysSinceActivity !== Infinity ? "inactivity"
+    : streak.current >= 3 ? "streak_milestone"
+    : "session_complete";
+
+  const homeMood: LockeState =
+    daysSinceActivity >= 3 && daysSinceActivity !== Infinity ? "disappointed"
+    : streak.current >= 7 ? "celebrating"
+    : streak.current >= 3 ? "encouraging"
+    : "neutral";
+
+  const [speechMsg, setSpeechMsg] = useState(() => pickMessage(homeTrigger, homeMood));
+  const cycleSpeech = useCallback(() => {
+    setSpeechMsg(pickMessage(homeTrigger, homeMood));
+  }, [homeTrigger, homeMood]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -58,6 +76,20 @@ export default function HomeScreen() {
       router.replace("/onboarding");
     }
   }, [hydrated]);
+
+  // Navigate to plan-complete when all plan days are done
+  useEffect(() => {
+    if (!isPlanComplete || planCelebrationShown.current) return;
+    planCelebrationShown.current = true;
+    router.push({
+      pathname: "/plan-complete",
+      params: {
+        planName: planName || "Your Plan",
+        totalDays: String(totalPlanDays),
+        totalSessions: String(workouts.filter((w) => !!w.completedAt).length),
+      },
+    });
+  }, [isPlanComplete]);
 
   useEffect(() => {
     if (didFireInactivity.current) return;
@@ -80,19 +112,6 @@ export default function HomeScreen() {
   const activeSession = workouts.find((w) => w.isActive);
 
   const profile = profileRef.current;
-
-  // Check if a day was completed today (same calendar date)
-  function wasCompletedToday(week: string, day: string): boolean {
-    const iso = completedDays[`${week}|${day}`];
-    if (!iso) return false;
-    const completed = new Date(iso);
-    const now = new Date();
-    return (
-      completed.getFullYear() === now.getFullYear() &&
-      completed.getMonth() === now.getMonth() &&
-      completed.getDate() === now.getDate()
-    );
-  }
 
   // Find the next incomplete plan day (respecting week/day locking + calendar)
   function getNextPlanDay(): { week: string; day: string; exercises: Exercise[] } | null {
@@ -121,7 +140,7 @@ export default function HomeScreen() {
         // Check calendar: previous day must not have been completed today
         if (di > 0) {
           const prevDay = weeks[wi].days[di - 1];
-          if (wasCompletedToday(weeks[wi].week, prevDay.day)) return null;
+          if (wasCompletedToday(completedDays, weeks[wi].week, prevDay.day)) return null;
         }
         return { week: weeks[wi].week, day: dayGroup.day, exercises: dayGroup.exercises };
       }
@@ -146,13 +165,31 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.bg }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={async () => { setRefreshing(true); await reloadWorkouts(); setRefreshing(false); }}
+          tintColor={theme.colors.primary}
+        />
+      }
     >
       {/* Header */}
       <View style={styles.headerRow}>
         <Logo />
-        {has1RM && <LockeMini />}
+        {has1RM && (
+          <Pressable onPress={cycleSpeech} style={styles.lockeWrap}>
+            <LockeMini />
+          </Pressable>
+        )}
       </View>
+
+      {/* Locke speech bubble */}
+      {has1RM && speechMsg !== "" && (
+        <Pressable onPress={cycleSpeech} style={[styles.speechBubble, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Text style={[styles.speechText, { color: theme.colors.text }]}>"{speechMsg}"</Text>
+        </Pressable>
+      )}
 
       {/* Locke banner (appears when triggered from session end) */}
       <LockeBanner />
@@ -291,9 +328,21 @@ export default function HomeScreen() {
         <>
           <Button label="Browse Plans" onPress={() => router.push("/catalog")} />
           <View style={{ height: 12 }} />
+          <Button label="Quick Workout" onPress={() => router.push("/quick-workout")} variant="secondary" />
+          <View style={{ height: 12 }} />
           <Button label="Import Plan" onPress={() => router.push("/plan")} variant="secondary" />
         </>
       )}
+
+      {/* Quick links */}
+      <View style={styles.quickLinksRow}>
+        <Pressable style={[styles.quickLink, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} onPress={() => router.push("/exercise-library")}>
+          <Text style={[styles.quickLinkText, { color: theme.colors.text }]}>Exercise Library</Text>
+        </Pressable>
+        <Pressable style={[styles.quickLink, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} onPress={() => router.push("/weekly-summary")}>
+          <Text style={[styles.quickLinkText, { color: theme.colors.text }]}>Weekly Summary</Text>
+        </Pressable>
+      </View>
 
       {recent.length > 0 && (
         <View style={styles.recentSection}>
@@ -317,7 +366,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingTop: 80, paddingHorizontal: 24, paddingBottom: 40 },
+  content: { paddingTop: 0, paddingHorizontal: 24, paddingBottom: 40 },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   statsCard: { marginBottom: 12 },
   statsRow: { flexDirection: "row", alignItems: "stretch" },
@@ -337,6 +386,9 @@ const styles = StyleSheet.create({
   recentMeta: { fontSize: 12, marginTop: 2 },
   devReset: { alignItems: "center", paddingVertical: 8, marginBottom: 12 },
   devResetText: { fontSize: 12, fontWeight: "600" },
+  quickLinksRow: { flexDirection: "row", gap: 8, marginTop: 16, marginBottom: 4 },
+  quickLink: { flex: 1, borderWidth: 1, borderRadius: 12, paddingVertical: 12, alignItems: "center" },
+  quickLinkText: { fontSize: 13, fontWeight: "600" },
   ormCtaCard: {
     borderWidth: 1.5,
     borderRadius: 16,
@@ -358,6 +410,21 @@ const styles = StyleSheet.create({
   },
   ormCtaSub: {
     fontSize: 13,
+    lineHeight: 18,
+  },
+  lockeWrap: {
+    alignItems: "center",
+  },
+  speechBubble: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  speechText: {
+    fontSize: 13,
+    fontStyle: "italic",
     lineHeight: 18,
   },
 });

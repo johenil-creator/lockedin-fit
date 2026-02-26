@@ -5,15 +5,16 @@ import type { ExerciseProgress } from "../lib/progress";
 type Props = {
   data: ExerciseProgress[];
   metric?: "maxWeight" | "totalReps";
+  weightUnit?: string;
 };
 
-export function ProgressChart({ data, metric = "maxWeight" }: Props) {
+export function ProgressChart({ data, metric = "maxWeight", weightUnit = "kg" }: Props) {
   const { theme } = useAppTheme();
   if (!data.length) return null;
 
   const values = data.map((d) => d[metric]);
   const maxVal = Math.max(...values, 1);
-  const unit = metric === "maxWeight" ? " kg" : " reps";
+  const unit = metric === "maxWeight" ? ` ${weightUnit}` : " reps";
 
   return (
     <View style={styles.container}>

@@ -6,7 +6,7 @@ import {
   Pressable,
   Image,
   Modal,
-  Dimensions,
+  useWindowDimensions,
   BackHandler,
 } from "react-native";
 import Animated, {
@@ -27,8 +27,6 @@ import { glowColors, spacing, radius } from "../lib/theme";
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { RANK_IMAGES } from "../components/RankEvolutionPath";
 import type { WorkoutCompleteParams } from "../lib/xpService";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ── Rank flavor text ─────────────────────────────────────────────────────────
 
@@ -363,6 +361,8 @@ export default function WorkoutCompleteScreen() {
   const { data } = useLocalSearchParams<{ data: string }>();
   const router = useRouter();
   const { theme } = useAppTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const statCardWidth = (screenWidth - 48 - STAT_CARD_GAP * 2) / 3;
 
   const params: WorkoutCompleteParams | null = data ? JSON.parse(data) : null;
 
@@ -586,7 +586,7 @@ export default function WorkoutCompleteScreen() {
 
       {/* Stat cards */}
       <View style={styles.statsRow}>
-        <Animated.View style={[styles.statCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, card1Style, xpCardPulseStyle]}>
+        <Animated.View style={[styles.statCard, { width: statCardWidth, backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, card1Style, xpCardPulseStyle]}>
           <Text style={[styles.statLabel, { color: theme.colors.muted }]}>TOTAL XP</Text>
           {claimed ? (
             <AnimatedXPCounter targetXP={params.xpAwarded} />
@@ -595,12 +595,12 @@ export default function WorkoutCompleteScreen() {
           )}
         </Animated.View>
 
-        <Animated.View style={[styles.statCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, card2Style]}>
+        <Animated.View style={[styles.statCard, { width: statCardWidth, backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, card2Style]}>
           <Text style={[styles.statLabel, { color: theme.colors.muted }]}>PERFECT</Text>
           <Text style={[styles.statValue, { color: theme.colors.text }]}>{completionPct}%</Text>
         </Animated.View>
 
-        <Animated.View style={[styles.statCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, card3Style]}>
+        <Animated.View style={[styles.statCard, { width: statCardWidth, backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, card3Style]}>
           <Text style={[styles.statLabel, { color: theme.colors.muted }]}>TIME</Text>
           <Text style={[styles.statValue, { color: theme.colors.text }]}>{durationStr}</Text>
         </Animated.View>
@@ -611,7 +611,7 @@ export default function WorkoutCompleteScreen() {
         <Pressable
           style={[
             styles.claimBtn,
-            { backgroundColor: claimed ? theme.colors.mutedBg : theme.colors.primary },
+            { width: screenWidth - 48, backgroundColor: claimed ? theme.colors.mutedBg : theme.colors.primary },
           ]}
           onPress={handleClaimXP}
           disabled={claimed}
@@ -641,7 +641,6 @@ export default function WorkoutCompleteScreen() {
 
 const MASCOT_GLOW_SIZE = 168;
 const STAT_CARD_GAP = 8;
-const STAT_CARD_WIDTH = (SCREEN_WIDTH - 48 - STAT_CARD_GAP * 2) / 3;
 
 const styles = StyleSheet.create({
   container: {
@@ -687,7 +686,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   statCard: {
-    width: STAT_CARD_WIDTH,
     height: 80,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -707,7 +705,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   claimBtn: {
-    width: SCREEN_WIDTH - 48,
     height: 56,
     borderRadius: 14,
     alignItems: "center",

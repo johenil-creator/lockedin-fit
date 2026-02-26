@@ -1,20 +1,18 @@
-import { useState, useCallback } from "react";
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`;
-}
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Pressable,
-  TextInput,
   ScrollView,
+  RefreshControl,
 } from "react-native";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Swipeable } from "react-native-gesture-handler";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { fmtDate, makeId } from "../../lib/helpers";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
@@ -27,20 +25,27 @@ import { spacing, radius } from "../../lib/theme";
 import type { WorkoutSession } from "../../lib/types";
 
 function today(): string {
-  return new Date().toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function WorkoutLogScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { workouts, loading, addWorkout, deleteWorkout } = useWorkouts();
+  const insets = useSafeAreaInsets();
+  const { workouts, loading, addWorkout, deleteWorkout, reload } = useWorkouts();
+  const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [name, setName] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const nameInputRef = useRef<any>(null);
+
+  // Focus the input after the bottom sheet opens
+  useEffect(() => {
+    if (modalVisible) {
+      const timer = setTimeout(() => nameInputRef.current?.focus(), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [modalVisible]);
 
   function handleDayPress(dateKey: string, daySessions: WorkoutSession[]) {
     if (daySessions.length === 0) return;
@@ -60,7 +65,7 @@ export default function WorkoutLogScreen() {
   function handleAdd() {
     if (!name.trim()) return;
     const session: WorkoutSession = {
-      id: Date.now().toString(),
+      id: makeId(),
       name: name.trim(),
       date: today(),
       exercises: [],
@@ -82,7 +87,7 @@ export default function WorkoutLogScreen() {
   ), [theme]);
 
   return (
-      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 12 }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Workout Log</Text>
           <Button label="+ Add" onPress={() => setModalVisible(true)} small />
@@ -96,7 +101,16 @@ export default function WorkoutLogScreen() {
             <Skeleton.Card />
           </Skeleton.Group>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={async () => { setRefreshing(true); await reload(); setRefreshing(false); }}
+                tintColor={theme.colors.primary}
+              />
+            }
+          >
             <CalendarGrid sessions={workouts} onDayPress={handleDayPress} />
 
             {/* List header */}
@@ -120,30 +134,32 @@ export default function WorkoutLogScreen() {
                 subtitle={selectedDate ? "Tap another day or clear the filter." : "Tap + Add to log your first workout."}
               />
             ) : (
-              displayedWorkouts.map((item) => (
-                <Swipeable key={item.id} renderRightActions={() => renderRightActions(() => deleteWorkout(item.id))}>
-                  <Pressable onPress={() => router.push(`/session/${item.id}`)}>
-                    <Card style={styles.row}>
-                      <View style={styles.rowContent}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Text style={[styles.rowName, { color: theme.colors.text }]}>{item.name}</Text>
-                          {item.completedAt ? (
-                            <Text style={{ backgroundColor: theme.colors.success, color: theme.colors.successText, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>✓ Done</Text>
-                          ) : item.isActive ? (
-                            <Text style={{ backgroundColor: theme.colors.danger, color: theme.colors.dangerText, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>● Active</Text>
-                          ) : null}
+              displayedWorkouts.map((item, index) => (
+                <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(300)}>
+                  <Swipeable renderRightActions={() => renderRightActions(() => deleteWorkout(item.id))}>
+                    <Pressable onPress={() => router.push(`/session/${item.id}`)}>
+                      <Card style={styles.row}>
+                        <View style={styles.rowContent}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <Text style={[styles.rowName, { color: theme.colors.text }]}>{item.name}</Text>
+                            {item.completedAt ? (
+                              <Text style={{ backgroundColor: theme.colors.success, color: theme.colors.successText, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>✓ Done</Text>
+                            ) : item.isActive ? (
+                              <Text style={{ backgroundColor: theme.colors.danger, color: theme.colors.dangerText, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>● Active</Text>
+                            ) : null}
+                          </View>
+                          <Text style={[styles.rowMeta, { color: theme.colors.muted }]}>
+                            {fmtDate(item.date)}
+                            {item.exercises.length > 0
+                              ? ` · ${item.exercises.length} exercise${item.exercises.length !== 1 ? "s" : ""} · ${item.exercises.reduce((a, ex) => a + ex.sets.filter(s => s.completed).length, 0)}/${item.exercises.reduce((a, ex) => a + ex.sets.length, 0)} sets`
+                              : ""}
+                          </Text>
                         </View>
-                        <Text style={[styles.rowMeta, { color: theme.colors.muted }]}>
-                          {fmtDate(item.date)}
-                          {item.exercises.length > 0
-                            ? ` · ${item.exercises.length} exercise${item.exercises.length !== 1 ? "s" : ""} · ${item.exercises.reduce((a, ex) => a + ex.sets.filter(s => s.completed).length, 0)}/${item.exercises.reduce((a, ex) => a + ex.sets.length, 0)} sets`
-                            : ""}
-                        </Text>
-                      </View>
-                      <Text style={[styles.chevron, { color: theme.colors.muted }]}>›</Text>
-                    </Card>
-                  </Pressable>
-                </Swipeable>
+                        <Text style={[styles.chevron, { color: theme.colors.muted }]}>›</Text>
+                      </Card>
+                    </Pressable>
+                  </Swipeable>
+                </Animated.View>
               ))
             )}
           </ScrollView>
@@ -151,13 +167,13 @@ export default function WorkoutLogScreen() {
 
         <AppBottomSheet visible={modalVisible} onClose={handleCancel}>
           <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Workout</Text>
-          <TextInput
+          <BottomSheetTextInput
+            ref={nameInputRef}
             style={[styles.input, { backgroundColor: theme.colors.bg, color: theme.colors.text }]}
             placeholder="e.g. Upper Body, Run 5k..."
             placeholderTextColor={theme.colors.muted}
             value={name}
             onChangeText={setName}
-            autoFocus
             returnKeyType="done"
             onSubmitEditing={handleAdd}
           />
@@ -174,7 +190,7 @@ export default function WorkoutLogScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 64,
+    paddingTop: 0,
     paddingHorizontal: spacing.lg,
   },
   header: {

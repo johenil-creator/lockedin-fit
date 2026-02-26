@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import type { Exercise } from "../lib/types";
 import { loadPlan, savePlan, clearPlan as clearPlanStorage, loadPlanProgress, savePlanProgress } from "../lib/storage";
 
@@ -11,6 +11,8 @@ type PlanContextValue = {
   completedDays: Record<string, string>;
   markDayCompleted: (week: string, day: string) => void;
   isDayCompleted: (week: string, day: string) => boolean;
+  isPlanComplete: boolean;
+  totalPlanDays: number;
 };
 
 const PlanCtx = createContext<PlanContextValue>({
@@ -22,6 +24,8 @@ const PlanCtx = createContext<PlanContextValue>({
   completedDays: {},
   markDayCompleted: () => {},
   isDayCompleted: () => false,
+  isPlanComplete: false,
+  totalPlanDays: 0,
 });
 
 export function PlanProvider({ children }: { children: React.ReactNode }) {
@@ -69,8 +73,20 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     return !!completedDays[`${week}|${day}`];
   }, [completedDays]);
 
+  // Compute total unique plan days and whether all are complete
+  const { isPlanComplete, totalPlanDays } = useMemo(() => {
+    if (exercises.length === 0) return { isPlanComplete: false, totalPlanDays: 0 };
+    const dayKeys = new Set<string>();
+    for (const ex of exercises) {
+      dayKeys.add(`${ex.week || "Week 1"}|${ex.day || "Day 1"}`);
+    }
+    const total = dayKeys.size;
+    const allDone = total > 0 && Array.from(dayKeys).every((k) => !!completedDays[k]);
+    return { isPlanComplete: allDone, totalPlanDays: total };
+  }, [exercises, completedDays]);
+
   return (
-    <PlanCtx.Provider value={{ planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted }}>
+    <PlanCtx.Provider value={{ planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted, isPlanComplete, totalPlanDays }}>
       {children}
     </PlanCtx.Provider>
   );

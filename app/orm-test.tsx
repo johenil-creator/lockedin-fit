@@ -7,6 +7,7 @@ import {
   Pressable,
   TextInput,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -739,7 +740,7 @@ export default function OrmTestScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       {/* Fixed header */}
       <View style={styles.header}>
-        <BackButton variant="close" onPress={() => setExitModalVisible(true)} />
+        <BackButton variant="close" onPress={() => { Keyboard.dismiss(); setExitModalVisible(true); }} />
         <Text style={[styles.unitLabel, { color: theme.colors.muted }]}>{unit.toUpperCase()}</Text>
       </View>
 

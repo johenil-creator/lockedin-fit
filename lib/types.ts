@@ -108,6 +108,11 @@ export type UserProfile = {
     bench?: string;
   };
   lastTestedAt?: string;
+  restDays?: number[];         // 0=Sun … 6=Sat — days with no workout expected
+  freezesRemaining?: number;   // streak freezes left this week (default 2)
+  freezesResetWeek?: string;   // ISO week string (e.g. "2026-W09") when freezes last reset
+  defaultRestTimer?: number;   // rest timer default in seconds (30/60/90/120)
+  hapticsEnabled?: boolean;    // global haptics toggle (default true)
 };
 
 // ── 1RM Test Session ────────────────────────────────────────────────────────

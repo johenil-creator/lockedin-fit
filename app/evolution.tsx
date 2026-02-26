@@ -6,7 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Dimensions,
+  useWindowDimensions,
   type LayoutChangeEvent,
 } from "react-native";
 import Animated, {
@@ -30,7 +30,6 @@ import { glowColors, spacing, radius, typography } from "../lib/theme";
 import { RANK_IMAGES, EVOLUTION_RANKS } from "../components/RankEvolutionPath";
 import type { RankLevel } from "../lib/types";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
 const NODE_SIZE = 64;
 const NODE_COLUMN_WIDTH = 96;
 const CONNECTOR_WIDTH = 28;
@@ -197,6 +196,7 @@ function PathNode({
 
 export default function EvolutionScreen() {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
   const { theme } = useAppTheme();
   const { xp, rank, progress, toNext, nextTier } = useXP();
@@ -207,7 +207,7 @@ export default function EvolutionScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const nodePositions = useRef<Record<string, number>>({});
-  const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH);
+  const [containerWidth, setContainerWidth] = useState(screenWidth);
 
   const getNodeState = useCallback(
     (tierRank: RankLevel): "completed" | "current" | "locked" => {

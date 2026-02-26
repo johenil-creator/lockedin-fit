@@ -18,6 +18,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  FadeIn,
+  FadeOut,
 } from "react-native-reanimated";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useWorkouts } from "../../hooks/useWorkouts";
@@ -37,15 +39,15 @@ import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
 import { BackButton } from "../../components/BackButton";
+import { SessionHeader } from "../../components/session/SessionHeader";
 import { Skeleton } from "../../components/Skeleton";
 import { AppBottomSheet } from "../../components/AppBottomSheet";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { useRestTimers } from "../../hooks/useRestTimers";
 import { useProfileContext } from "../../contexts/ProfileContext";
+import { makeId } from "../../lib/helpers";
 import type { WorkoutSession, SessionExercise, SetEntry } from "../../lib/types";
-
-function makeId() {
-  return Date.now().toString() + Math.random().toString(36).slice(2, 6);
-}
 
 function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -121,9 +123,12 @@ export default function SessionScreen() {
   const [classifyAnchor, setClassifyAnchor] = useState("none");
   const [showCues, setShowCues] = useState(false);
 
-  // Rest timers: key = `${exerciseId}-${setIdx}`, value = seconds remaining
-  const [restTimers, setRestTimers] = useState<Record<string, number>>({});
-  const intervalsRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  // PR flash state
+  const [prFlash, setPrFlash] = useState<string | null>(null); // exercise name
+  const prFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Rest timers
+  const { restTimers, startRestTimer, dismissRestTimer, advanceTimers } = useRestTimers();
 
   // Per-exercise note editing: key = exerciseId
   const [editingNotes, setEditingNotes] = useState<Record<string, boolean>>({});
@@ -162,23 +167,7 @@ export default function SessionScreen() {
 
         // Advance rest timers by the time spent in background
         if (bgDuration > 1000) {
-          const elapsedSec = Math.floor(bgDuration / 1000);
-          setRestTimers((prev) => {
-            const updated: Record<string, number> = {};
-            for (const [key, remaining] of Object.entries(prev)) {
-              const adjusted = remaining - elapsedSec;
-              if (adjusted > 0) {
-                updated[key] = adjusted;
-              } else {
-                // Timer expired while in background — clean up interval
-                if (intervalsRef.current[key]) {
-                  clearInterval(intervalsRef.current[key]);
-                  delete intervalsRef.current[key];
-                }
-              }
-            }
-            return updated;
-          });
+          advanceTimers(Math.floor(bgDuration / 1000));
         }
 
         setPaused(true);
@@ -201,14 +190,6 @@ export default function SessionScreen() {
     const intervalId = setInterval(tick, 1000);
     return () => clearInterval(intervalId);
   }, [session?.isActive, session?.startedAt]);
-
-  // Cleanup all rest timer intervals on unmount
-  useEffect(() => {
-    const refs = intervalsRef.current;
-    return () => {
-      Object.values(refs).forEach(clearInterval);
-    };
-  }, []);
 
   // Load custom catalog entries into the matcher on mount
   useEffect(() => {
@@ -251,50 +232,6 @@ export default function SessionScreen() {
         <Text style={[styles.notFound, { color: theme.colors.muted }]}>Workout not found.</Text>
       </View>
     );
-  }
-
-  function startRestTimer(exId: string, setIdx: number, restTime: number) {
-    const key = `${exId}-${setIdx}`;
-    const duration = restTime || 90;
-
-    // Enforce single active rest timer — dismiss any existing ones first
-    Object.keys(intervalsRef.current).forEach((existingKey) => {
-      if (existingKey !== key) {
-        clearInterval(intervalsRef.current[existingKey]);
-        delete intervalsRef.current[existingKey];
-      }
-    });
-    setRestTimers((_prev) => {
-      // Clear all other timers, keep only the new one
-      return { [key]: duration };
-    });
-
-    // Clear any existing interval for this key
-    if (intervalsRef.current[key]) clearInterval(intervalsRef.current[key]);
-
-    intervalsRef.current[key] = setInterval(() => {
-      setRestTimers((prev) => {
-        const next = (prev[key] ?? 0) - 1;
-        if (next <= 0) {
-          clearInterval(intervalsRef.current[key]);
-          delete intervalsRef.current[key];
-          const { [key]: _, ...rest } = prev;
-          return rest;
-        }
-        return { ...prev, [key]: next };
-      });
-    }, 1000);
-  }
-
-  function dismissRestTimer(key: string) {
-    if (intervalsRef.current[key]) {
-      clearInterval(intervalsRef.current[key]);
-      delete intervalsRef.current[key];
-    }
-    setRestTimers((prev) => {
-      const { [key]: _, ...rest } = prev;
-      return rest;
-    });
   }
 
   function addExerciseWithLoad(name: string, planSets?: string, planReps?: string) {
@@ -420,12 +357,41 @@ export default function SessionScreen() {
       if (hasLaterCompleted) return; // can't uncheck — later sets depend on it
     }
 
-    // If marking completed (transitioning from false to true), start rest timer
+    // If marking completed (transitioning from false to true), start rest timer + PR check
     if (patch.completed === true) {
       const wasCompleted = ex.sets[setIdx]?.completed;
       if (!wasCompleted) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        startRestTimer(exId, setIdx, ex.restTime ?? 90);
+        startRestTimer(exId, setIdx, ex.restTime ?? profile.defaultRestTimer ?? 90);
+
+        // PR detection — compare this set's Epley 1RM against past sessions
+        const setData = { ...ex.sets[setIdx], ...patch };
+        const w = parseFloat(setData.weight);
+        const r = parseFloat(setData.reps);
+        if (!isNaN(w) && !isNaN(r) && r > 0 && !setData.isWarmUp) {
+          const current1RM = w * (1 + r / 30);
+          let prevBest = 0;
+          for (const pw of workouts) {
+            if (pw.id === session.id || !pw.completedAt) continue;
+            for (const pe of pw.exercises) {
+              if (pe.name !== ex.name) continue;
+              for (const ps of pe.sets) {
+                if (!ps.completed) continue;
+                const pw2 = parseFloat(ps.weight);
+                const pr2 = parseFloat(ps.reps);
+                if (!isNaN(pw2) && !isNaN(pr2) && pr2 > 0) {
+                  prevBest = Math.max(prevBest, pw2 * (1 + pr2 / 30));
+                }
+              }
+            }
+          }
+          if (prevBest > 0 && current1RM > prevBest) {
+            if (prFlashTimer.current) clearTimeout(prFlashTimer.current);
+            setPrFlash(ex.name);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            prFlashTimer.current = setTimeout(() => setPrFlash(null), 2500);
+          }
+        }
       }
     }
 
@@ -538,6 +504,74 @@ export default function SessionScreen() {
   );
   const totalSets = session.exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
 
+  // ── Read-only view for completed sessions ────────────────────────────────────
+  if (!session.isActive && session.completedAt) {
+    const startMs = session.startedAt ? new Date(session.startedAt).getTime() : 0;
+    const endMs = new Date(session.completedAt).getTime();
+    const durationSec = startMs > 0 ? Math.max(0, Math.floor((endMs - startMs) / 1000)) : 0;
+    const totalVolume = session.exercises.reduce((vol, ex) =>
+      vol + ex.sets.reduce((v, s) => {
+        if (!s.completed) return v;
+        const w = parseFloat(s.weight) || 0;
+        const r = parseFloat(s.reps) || 0;
+        return v + w * r;
+      }, 0), 0
+    );
+    const completionRate = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
+
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+        <SessionHeader
+          sessionName={session.name}
+          isActive={false}
+          activeExerciseId={null}
+          onClearActiveExercise={() => {}}
+        />
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, paddingTop: 8 }}>
+          {/* Summary stats */}
+          <View style={[styles.readOnlySummary, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+            <View style={styles.readOnlyStat}>
+              <Text style={[styles.readOnlyStatVal, { color: theme.colors.primary }]}>
+                {formatElapsed(durationSec)}
+              </Text>
+              <Text style={[styles.readOnlyStatLabel, { color: theme.colors.muted }]}>Duration</Text>
+            </View>
+            <View style={[styles.readOnlyDivider, { backgroundColor: theme.colors.border }]} />
+            <View style={styles.readOnlyStat}>
+              <Text style={[styles.readOnlyStatVal, { color: theme.colors.text }]}>
+                {totalVolume.toLocaleString()} {sessionUnit}
+              </Text>
+              <Text style={[styles.readOnlyStatLabel, { color: theme.colors.muted }]}>Volume</Text>
+            </View>
+            <View style={[styles.readOnlyDivider, { backgroundColor: theme.colors.border }]} />
+            <View style={styles.readOnlyStat}>
+              <Text style={[styles.readOnlyStatVal, { color: theme.colors.text }]}>{completionRate}%</Text>
+              <Text style={[styles.readOnlyStatLabel, { color: theme.colors.muted }]}>Complete</Text>
+            </View>
+          </View>
+
+          {/* Exercise list */}
+          {session.exercises.map((ex) => (
+            <View key={ex.exerciseId} style={[styles.readOnlyExCard, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+              <Text style={[styles.readOnlyExName, { color: theme.colors.text }]}>{ex.name}</Text>
+              {ex.sets.map((s, i) => (
+                <View key={i} style={[styles.readOnlySetRow, { borderTopColor: i === 0 ? "transparent" : theme.colors.border }]}>
+                  <Text style={[styles.readOnlySetNum, { color: s.isWarmUp ? theme.colors.accent : theme.colors.muted }]}>
+                    {s.isWarmUp ? `W${i + 1}` : `${i + 1 - (ex.sets.slice(0, i).filter((x) => !!x.isWarmUp).length)}`}
+                  </Text>
+                  <Text style={[styles.readOnlySetWeight, { color: theme.colors.text }]}>{s.weight || "—"} {sessionUnit}</Text>
+                  <Text style={[styles.readOnlySetReps, { color: theme.colors.text }]}>× {s.reps || "—"}</Text>
+                  <Text style={{ color: s.completed ? theme.colors.success : theme.colors.muted, fontSize: 14 }}>
+                    {s.completed ? "✓" : "—"}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
 
   // Focused exercise view
   const activeExercise = activeExerciseId
@@ -550,27 +584,12 @@ export default function SessionScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <BackButton onPress={() => {
-          if (activeExerciseId) {
-            setActiveExerciseId(null);
-          } else if (session.isActive) {
-            Alert.alert(
-              "Leave session?",
-              "Your progress is saved.",
-              [
-                { text: "Stay", style: "cancel" },
-                { text: "Leave", style: "destructive", onPress: () => router.back() },
-              ]
-            );
-          } else {
-            router.back();
-          }
-        }} />
-        <View style={styles.headerCenter}>
-          <Text style={[styles.sessionName, { color: theme.colors.text }]} numberOfLines={1}>{session.name}</Text>
-        </View>
-      </View>
+      <SessionHeader
+        sessionName={session.name}
+        isActive={!!session.isActive}
+        activeExerciseId={activeExerciseId}
+        onClearActiveExercise={() => setActiveExerciseId(null)}
+      />
 
 
       {/* Rank mascot + how-to cues */}
@@ -606,6 +625,15 @@ export default function SessionScreen() {
         {activeExercise ? (
           /* ── Focused Exercise View ─────────────────────────────────── */
           <View>
+            {prFlash === activeExercise.name && (
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(300)}
+                style={[styles.prBadge, { backgroundColor: theme.colors.success }]}
+              >
+                <Text style={[styles.prBadgeText, { color: theme.colors.successText }]}>NEW PR!</Text>
+              </Animated.View>
+            )}
             <Text style={[styles.focusedTitle, { color: theme.colors.text }]}>{activeExercise.name}</Text>
 
 
@@ -891,7 +919,7 @@ export default function SessionScreen() {
                             }
 
                             // ── Streak ──────────────────────────────────────────
-                            const newStreak = await recordActivity();
+                            const { streak: newStreak } = await recordActivity();
 
                             // ── PR detection (Epley 1RM vs prior sessions) ─────
                             const prevSessions = workouts.filter(
@@ -992,7 +1020,7 @@ export default function SessionScreen() {
         ) : null}
 
         <Text style={[styles.orLabel, { color: theme.colors.muted }]}>Or enter manually:</Text>
-        <TextInput
+        <BottomSheetTextInput
           style={[styles.manualInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text }]}
           placeholder="Exercise name"
           placeholderTextColor={theme.colors.muted}
@@ -1205,6 +1233,18 @@ const styles = StyleSheet.create({
   },
   // Exercise list rows
   // Focused exercise view
+  prBadge: {
+    alignSelf: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  prBadgeText: {
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+  },
   focusedTitle: {
     fontSize: 22,
     fontWeight: "700",
@@ -1275,6 +1315,23 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalActions: { flexDirection: "row" },
+  readOnlySummary: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  readOnlyStat: { flex: 1, alignItems: "center" } as const,
+  readOnlyStatVal: { fontSize: 16, fontWeight: "700", marginBottom: 2 } as const,
+  readOnlyStatLabel: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 } as const,
+  readOnlyDivider: { width: 1, alignSelf: "stretch", marginVertical: 4 } as const,
+  readOnlyExCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 12 },
+  readOnlyExName: { fontSize: 16, fontWeight: "700", marginBottom: 8 } as const,
+  readOnlySetRow: { flexDirection: "row", alignItems: "center", paddingVertical: 6, borderTopWidth: 1 } as const,
+  readOnlySetNum: { width: 28, fontSize: 13, fontWeight: "600" } as const,
+  readOnlySetWeight: { flex: 1, fontSize: 14, fontWeight: "600" } as const,
+  readOnlySetReps: { width: 60, fontSize: 14 },
 });
 
 const pauseStyles = StyleSheet.create({
