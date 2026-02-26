@@ -781,23 +781,27 @@ export default function SessionScreen() {
                 );
               })}
 
-              <View style={styles.setActionsRow}>
-                <Pressable style={styles.addSetBtn} onPress={() => addWarmUpSet(activeExercise.exerciseId)}>
-                  <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Warm-Up Set</Text>
-                </Pressable>
-                {activeExercise.sets.filter((s) => !!s.isWarmUp).length > 0 && (
-                  <Pressable style={styles.addSetBtn} onPress={() => removeWarmUpSet(activeExercise.exerciseId)}>
-                    <Text style={[styles.addSetText, { color: theme.colors.muted }]}>- Warm-Up Set</Text>
+              <View style={styles.setActionsGroup}>
+                <View style={styles.setActionsRow}>
+                  <Pressable style={styles.addSetBtn} onPress={() => addWarmUpSet(activeExercise.exerciseId)}>
+                    <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Warm-Up</Text>
                   </Pressable>
-                )}
-                <Pressable style={styles.addSetBtn} onPress={() => addSet(activeExercise.exerciseId)}>
-                  <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Working Set</Text>
-                </Pressable>
-                {activeExercise.sets.filter((s) => !s.isWarmUp).length > 1 && (
-                  <Pressable style={styles.addSetBtn} onPress={() => removeWorkingSet(activeExercise.exerciseId)}>
-                    <Text style={[styles.addSetText, { color: theme.colors.muted }]}>- Working Set</Text>
+                  {activeExercise.sets.filter((s) => !!s.isWarmUp).length > 0 && (
+                    <Pressable style={styles.addSetBtn} onPress={() => removeWarmUpSet(activeExercise.exerciseId)}>
+                      <Text style={[styles.addSetText, { color: theme.colors.muted }]}>− Warm-Up</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <View style={styles.setActionsRow}>
+                  <Pressable style={styles.addSetBtn} onPress={() => addSet(activeExercise.exerciseId)}>
+                    <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Working Set</Text>
                   </Pressable>
-                )}
+                  {activeExercise.sets.filter((s) => !s.isWarmUp).length > 1 && (
+                    <Pressable style={styles.addSetBtn} onPress={() => removeWorkingSet(activeExercise.exerciseId)}>
+                      <Text style={[styles.addSetText, { color: theme.colors.muted }]}>− Working Set</Text>
+                    </Pressable>
+                  )}
+                </View>
               </View>
             </View>
 
@@ -1237,13 +1241,16 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+  setActionsGroup: {
+    marginTop: 12,
+    gap: 10,
+  },
   setActionsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
+    gap: 16,
   },
-  addSetBtn: { alignSelf: "flex-start" },
+  addSetBtn: { paddingVertical: 4 },
   addSetText: { fontSize: 13, fontWeight: "600" },
   // Exercise list rows
   // Focused exercise view
