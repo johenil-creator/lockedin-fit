@@ -93,9 +93,9 @@ export default function OnboardingScreen() {
   }
 
   function updateLiftInput(lift: string, field: keyof LiftInput, value: string) {
-    // Cap reps at 2 digits, weight at 4 digits
-    const cleaned = value.replace(/[^0-9.]/g, "");
-    const maxLen = field === "reps" ? 2 : 4;
+    // Cap reps at 2 digits, weight at 3 digits
+    const cleaned = value.replace(/[^0-9]/g, "");
+    const maxLen = field === "reps" ? 2 : 3;
     const capped = cleaned.slice(0, maxLen);
     setLiftInputs((prev) => ({
       ...prev,
@@ -320,11 +320,12 @@ export default function OnboardingScreen() {
                         },
                       ]}
                       keyboardType="numeric"
+                      maxLength={3}
                       placeholder="e.g. 100"
                       placeholderTextColor={theme.colors.muted}
                       value={manualInputs[lift] ?? ""}
                       onChangeText={(v) =>
-                        setManualInputs((prev) => ({ ...prev, [lift]: v }))
+                        setManualInputs((prev) => ({ ...prev, [lift]: v.replace(/[^0-9]/g, "").slice(0, 3) }))
                       }
                     />
                   </View>
@@ -444,6 +445,7 @@ export default function OnboardingScreen() {
                         },
                       ]}
                       keyboardType="numeric"
+                      maxLength={3}
                       placeholder="0"
                       placeholderTextColor={theme.colors.muted}
                       value={liftInputs[lift]?.weight ?? ""}
@@ -462,6 +464,7 @@ export default function OnboardingScreen() {
                         },
                       ]}
                       keyboardType="numeric"
+                      maxLength={2}
                       placeholder="0"
                       placeholderTextColor={theme.colors.muted}
                       value={liftInputs[lift]?.reps ?? ""}

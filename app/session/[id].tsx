@@ -28,8 +28,7 @@ import { useXP } from "../../hooks/useXP";
 import { useStreak } from "../../hooks/useStreak";
 import { usePerformance } from "../../hooks/usePerformance";
 import { buildPerformanceWeek, upsertPerformanceWeek, isoWeekKey } from "../../lib/performanceScore";
-import { useLocke } from "../../contexts/LockeContext";
-import { awardSessionXP } from "../../lib/xpService";
+import { awardSessionXP, buildWorkoutCompleteParams } from "../../lib/xpService";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
@@ -108,7 +107,6 @@ export default function SessionScreen() {
   const { xp, setXPRecord, rank } = useXP();
   const { recordActivity } = useStreak();
   const { performance, savePerformanceRecord } = usePerformance();
-  const { fire } = useLocke();
   const { profile } = useProfileContext();
   const sessionUnit = profile.weightUnit === "lbs" ? "lbs" : "kg";
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -401,12 +399,12 @@ export default function SessionScreen() {
   function updateSet(exId: string, setIdx: number, patch: Partial<SetEntry>) {
     if (!session) return;
 
-    // Cap reps to 2 digits, weight to 4 characters
+    // Cap reps to 2 digits, weight to 3 digits
     if (patch.reps !== undefined && typeof patch.reps === "string") {
       patch = { ...patch, reps: patch.reps.replace(/[^0-9]/g, "").slice(0, 2) };
     }
     if (patch.weight !== undefined && typeof patch.weight === "string") {
-      patch = { ...patch, weight: patch.weight.replace(/[^0-9.]/g, "").slice(0, 4) };
+      patch = { ...patch, weight: patch.weight.replace(/[^0-9]/g, "").slice(0, 3) };
     }
 
     const ex = session.exercises.find((e) => e.exerciseId === exId);
@@ -661,7 +659,8 @@ export default function SessionScreen() {
                         placeholderTextColor="#B0B8C4"
                         value={s.weight}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { weight: v })}
-                        keyboardType="decimal-pad"
+                        keyboardType="numeric"
+                        maxLength={3}
                         editable={!isFutureSet}
                       />
                       <TextInput
@@ -671,6 +670,7 @@ export default function SessionScreen() {
                         value={s.reps}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { reps: v })}
                         keyboardType="number-pad"
+                        maxLength={2}
                         editable={!isFutureSet}
                       />
                       <Pressable
@@ -784,14 +784,16 @@ export default function SessionScreen() {
               const label = nextSet.isWarmUp
                 ? `Log Warm-Up ${activeExercise.sets.slice(0, nextSetIdx).filter((s) => !!s.isWarmUp).length + 1}`
                 : `Log Set ${activeExercise.sets.slice(0, nextSetIdx).filter((s) => !s.isWarmUp).length + 1}`;
+              const resting = exerciseHasActiveRestTimer(activeExercise);
               return (
                 <View style={{ marginTop: 12 }}>
                   <Button
-                    label={label}
+                    label={resting ? "Resting…" : label}
                     onPress={() => {
                       updateSet(activeExercise.exerciseId, nextSetIdx, { completed: true });
                     }}
                     variant={undefined}
+                    disabled={resting}
                   />
                 </View>
               );
@@ -868,10 +870,17 @@ export default function SessionScreen() {
                           text: "End Session",
                           style: "destructive",
                           onPress: async () => {
-                            const completed = {
+                            // ── Idempotency guard ──────────────────────────────
+                            if (session.xpClaimed) {
+                              router.replace("/");
+                              return;
+                            }
+
+                            const completed: WorkoutSession = {
                               ...session,
                               isActive: false,
                               completedAt: new Date().toISOString(),
+                              xpClaimed: true,
                             };
                             await updateWorkout(completed);
 
@@ -916,13 +925,13 @@ export default function SessionScreen() {
                             });
 
                             // ── XP award ────────────────────────────────────────
-                            const { updatedRecord, rankedUp } = awardSessionXP(
+                            const xpResult = awardSessionXP(
                               xp,
                               completed,
                               isPR,
                               newStreak.current
                             );
-                            await setXPRecord(updatedRecord);
+                            await setXPRecord(xpResult.updatedRecord);
 
                             // ── Performance week ────────────────────────────────
                             const weekRecord = buildPerformanceWeek(
@@ -933,23 +942,21 @@ export default function SessionScreen() {
                             );
                             await savePerformanceRecord(upsertPerformanceWeek(performance, weekRecord));
 
-                            // ── Locke reaction ──────────────────────────────────
-                            fire({
-                              trigger: rankedUp
-                                ? "rank_up"
-                                : isPR
-                                ? "pr_hit"
-                                : newStreak.current >= 7
-                                ? "streak_milestone"
-                                : newStreak.current >= 3
-                                ? "streak_milestone"
-                                : "session_complete",
-                              streakDays: newStreak.current,
-                              isPR,
-                              rank,
-                            });
+                            // ── Locke reaction (suppressed — workout-complete screen owns celebration)
 
-                            router.replace("/");
+                            // ── Navigate to Workout Complete screen ──────────────
+                            const params = buildWorkoutCompleteParams(
+                              completed,
+                              xpResult,
+                              isPR,
+                              newStreak.current
+                            );
+                            router.replace({
+                              pathname: "/workout-complete",
+                              params: {
+                                data: JSON.stringify(params),
+                              },
+                            });
                           },
                         },
                       ]

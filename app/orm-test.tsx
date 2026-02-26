@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -88,6 +88,49 @@ export default function OrmTestScreen() {
   const [setsVisible, setSetsVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Rest timer
+  const REST_DURATION = 120; // 2 minutes between 1RM sets
+  const [restTimer, setRestTimer] = useState<{ key: string; remaining: number } | null>(null);
+  const restIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function formatRestTime(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
+
+  function startRestTimer(setIdx: number) {
+    // Clear any existing timer
+    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    const key = `set-${setIdx}`;
+    setRestTimer({ key, remaining: REST_DURATION });
+    restIntervalRef.current = setInterval(() => {
+      setRestTimer((prev) => {
+        if (!prev || prev.remaining <= 1) {
+          if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+          restIntervalRef.current = null;
+          return null;
+        }
+        return { ...prev, remaining: prev.remaining - 1 };
+      });
+    }, 1000);
+  }
+
+  function dismissRestTimer() {
+    if (restIntervalRef.current) {
+      clearInterval(restIntervalRef.current);
+      restIntervalRef.current = null;
+    }
+    setRestTimer(null);
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    };
+  }, []);
+
   // If resuming an existing session, skip the unit picker
   useEffect(() => {
     if (ormTest.loading) return;
@@ -142,15 +185,17 @@ export default function OrmTestScreen() {
   }
 
   function handleCompleteCurrentSet() {
-    if (!currentLift) return;
+    if (!currentLift || restTimer) return;
     const nextIndex = currentLift.sets.findIndex((s) => !s.completed);
     if (nextIndex >= 0) {
       ormTest.completeSet(liftIndex, nextIndex);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      startRestTimer(nextIndex);
     }
   }
 
   async function handleCompleteLift() {
+    dismissRestTimer();
     await ormTest.completeLift();
     setSetsVisible(false);
   }
@@ -331,6 +376,7 @@ export default function OrmTestScreen() {
                 },
               ]}
               keyboardType="numeric"
+              maxLength={3}
               placeholder="0"
               placeholderTextColor={theme.colors.muted}
               value={currentLift.estimatedInput}
@@ -434,7 +480,8 @@ export default function OrmTestScreen() {
                           color: theme.colors.text,
                         },
                       ]}
-                      keyboardType="decimal-pad"
+                      keyboardType="numeric"
+                      maxLength={3}
                       value={set.weight}
                       onChangeText={(v) =>
                         ormTest.updateSetWeight(liftIndex, i, v)
@@ -453,6 +500,7 @@ export default function OrmTestScreen() {
                         },
                       ]}
                       keyboardType="number-pad"
+                      maxLength={2}
                       placeholder="reps"
                       placeholderTextColor={theme.colors.muted}
                       value={set.reps}
@@ -472,12 +520,13 @@ export default function OrmTestScreen() {
                         },
                       ]}
                       onPress={() => {
-                        if (!set.completed && !isFuture) {
+                        if (!set.completed && !isFuture && !restTimer) {
                           ormTest.completeSet(liftIndex, i);
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          startRestTimer(i);
                         }
                       }}
-                      disabled={set.completed || isFuture}
+                      disabled={set.completed || isFuture || !!restTimer}
                     >
                       <Text
                         style={{
@@ -491,6 +540,17 @@ export default function OrmTestScreen() {
                       </Text>
                     </Pressable>
                   </View>
+                  {restTimer?.key === `set-${i}` && (
+                    <Pressable
+                      onPress={dismissRestTimer}
+                      style={[styles.restPill, { backgroundColor: theme.colors.accent + "22" }]}
+                    >
+                      <Text style={{ color: theme.colors.accent, fontSize: 14, fontWeight: "700" }}>
+                        Rest: {formatRestTime(restTimer.remaining)}
+                      </Text>
+                      <Text style={{ color: theme.colors.muted, fontSize: 11, marginLeft: 8 }}>tap to skip</Text>
+                    </Pressable>
+                  )}
                   <Text style={[styles.amrapNote, { color: theme.colors.muted }]}>
                     Lift as many reps as you can with good form
                   </Text>
@@ -509,8 +569,8 @@ export default function OrmTestScreen() {
               : `${Math.round(set.prescribedPct * 100)}%`;
 
             return (
+              <View key={i}>
               <View
-                key={i}
                 style={[styles.setRow, { opacity: rowOpacity, marginBottom: 8 }]}
               >
                 <View style={styles.setColNum}>
@@ -527,7 +587,8 @@ export default function OrmTestScreen() {
                       color: theme.colors.text,
                     },
                   ]}
-                  keyboardType="decimal-pad"
+                  keyboardType="numeric"
+                  maxLength={3}
                   value={set.weight}
                   onChangeText={(v) =>
                     ormTest.updateSetWeight(liftIndex, i, v)
@@ -544,6 +605,7 @@ export default function OrmTestScreen() {
                     },
                   ]}
                   keyboardType="number-pad"
+                  maxLength={2}
                   value={set.reps}
                   placeholder={
                     typeof set.prescribedReps === "number"
@@ -565,12 +627,13 @@ export default function OrmTestScreen() {
                     },
                   ]}
                   onPress={() => {
-                    if (!set.completed && !isFuture) {
+                    if (!set.completed && !isFuture && !restTimer) {
                       ormTest.completeSet(liftIndex, i);
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      startRestTimer(i);
                     }
                   }}
-                  disabled={set.completed || isFuture}
+                  disabled={set.completed || isFuture || !!restTimer}
                 >
                   <Text
                     style={{
@@ -584,6 +647,18 @@ export default function OrmTestScreen() {
                   </Text>
                 </Pressable>
               </View>
+              {restTimer?.key === `set-${i}` && (
+                <Pressable
+                  onPress={dismissRestTimer}
+                  style={[styles.restPill, { backgroundColor: theme.colors.accent + "22" }]}
+                >
+                  <Text style={{ color: theme.colors.accent, fontSize: 14, fontWeight: "700" }}>
+                    Rest: {formatRestTime(restTimer.remaining)}
+                  </Text>
+                  <Text style={{ color: theme.colors.muted, fontSize: 11, marginLeft: 8 }}>tap to skip</Text>
+                </Pressable>
+              )}
+              </View>
             );
           })}
 
@@ -592,9 +667,9 @@ export default function OrmTestScreen() {
             <Button label="Complete Lift" onPress={handleCompleteLift} />
           ) : (
             <Button
-              label="Complete Set"
+              label={restTimer ? `Resting… ${formatRestTime(restTimer.remaining)}` : "Complete Set"}
               onPress={handleCompleteCurrentSet}
-              disabled={nextSetIndex < 0}
+              disabled={nextSetIndex < 0 || !!restTimer}
             />
           )}
           <View style={{ height: 40 }} />
@@ -950,5 +1025,15 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     gap: 0,
+  },
+  restPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginTop: 4,
+    marginBottom: 8,
   },
 });

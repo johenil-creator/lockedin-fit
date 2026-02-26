@@ -25,6 +25,7 @@ import type { RankLevel } from "../lib/types";
 
 // ── Rank images ─────────────────────────────────────────────────────────────
 export const RANK_IMAGES: Record<string, ImageSourcePropType> = {
+  Runt:     require("../assets/locke/ranks/Scout.png"), // placeholder until Runt art is added
   Scout:    require("../assets/locke/ranks/Scout.png"),
   Stalker:  require("../assets/locke/ranks/Stalker.png"),
   Hunter:   require("../assets/locke/ranks/Hunter.png"),
@@ -33,7 +34,7 @@ export const RANK_IMAGES: Record<string, ImageSourcePropType> = {
   Apex:     require("../assets/locke/ranks/Apex.png"),
 };
 
-export const EVOLUTION_RANKS = RANK_LADDER.filter((t) => t.rank !== "Runt");
+export const EVOLUTION_RANKS = RANK_LADDER;
 
 type Props = {
   currentRank: RankLevel;
@@ -50,11 +51,10 @@ type Props = {
 export function RankEvolutionPath({ currentRank, currentXP, xpForNextRank, progress }: Props) {
   const { theme } = useAppTheme();
   const router = useRouter();
-  const displayRank = currentRank === "Runt" ? "Scout" : currentRank;
-  const imageSource = RANK_IMAGES[displayRank];
+  const imageSource = RANK_IMAGES[currentRank] ?? RANK_IMAGES["Runt"];
 
   // Find next rank
-  const currentIdx = EVOLUTION_RANKS.findIndex((t) => t.rank === displayRank);
+  const currentIdx = EVOLUTION_RANKS.findIndex((t) => t.rank === currentRank);
   const nextRankName =
     currentIdx >= 0 && currentIdx < EVOLUTION_RANKS.length - 1
       ? EVOLUTION_RANKS[currentIdx + 1].rank
@@ -113,7 +113,7 @@ export function RankEvolutionPath({ currentRank, currentXP, xpForNextRank, progr
 
         {/* Rank name */}
         <Text style={[styles.rankName, { color: glowColors.viridian }]}>
-          {displayRank}
+          {currentRank}
         </Text>
 
         <View style={styles.badgeRow}>

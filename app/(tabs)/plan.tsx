@@ -222,7 +222,7 @@ function ExerciseCard({ exercise: ex }: { exercise: Exercise }) {
 export default function PlanScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { planName, exercises, loading, setPlan, clearPlan, isDayCompleted } = usePlanContext();
+  const { planName, exercises, loading, setPlan, clearPlan, isDayCompleted, completedDays } = usePlanContext();
   const { startSessionFromPlan, getActiveSession } = useWorkouts();
   const { profile } = useProfileContext();
   const [selectedWeek, setSelectedWeek] = useState(0);
@@ -353,6 +353,28 @@ export default function PlanScreen() {
   const weeks = groupByWeekDay(exercises);
   const activeWeek = weeks[selectedWeek];
 
+  // Check if a day was completed today (same calendar date)
+  function wasCompletedToday(week: string, day: string): boolean {
+    const iso = completedDays[`${week}|${day}`];
+    if (!iso) return false;
+    const completed = new Date(iso);
+    const now = new Date();
+    return (
+      completed.getFullYear() === now.getFullYear() &&
+      completed.getMonth() === now.getMonth() &&
+      completed.getDate() === now.getDate()
+    );
+  }
+
+  // A week is unlocked if it's the first week, or all days in the previous week are completed
+  function isWeekUnlocked(weekIndex: number): boolean {
+    if (weekIndex === 0) return true;
+    const prevWeek = weeks[weekIndex - 1];
+    return prevWeek.days.every((d) => isDayCompleted(prevWeek.week, d.day));
+  }
+
+  const activeWeekLocked = !isWeekUnlocked(selectedWeek);
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.bg, alignItems: "center", justifyContent: "center" }]}>
@@ -398,32 +420,70 @@ export default function PlanScreen() {
             showsHorizontalScrollIndicator={false}
             style={styles.weekTabs}
             contentContainerStyle={{ gap: 8, paddingRight: 8 }}
-            renderItem={({ item, index }) => (
-              <Pressable
-                style={[
-                  styles.weekTab,
-                  { backgroundColor: index === selectedWeek ? theme.colors.primary : theme.colors.mutedBg },
-                ]}
-                onPress={() => setSelectedWeek(index)}
-              >
-                <Text
+            renderItem={({ item, index }) => {
+              const unlocked = isWeekUnlocked(index);
+              return (
+                <Pressable
                   style={[
-                    styles.weekTabText,
-                    { color: index === selectedWeek ? theme.colors.primaryText : theme.colors.muted },
+                    styles.weekTab,
+                    { backgroundColor: index === selectedWeek ? theme.colors.primary : theme.colors.mutedBg },
+                    !unlocked && { opacity: 0.5 },
                   ]}
+                  onPress={() => setSelectedWeek(index)}
                 >
-                  {item.week}
-                </Text>
-              </Pressable>
-            )}
+                  <Text
+                    style={[
+                      styles.weekTabText,
+                      { color: index === selectedWeek ? theme.colors.primaryText : theme.colors.muted },
+                    ]}
+                  >
+                    {unlocked ? item.week : `🔒 ${item.week}`}
+                  </Text>
+                </Pressable>
+              );
+            }}
           />
 
           {/* Days + exercises */}
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-            {activeWeek?.days.map((dayGroup) => {
+            {activeWeek?.days.map((dayGroup, dayIdx) => {
               const dayDone = isDayCompleted(activeWeek.week, dayGroup.day);
               const dayKey = `${activeWeek.week}|${dayGroup.day}`;
               const isExpanded = expandedDays[dayKey] ?? false;
+              // Previous day must be completed AND not completed today (one plan day per calendar day)
+              const prevDay = dayIdx > 0 ? activeWeek.days[dayIdx - 1] : null;
+              const prevDayDone = !prevDay || isDayCompleted(activeWeek.week, prevDay.day);
+              const prevDoneToday = prevDay ? wasCompletedToday(activeWeek.week, prevDay.day) : false;
+              const dayLocked = activeWeekLocked || (!dayDone && (!prevDayDone || prevDoneToday));
+
+              const launchSession = async () => {
+                const active = getActiveSession();
+                if (active) {
+                  Alert.alert(
+                    "Active Session",
+                    "You already have an active session. Resume or end it first.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Resume Session", onPress: () => router.push(`/session/${active.id}`) },
+                    ]
+                  );
+                  return;
+                }
+                setStartingDay(dayGroup.day);
+                try {
+                  const id = await startSessionFromPlan(
+                    planName || "Workout",
+                    activeWeek.week,
+                    dayGroup.day,
+                    dayGroup.exercises,
+                    profile
+                  );
+                  router.push(`/session/${id}`);
+                } finally {
+                  setStartingDay(null);
+                }
+              };
+
               return (
               <View key={dayGroup.day} style={[styles.daySection, dayDone && { opacity: 0.55 }]}>
                 <Pressable onPress={() => toggleDay(dayKey)}>
@@ -442,43 +502,32 @@ export default function PlanScreen() {
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <Text style={{ color: theme.colors.muted, fontSize: 14 }}>{isExpanded ? "▾" : "▸"}</Text>
                       <Pressable
-                        style={[styles.startSessionBtn, { backgroundColor: theme.colors.primary }]}
-                        disabled={startingDay === dayGroup.day}
-                        onPress={async () => {
-                          const active = getActiveSession();
-                          if (active) {
+                        style={[styles.startSessionBtn, { backgroundColor: (dayDone || dayLocked) ? theme.colors.muted : theme.colors.primary }]}
+                        disabled={dayDone || activeWeekLocked || startingDay === dayGroup.day}
+                        onPress={() => {
+                          if (dayLocked && !activeWeekLocked) {
+                            // Soft lock — calendar or sequence constraint
+                            const prevDayName = prevDay!.day;
+                            const message = prevDoneToday
+                              ? `You already completed ${prevDayName} today. Come back tomorrow for ${dayGroup.day}.\n\nDoing two sessions in one day is not recommended.`
+                              : `Finish ${prevDayName} before starting ${dayGroup.day}.`;
                             Alert.alert(
-                              "Active Session",
-                              "You already have an active session. Resume or end it first.",
+                              prevDoneToday ? "Come Back Tomorrow" : "Complete Previous Day",
+                              message,
                               [
                                 { text: "Cancel", style: "cancel" },
-                                {
-                                  text: "Resume Session",
-                                  onPress: () => router.push(`/session/${active.id}`),
-                                },
+                                { text: "Start Anyway", onPress: launchSession },
                               ]
                             );
                             return;
                           }
-                          setStartingDay(dayGroup.day);
-                          try {
-                            const id = await startSessionFromPlan(
-                              planName || "Workout",
-                              activeWeek.week,
-                              dayGroup.day,
-                              dayGroup.exercises,
-                              profile
-                            );
-                            router.push(`/session/${id}`);
-                          } finally {
-                            setStartingDay(null);
-                          }
+                          launchSession();
                         }}
                       >
                         {startingDay === dayGroup.day ? (
                           <ActivityIndicator size="small" color={theme.colors.primaryText} />
                         ) : (
-                          <Text style={[styles.startSessionText, { color: theme.colors.primaryText }]}>▶ Start</Text>
+                          <Text style={[styles.startSessionText, { color: (dayDone || dayLocked) ? theme.colors.bg : theme.colors.primaryText }]}>{dayDone ? "✓ Done" : dayLocked ? "🔒 Locked" : "▶ Start"}</Text>
                         )}
                       </Pressable>
                     </View>

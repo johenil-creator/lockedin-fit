@@ -6,12 +6,12 @@ export type RankThreshold = { rank: RankLevel; xp: number };
 
 export const RANK_LADDER: RankThreshold[] = [
   { rank: "Runt",     xp: 0    },
-  { rank: "Scout",    xp: 100  },
-  { rank: "Stalker",  xp: 300  },
-  { rank: "Hunter",   xp: 600  },
+  { rank: "Scout",    xp: 50   },
+  { rank: "Stalker",  xp: 200  },
+  { rank: "Hunter",   xp: 500  },
   { rank: "Sentinel", xp: 1000 },
-  { rank: "Alpha",    xp: 1500 },
-  { rank: "Apex",     xp: 2200 },
+  { rank: "Alpha",    xp: 1600 },
+  { rank: "Apex",     xp: 2400 },
 ];
 
 /** Return the rank earned for a given total XP amount. */

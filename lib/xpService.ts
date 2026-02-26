@@ -1,15 +1,15 @@
-import type { WorkoutSession, XPRecord, XPHistoryEntry } from "./types";
-import { rankForXP, didRankUp } from "./rankService";
+import type { WorkoutSession, XPRecord, XPHistoryEntry, RankLevel } from "./types";
+import { rankForXP, didRankUp, rankProgress, xpToNextRank, nextRank } from "./rankService";
 
 // ── XP award amounts ──────────────────────────────────────────────────────────
 
 export const XP_AWARDS = {
-  PER_SET_COMPLETED:  1,
-  SESSION_COMPLETE:  10,
-  PR_HIT:            25,
-  STREAK_3_DAYS:     15,
-  STREAK_7_DAYS:     40,   // additive on top of 3-day award
-  RANK_UP:           50,
+  PER_SET_COMPLETED:  0,
+  SESSION_COMPLETE:  15,
+  PR_HIT:            10,
+  STREAK_3_DAYS:      5,
+  STREAK_7_DAYS:     10,
+  RANK_UP:           20,
 } as const;
 
 // ── Default empty record ──────────────────────────────────────────────────────
@@ -50,6 +50,10 @@ export type SessionXPResult = {
   awarded:       number;
   breakdown:     { reason: string; amount: number }[];
   rankedUp:      boolean;
+  previousRank:  RankLevel;
+  previousTotalXP: number;
+  newRank:       RankLevel;
+  newTotalXP:    number;
 };
 
 /**
@@ -109,5 +113,78 @@ export function awardSessionXP(
   }
 
   const awarded = current.total - oldTotal;
-  return { updatedRecord: current, awarded, breakdown, rankedUp };
+  return {
+    updatedRecord: current,
+    awarded,
+    breakdown,
+    rankedUp,
+    previousRank: record.rank,
+    previousTotalXP: oldTotal,
+    newRank: current.rank,
+    newTotalXP: current.total,
+  };
+}
+
+// ── Workout Complete Screen params ───────────────────────────────────────────
+
+export type WorkoutCompleteParams = {
+  sessionId:        string;
+  sessionName:      string;
+  xpAwarded:        number;
+  xpBreakdown:      { reason: string; amount: number }[];
+  completionPct:    number;  // 0–1
+  durationSeconds:  number;
+  setsCompleted:    number;
+  totalSets:        number;
+  exerciseCount:    number;
+  rankedUp:         boolean;
+  previousRank:     RankLevel;
+  newRank:          RankLevel;
+  previousTotalXP:  number;
+  newTotalXP:       number;
+  newProgress:      number;  // 0–1 within current rank band
+  xpToNext:         number;
+  nextRankName:     string | null;
+  isPR:             boolean;
+  streakDays:       number;
+};
+
+export function buildWorkoutCompleteParams(
+  session: WorkoutSession,
+  xpResult: SessionXPResult,
+  isPR: boolean,
+  streakDays: number
+): WorkoutCompleteParams {
+  const allSets = session.exercises.flatMap((e) => e.sets);
+  const setsCompleted = allSets.filter((s) => s.completed).length;
+  const totalSets = allSets.length;
+  const completionPct = totalSets > 0 ? setsCompleted / totalSets : 0;
+
+  const startMs = session.startedAt ? new Date(session.startedAt).getTime() : 0;
+  const endMs = session.completedAt ? new Date(session.completedAt).getTime() : Date.now();
+  const durationSeconds = startMs > 0 ? Math.max(0, Math.floor((endMs - startMs) / 1000)) : 0;
+
+  const next = nextRank(xpResult.newRank);
+
+  return {
+    sessionId:       session.id,
+    sessionName:     session.name,
+    xpAwarded:       xpResult.awarded,
+    xpBreakdown:     xpResult.breakdown,
+    completionPct,
+    durationSeconds,
+    setsCompleted,
+    totalSets,
+    exerciseCount:   session.exercises.length,
+    rankedUp:        xpResult.rankedUp,
+    previousRank:    xpResult.previousRank,
+    newRank:         xpResult.newRank,
+    previousTotalXP: xpResult.previousTotalXP,
+    newTotalXP:      xpResult.newTotalXP,
+    newProgress:     rankProgress(xpResult.newTotalXP),
+    xpToNext:        xpToNextRank(xpResult.newTotalXP),
+    nextRankName:    next ? next.rank : null,
+    isPR,
+    streakDays,
+  };
 }

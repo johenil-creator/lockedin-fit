@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Alert, DevSettings } fro
 import { useRouter } from "expo-router";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { useProfileContext } from "../../contexts/ProfileContext";
+import type { Exercise } from "../../lib/types";
 import { useXP } from "../../hooks/useXP";
 import { useStreak } from "../../hooks/useStreak";
 import { Card } from "../../components/Card";
@@ -38,12 +39,12 @@ function StatCell({ label, value, small }: { label: string; value: string; small
 export default function HomeScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { workouts, loading: workoutsLoading } = useWorkouts();
+  const { workouts, loading: workoutsLoading, startSessionFromPlan, getActiveSession } = useWorkouts();
   const { hydrated, profileRef } = useProfileContext();
   const { xp, rank, progress, toNext, nextTier } = useXP();
   const { streak, daysSinceActivity } = useStreak();
   const { fire } = useLocke();
-  const { exercises: planExercises } = usePlanContext();
+  const { exercises: planExercises, planName, isDayCompleted, completedDays } = usePlanContext();
   const didFireInactivity = useRef(false);
   const onboardingCheckDone = useRef(false);
 
@@ -79,6 +80,54 @@ export default function HomeScreen() {
   const activeSession = workouts.find((w) => w.isActive);
 
   const profile = profileRef.current;
+
+  // Check if a day was completed today (same calendar date)
+  function wasCompletedToday(week: string, day: string): boolean {
+    const iso = completedDays[`${week}|${day}`];
+    if (!iso) return false;
+    const completed = new Date(iso);
+    const now = new Date();
+    return (
+      completed.getFullYear() === now.getFullYear() &&
+      completed.getMonth() === now.getMonth() &&
+      completed.getDate() === now.getDate()
+    );
+  }
+
+  // Find the next incomplete plan day (respecting week/day locking + calendar)
+  function getNextPlanDay(): { week: string; day: string; exercises: Exercise[] } | null {
+    const weekMap = new Map<string, Map<string, Exercise[]>>();
+    for (const ex of planExercises) {
+      const w = ex.week || "Week 1";
+      const d = ex.day || "Day 1";
+      if (!weekMap.has(w)) weekMap.set(w, new Map());
+      const dayMap = weekMap.get(w)!;
+      if (!dayMap.has(d)) dayMap.set(d, []);
+      dayMap.get(d)!.push(ex);
+    }
+    const weeks = Array.from(weekMap.entries()).map(([week, dayMap]) => ({
+      week,
+      days: Array.from(dayMap.entries()).map(([day, exs]) => ({ day, exercises: exs })),
+    }));
+
+    for (let wi = 0; wi < weeks.length; wi++) {
+      if (wi > 0) {
+        const prev = weeks[wi - 1];
+        if (!prev.days.every((d) => isDayCompleted(prev.week, d.day))) break;
+      }
+      for (let di = 0; di < weeks[wi].days.length; di++) {
+        const dayGroup = weeks[wi].days[di];
+        if (isDayCompleted(weeks[wi].week, dayGroup.day)) continue;
+        // Check calendar: previous day must not have been completed today
+        if (di > 0) {
+          const prevDay = weeks[wi].days[di - 1];
+          if (wasCompletedToday(weeks[wi].week, prevDay.day)) return null;
+        }
+        return { week: weeks[wi].week, day: dayGroup.day, exercises: dayGroup.exercises };
+      }
+    }
+    return null;
+  }
   const has1RM = !!(
     profile.manual1RM?.deadlift ||
     profile.manual1RM?.squat ||
@@ -193,10 +242,50 @@ export default function HomeScreen() {
         <>
           <Button
             label="Start Session"
-            onPress={() => router.push("/plan")}
+            onPress={async () => {
+              const active = getActiveSession();
+              if (active) {
+                router.push(`/session/${active.id}`);
+                return;
+              }
+              const next = getNextPlanDay();
+              if (!next) {
+                // Distinguish between plan complete vs calendar-locked
+                const allDone = planExercises.length > 0 && (() => {
+                  const wm = new Map<string, Set<string>>();
+                  for (const ex of planExercises) {
+                    const w = ex.week || "Week 1";
+                    const d = ex.day || "Day 1";
+                    if (!wm.has(w)) wm.set(w, new Set());
+                    wm.get(w)!.add(d);
+                  }
+                  for (const [w, days] of wm) {
+                    for (const d of days) {
+                      if (!isDayCompleted(w, d)) return false;
+                    }
+                  }
+                  return true;
+                })();
+                Alert.alert(
+                  allDone ? "Plan Complete" : "Come Back Tomorrow",
+                  allDone
+                    ? "You've finished every day in your plan!"
+                    : "You already completed today's session. Rest up and come back tomorrow."
+                );
+                return;
+              }
+              const id = await startSessionFromPlan(
+                planName || "Workout",
+                next.week,
+                next.day,
+                next.exercises,
+                profile
+              );
+              router.push(`/session/${id}`);
+            }}
           />
           <View style={{ height: 12 }} />
-          <Button label="Browse Plans" onPress={() => router.push("/catalog")} variant="secondary" />
+          <Button label="View Plan" onPress={() => router.push("/plan")} variant="secondary" />
         </>
       ) : (
         <>

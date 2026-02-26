@@ -225,12 +225,13 @@ export default function ProfileScreen() {
                 style={[styles.input, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
                 value={manualOverrides[lift.key] ?? ""}
                 onChangeText={(val) =>
-                  setManualOverrides((prev) => ({ ...prev, [lift.key]: val }))
+                  setManualOverrides((prev) => ({ ...prev, [lift.key]: val.replace(/[^0-9]/g, "").slice(0, 3) }))
                 }
                 onBlur={() => handleManualBlur(lift.key)}
                 placeholder={`Manual override (${profile.weightUnit})`}
                 placeholderTextColor="#BDC4CE"
                 keyboardType="numeric"
+                maxLength={3}
               />
             </View>
           );

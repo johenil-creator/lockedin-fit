@@ -18,6 +18,7 @@ export default function RootLayout() {
               <Stack.Screen name="catalog" />
               <Stack.Screen name="orm-test" />
               <Stack.Screen name="evolution" />
+              <Stack.Screen name="workout-complete" options={{ gestureEnabled: false }} />
               <Stack.Screen name="settings" />
             </Stack>
           </PlanProvider>

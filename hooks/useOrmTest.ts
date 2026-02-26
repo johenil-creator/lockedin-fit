@@ -120,10 +120,11 @@ export function useOrmTest(
   }, []);
 
   const setEstimatedInput = useCallback((liftIndex: number, value: string) => {
+    const capped = value.replace(/[^0-9]/g, "").slice(0, 3);
     setSession((prev) => {
       if (!prev) return prev;
       const lifts = [...prev.lifts];
-      lifts[liftIndex] = { ...lifts[liftIndex], estimatedInput: value };
+      lifts[liftIndex] = { ...lifts[liftIndex], estimatedInput: capped };
       return { ...prev, lifts };
     });
   }, []);
@@ -142,11 +143,12 @@ export function useOrmTest(
   }, []);
 
   const updateSetReps = useCallback((liftIndex: number, setIndex: number, value: string) => {
+    const capped = value.replace(/[^0-9]/g, "").slice(0, 2);
     setSession((prev) => {
       if (!prev) return prev;
       const lift = prev.lifts[liftIndex];
       const sets = [...lift.sets];
-      sets[setIndex] = { ...sets[setIndex], reps: value };
+      sets[setIndex] = { ...sets[setIndex], reps: capped };
       const lifts = [...prev.lifts];
       lifts[liftIndex] = { ...lift, sets };
       return { ...prev, lifts };
@@ -154,11 +156,12 @@ export function useOrmTest(
   }, []);
 
   const updateSetWeight = useCallback((liftIndex: number, setIndex: number, value: string) => {
+    const capped = value.replace(/[^0-9]/g, "").slice(0, 3);
     setSession((prev) => {
       if (!prev) return prev;
       const lift = prev.lifts[liftIndex];
       const sets = [...lift.sets];
-      sets[setIndex] = { ...sets[setIndex], weight: value };
+      sets[setIndex] = { ...sets[setIndex], weight: capped };
       const lifts = [...prev.lifts];
       lifts[liftIndex] = { ...lift, sets };
       return { ...prev, lifts };

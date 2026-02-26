@@ -35,6 +35,7 @@ export type WorkoutSession = {
   goal?: string;
   planWeek?: string;
   planDay?: string;
+  xpClaimed?: boolean;
 };
 
 export type Exercise = {
