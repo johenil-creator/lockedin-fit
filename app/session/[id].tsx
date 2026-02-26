@@ -15,6 +15,7 @@ import {
   AppState,
   AppStateStatus,
 } from "react-native";
+import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -384,14 +385,15 @@ export default function SessionScreen() {
     update({ ...session, exercises: updated });
   }
 
-  function removeWorkingSet(exId: string) {
+  function removeSet(exId: string, setIndex: number) {
     if (!session) return;
     const updated = session.exercises.map((ex) => {
       if (ex.exerciseId !== exId) return ex;
-      const lastWorkingIdx = ex.sets.reduce((acc, s, i) => (!s.isWarmUp ? i : acc), -1);
-      if (lastWorkingIdx === -1) return ex;
-      const newSets = ex.sets.filter((_, i) => i !== lastWorkingIdx);
-      return { ...ex, sets: newSets };
+      const target = ex.sets[setIndex];
+      if (!target || target.completed) return ex;
+      const newSets = ex.sets.filter((_, i) => i !== setIndex);
+      const warmUpAdj = target.isWarmUp ? { warmUpSets: Math.max(0, (ex.warmUpSets ?? 0) - 1) } : {};
+      return { ...ex, sets: newSets, ...warmUpAdj };
     });
     update({ ...session, exercises: updated });
   }
@@ -488,22 +490,6 @@ export default function SessionScreen() {
     update({ ...session, exercises: updated });
   }
 
-  function removeWarmUpSet(exId: string) {
-    if (!session) return;
-    const updated = session.exercises.map((ex) => {
-      if (ex.exerciseId !== exId) return ex;
-      const warmUpCount = ex.sets.filter((s) => !!s.isWarmUp).length;
-      if (warmUpCount === 0) return ex;
-      // Remove the last warm-up set (last one before working sets)
-      const lastWarmUpIdx = ex.sets.reduce((acc, s, i) => (s.isWarmUp ? i : acc), -1);
-      if (lastWarmUpIdx === -1) return ex;
-      // Don't remove if it's already completed
-      if (ex.sets[lastWarmUpIdx].completed) return ex;
-      const newSets = ex.sets.filter((_, i) => i !== lastWarmUpIdx);
-      return { ...ex, sets: newSets, warmUpSets: Math.max(0, (ex.warmUpSets ?? 0) - 1) };
-    });
-    update({ ...session, exercises: updated });
-  }
 
   function updateExerciseNote(exId: string, note: string) {
     if (!session) return;
@@ -560,6 +546,7 @@ export default function SessionScreen() {
     : -1;
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       {/* Header */}
       <View style={styles.header}>
@@ -594,7 +581,7 @@ export default function SessionScreen() {
             onPress={() => setShowCues((v) => !v)}
             style={styles.lockeCuesToggle}
           >
-            <Image source={RANK_IMAGES[rank] ?? RANK_IMAGES["Scout"]} style={{ width: 88, height: 88, marginTop: -28 }} resizeMode="contain" />
+            <Image source={RANK_IMAGES[rank] ?? RANK_IMAGES["Scout"]} style={{ width: 120, height: 120, marginTop: -28 }} resizeMode="contain" />
             <Text style={{ color: theme.colors.accent, fontSize: 13, fontWeight: "700", marginLeft: 8 }}>
               {showCues ? "▾ Hide Tips" : "▸ How do I do this?"}
             </Text>
@@ -612,11 +599,11 @@ export default function SessionScreen() {
         </View>
       ) : (
         <View style={{ alignItems: "center", marginVertical: 8 }}>
-          <Image source={RANK_IMAGES[rank] ?? RANK_IMAGES["Scout"]} style={{ width: 88, height: 88, marginTop: -28 }} resizeMode="contain" />
+          <Image source={RANK_IMAGES[rank] ?? RANK_IMAGES["Scout"]} style={{ width: 120, height: 120, marginTop: -28 }} resizeMode="contain" />
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {activeExercise ? (
           /* ── Focused Exercise View ─────────────────────────────────── */
           <View>
@@ -624,59 +611,12 @@ export default function SessionScreen() {
 
 
             <View style={styles.focusedContent}>
-                  {activeExercise.notes ? (
-                    <Text style={{ color: theme.colors.muted, fontSize: 13, fontStyle: "italic", marginBottom: 8 }}>{activeExercise.notes}</Text>
-                  ) : (
-                    <>
-                      {editingNotes[activeExercise.exerciseId] && (
-                        <TextInput
-                          style={[
-                            styles.noteInput,
-                            {
-                              backgroundColor: theme.colors.mutedBg,
-                              color: theme.colors.text,
-                              borderColor: theme.colors.border,
-                            },
-                          ]}
-                          placeholder="Add a note..."
-                          placeholderTextColor={theme.colors.muted}
-                          value={pendingNotes[activeExercise.exerciseId] ?? ""}
-                          onChangeText={(text) =>
-                            setPendingNotes((prev) => ({ ...prev, [activeExercise.exerciseId]: text }))
-                          }
-                          onBlur={() =>
-                            updateExerciseNote(
-                              activeExercise.exerciseId,
-                              pendingNotes[activeExercise.exerciseId] ?? ""
-                            )
-                          }
-                          onSubmitEditing={() =>
-                            updateExerciseNote(
-                              activeExercise.exerciseId,
-                              pendingNotes[activeExercise.exerciseId] ?? ""
-                            )
-                          }
-                          autoFocus
-                          returnKeyType="done"
-                        />
-                      )}
-                      {!editingNotes[activeExercise.exerciseId] && (
-                        <Pressable
-                          onPress={() => setEditingNotes((prev) => ({ ...prev, [activeExercise.exerciseId]: true }))}
-                          style={styles.addNoteBtn}
-                        >
-                          <Text style={[styles.addNoteText, { color: theme.colors.accent }]}>+ Note</Text>
-                        </Pressable>
-                      )}
-                    </>
-                  )}
-
               {/* Set headers */}
               <View style={styles.setHeaderRow}>
-                <Text style={[styles.setHeaderCell, styles.setColNum, { color: theme.colors.muted }]}>SET</Text>
-                <Text style={[styles.setHeaderCell, styles.setColWeight, { color: theme.colors.muted }]}>WEIGHT</Text>
-                <Text style={[styles.setHeaderCell, styles.setColReps, { color: theme.colors.muted }]}>REPS</Text>
-                <Text style={[styles.setHeaderCell, styles.setColCheck, { color: theme.colors.muted }]}>DONE</Text>
+                <Text style={[styles.setHeaderCell, styles.setColNum, { color: theme.colors.text, opacity: 0.6 }]}>SET</Text>
+                <Text style={[styles.setHeaderCell, styles.setColWeight, { color: theme.colors.text, opacity: 0.6 }]}>WEIGHT</Text>
+                <Text style={[styles.setHeaderCell, styles.setColReps, { color: theme.colors.text, opacity: 0.6 }]}>REPS</Text>
+                <View style={styles.setColCheck} />
               </View>
 
               {/* All sets (warm-up + working) */}
@@ -693,18 +633,16 @@ export default function SessionScreen() {
                 const isCurrent = isCurrentSet(activeExercise, i);
                 const locked = isSetLocked(activeExercise, i);
                 const isFutureSet = i > getCurrentSetIndex(activeExercise);
-                return (
-                  <View key={i}>
-                    {/* Current set indicator */}
-                    {isCurrent && !s.completed && (
-                      <View style={[styles.currentSetIndicator, { backgroundColor: theme.colors.primary + "18" }]}>
-                        <Text style={[styles.currentSetLabel, { color: theme.colors.primary }]}>
-                          {exerciseHasActiveRestTimer(activeExercise) ? "Resting..." : "Current Set"}
-                        </Text>
-                      </View>
-                    )}
+                const isCurrentIncomplete = isCurrent && !s.completed;
+                const setContent = (
+                  <View>
                     <View style={[
                       styles.setRow,
+                      {
+                        backgroundColor: isCurrentIncomplete ? theme.colors.primary + "15" : theme.colors.surface,
+                        borderWidth: isCurrentIncomplete ? 1.5 : 1,
+                        borderColor: isCurrentIncomplete ? theme.colors.primary : theme.colors.border,
+                      },
                       isWarmUp && { opacity: 0.85 },
                       isFutureSet && { opacity: 0.4 },
                     ]}>
@@ -714,13 +652,13 @@ export default function SessionScreen() {
                             <Text style={[styles.warmUpBadgeText, { color: theme.colors.accentText }]}>W{warmUpIndex}</Text>
                           </View>
                         ) : (
-                          <Text style={[styles.setNum, { color: isCurrent && !s.completed ? theme.colors.primary : theme.colors.muted }]}>{workingIndex}</Text>
+                          <Text style={[styles.setNum, { color: isCurrent && !s.completed ? theme.colors.primary : theme.colors.text }]}>{workingIndex}</Text>
                         )}
                       </View>
                       <TextInput
                         style={[styles.setInput, styles.setColWeight, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
                         placeholder={sessionUnit}
-                        placeholderTextColor={theme.colors.muted}
+                        placeholderTextColor="#B0B8C4"
                         value={s.weight}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { weight: v })}
                         keyboardType="decimal-pad"
@@ -729,7 +667,7 @@ export default function SessionScreen() {
                       <TextInput
                         style={[styles.setInput, styles.setColReps, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
                         placeholder="reps"
-                        placeholderTextColor={theme.colors.muted}
+                        placeholderTextColor="#B0B8C4"
                         value={s.reps}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { reps: v })}
                         keyboardType="number-pad"
@@ -744,7 +682,9 @@ export default function SessionScreen() {
                               ? theme.colors.primary
                               : locked
                               ? theme.colors.border
-                              : theme.colors.mutedBg,
+                              : "transparent",
+                            borderWidth: s.completed ? 0 : 1.5,
+                            borderColor: s.completed ? "transparent" : theme.colors.border,
                           },
                         ]}
                         onPress={() => {
@@ -779,6 +719,24 @@ export default function SessionScreen() {
                     )}
                   </View>
                 );
+
+                return s.completed ? (
+                  <View key={i}>{setContent}</View>
+                ) : (
+                  <Swipeable
+                    key={i}
+                    renderRightActions={() => (
+                      <Pressable
+                        style={[styles.deleteAction, { backgroundColor: theme.colors.danger }]}
+                        onPress={() => removeSet(activeExercise.exerciseId, i)}
+                      >
+                        <Text style={{ color: theme.colors.dangerText, fontWeight: "700", fontSize: 13 }}>Delete</Text>
+                      </Pressable>
+                    )}
+                  >
+                    {setContent}
+                  </Swipeable>
+                );
               })}
 
               <View style={styles.setActionsGroup}>
@@ -789,28 +747,12 @@ export default function SessionScreen() {
                   >
                     <Text style={[styles.setActionPillText, { color: theme.colors.accent }]}>+ Warm-Up</Text>
                   </Pressable>
-                  {activeExercise.sets.filter((s) => !!s.isWarmUp).length > 0 && (
-                    <Pressable
-                      style={[styles.setActionPill, { borderColor: theme.colors.border }]}
-                      onPress={() => removeWarmUpSet(activeExercise.exerciseId)}
-                    >
-                      <Text style={[styles.setActionPillText, { color: theme.colors.muted }]}>− Warm-Up</Text>
-                    </Pressable>
-                  )}
                   <Pressable
                     style={[styles.setActionPill, { borderColor: theme.colors.accent }]}
                     onPress={() => addSet(activeExercise.exerciseId)}
                   >
-                    <Text style={[styles.setActionPillText, { color: theme.colors.accent }]}>+ Set</Text>
+                    <Text style={[styles.setActionPillText, { color: theme.colors.accent }]}>+ Working Set</Text>
                   </Pressable>
-                  {activeExercise.sets.filter((s) => !s.isWarmUp).length > 1 && (
-                    <Pressable
-                      style={[styles.setActionPill, { borderColor: theme.colors.border }]}
-                      onPress={() => removeWorkingSet(activeExercise.exerciseId)}
-                    >
-                      <Text style={[styles.setActionPillText, { color: theme.colors.muted }]}>− Set</Text>
-                    </Pressable>
-                  )}
                 </View>
               </View>
             </View>
@@ -875,7 +817,7 @@ export default function SessionScreen() {
             )}
 
             {session.exercises.length > 0 && (
-              <Card style={{ marginBottom: 16 }}>
+              <Card style={{ marginBottom: 20, paddingVertical: 4 }}>
                 {session.exercises.map((ex, idx) => {
                   const done = ex.sets.filter((s) => s.completed).length;
                   const total = ex.sets.length;
@@ -913,7 +855,7 @@ export default function SessionScreen() {
             <Button label="Add Exercise" onPress={() => setPickerVisible(true)} variant="secondary" />
 
             {session.isActive && (
-              <View style={{ marginTop: 24 }}>
+              <View style={{ marginTop: 28 }}>
                 <Button
                   label="End Session"
                   onPress={() => {
@@ -1155,13 +1097,14 @@ export default function SessionScreen() {
       {/* Auto-pause overlay */}
       <PauseOverlay visible={paused && !!session.isActive} onResume={handleResumePause} />
     </View>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 56, paddingHorizontal: 24 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 0, marginBottom: 12 },
-  exitBtn: { fontSize: 24, padding: 4 },
+  container: { flex: 1, paddingTop: 56, paddingHorizontal: 20 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 0, marginBottom: 16 },
+  exitBtn: { fontSize: 24, padding: 8 },
   floatingPauseBar: {
     position: "absolute",
     bottom: 0,
@@ -1195,32 +1138,33 @@ const styles = StyleSheet.create({
   },
   addNoteBtn: { marginTop: 2 },
   addNoteText: { fontSize: 12, fontWeight: "600" },
-  removeExBtn: { alignItems: "center", paddingVertical: 14, marginTop: 8 },
+  removeExBtn: { alignItems: "center", paddingVertical: 16, marginTop: 12 },
   // Set header
-  setHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  setHeaderCell: { fontSize: 10, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
+  setHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, paddingHorizontal: 8 },
+  setHeaderCell: { fontSize: 11, fontWeight: "800", letterSpacing: 1.0, textTransform: "uppercase", textAlign: "center" },
   // Column widths
   setColNum: { width: 56 },
   setColWeight: { flex: 1, marginRight: 8 },
   setColReps: { flex: 1, marginRight: 8 },
-  setColCheck: { width: 36 },
+  setColCheck: { width: 40 },
   // Set rows
-  setRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  setNum: { fontSize: 12, fontWeight: "600", textAlign: "center" },
+  setRow: { flexDirection: "row", alignItems: "center", marginBottom: 10, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8 },
+  setNum: { fontSize: 14, fontWeight: "700", textAlign: "center" },
   setInput: {
     borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    fontSize: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: "600",
     textAlign: "center",
   },
   // Warm-up badge
-  warmUpBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: "flex-start" },
-  warmUpBadgeText: { fontSize: 9, fontWeight: "800" },
+  warmUpBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, alignSelf: "flex-start" },
+  warmUpBadgeText: { fontSize: 12, fontWeight: "800" },
   checkBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1230,41 +1174,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginBottom: 10,
     marginLeft: 56,
   },
   restPillText: { fontSize: 13, fontWeight: "600", fontFamily: "monospace" },
-  // Current set indicator
-  currentSetIndicator: {
-    borderRadius: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    marginBottom: 4,
-    marginLeft: 56,
-    alignSelf: "flex-start",
-  },
-  currentSetLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+  deleteAction: {
+    backgroundColor: "#ff3b30",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    width: 70,
+    marginBottom: 8,
   },
   setActionsGroup: {
-    marginTop: 16,
+    marginTop: 20,
   },
   setActionsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 10,
+    justifyContent: "space-between",
   },
   setActionPill: {
     borderWidth: 1.5,
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
   },
   setActionPillText: {
     fontSize: 13,
@@ -1275,7 +1210,7 @@ const styles = StyleSheet.create({
   focusedTitle: {
     fontSize: 22,
     fontWeight: "700",
-    marginBottom: 2,
+    marginBottom: 6,
   },
   focusedCounter: {
     fontSize: 13,
@@ -1283,7 +1218,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   focusedContent: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   lockeCuesToggle: {
     flexDirection: "row",
@@ -1307,22 +1242,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 4,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
   },
   exerciseListName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
     flex: 1,
   },
   exerciseListMeta: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
-    marginRight: 8,
+    marginRight: 10,
   },
   exerciseListChevron: {
-    fontSize: 18,
-    fontWeight: "300",
+    fontSize: 20,
+    fontWeight: "400",
   },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalCard: {

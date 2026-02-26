@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { CATALOG_PLANS } from "../lib/catalog";
@@ -36,7 +37,7 @@ function PlanCard({ plan }: { plan: CatalogPlan }) {
   const router = useRouter();
   const { theme } = useAppTheme();
   const { setPlan } = usePlanContext();
-  const { startSessionFromPlan } = useWorkouts();
+  const { startSessionFromPlan, getActiveSession } = useWorkouts();
   const { profile } = useProfileContext();
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,21 @@ function PlanCard({ plan }: { plan: CatalogPlan }) {
   }
 
   async function handleStartDay1() {
+    const active = getActiveSession();
+    if (active) {
+      Alert.alert(
+        "Active Session",
+        "You already have an active session. Resume or end it first.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Resume Session",
+            onPress: () => router.push(`/session/${active.id}`),
+          },
+        ]
+      );
+      return;
+    }
     setLoading(true);
     try {
       const id = await startSessionFromPlan(plan.name, "Week 1", "Day 1", day1Exercises, profile);

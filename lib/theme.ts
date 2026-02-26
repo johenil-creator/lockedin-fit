@@ -55,11 +55,11 @@ export const lockdInColors: AppThemeColors = {
   primary:     "#00E85C",   // slightly toned-down viridian — still punchy for CTAs
   primaryText: "#000000",
   text:        "#E6EDF3",   // soft off-white, easy on the eyes
-  muted:       "#7D8590",   // neutral warm grey (not green-tinted)
-  mutedBg:     "#1C2128",   // subtle lift from bg for inputs/secondary surfaces
-  border:      "#30363D",   // visible but soft border — not green
+  muted:       "#9DA5B0",   // lifted grey — passes AA on all dark surfaces
+  mutedBg:     "#242C38",   // visible lift from surface for inputs
+  border:      "#3D444D",   // clearly visible border
   danger:      "#F85149",   dangerText: "#ffffff",
-  accent:      "#3FB68B",   accentText: "#ffffff",  // muted teal-green for secondary UI
+  accent:      "#3FB68B",   accentText: "#0D1117",  // dark text on green for readability
   success:     "#3FB950",   successText: "#000000",  // GitHub-style muted green
 };
 export const lightViridianColors: AppThemeColors = {
