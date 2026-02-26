@@ -770,32 +770,17 @@ export default function SessionScreen() {
               })}
 
               <View style={styles.setActionsRow}>
+                <Pressable style={styles.addSetBtn} onPress={() => addWarmUpSet(activeExercise.exerciseId)}>
+                  <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Warm-Up Set</Text>
+                </Pressable>
+                {activeExercise.sets.filter((s) => !!s.isWarmUp).length > 0 && (
+                  <Pressable style={styles.addSetBtn} onPress={() => removeWarmUpSet(activeExercise.exerciseId)}>
+                    <Text style={[styles.addSetText, { color: theme.colors.muted }]}>- Warm-Up Set</Text>
+                  </Pressable>
+                )}
                 <Pressable style={styles.addSetBtn} onPress={() => addSet(activeExercise.exerciseId)}>
                   <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Working Set</Text>
                 </Pressable>
-                <View style={styles.warmUpControls}>
-                  <Text style={[styles.warmUpLabel, { color: theme.colors.muted }]}>Warm-up:</Text>
-                  <Pressable
-                    style={[styles.warmUpBtn, { backgroundColor: theme.colors.mutedBg }]}
-                    onPress={() => removeWarmUpSet(activeExercise.exerciseId)}
-                    disabled={activeExercise.sets.filter((s) => !!s.isWarmUp).length === 0}
-                  >
-                    <Text style={[styles.warmUpBtnText, {
-                      color: activeExercise.sets.filter((s) => !!s.isWarmUp).length === 0
-                        ? theme.colors.muted + "44"
-                        : theme.colors.text,
-                    }]}>-</Text>
-                  </Pressable>
-                  <Text style={[styles.warmUpCount, { color: theme.colors.text }]}>
-                    {activeExercise.sets.filter((s) => !!s.isWarmUp).length}
-                  </Text>
-                  <Pressable
-                    style={[styles.warmUpBtn, { backgroundColor: theme.colors.mutedBg }]}
-                    onPress={() => addWarmUpSet(activeExercise.exerciseId)}
-                  >
-                    <Text style={[styles.warmUpBtnText, { color: theme.colors.text }]}>+</Text>
-                  </Pressable>
-                </View>
               </View>
             </View>
 
@@ -1243,32 +1228,6 @@ const styles = StyleSheet.create({
   },
   addSetBtn: { alignSelf: "flex-start" },
   addSetText: { fontSize: 13, fontWeight: "600" },
-  warmUpControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  warmUpLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  warmUpBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  warmUpBtnText: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  warmUpCount: {
-    fontSize: 14,
-    fontWeight: "600",
-    minWidth: 18,
-    textAlign: "center",
-  },
   // Exercise list rows
   // Focused exercise view
   focusedTitle: {
