@@ -179,9 +179,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   dayCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
   },

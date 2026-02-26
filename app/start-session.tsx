@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, StyleSheet, Pressable } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useWorkouts } from "../hooks/useWorkouts";
 import { Button } from "../components/Button";
@@ -12,10 +12,25 @@ function makeId() {
 export default function StartSessionScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { addWorkout } = useWorkouts();
+  const { addWorkout, getActiveSession } = useWorkouts();
   const [name, setName] = useState("");
 
   function handleBegin() {
+    const active = getActiveSession();
+    if (active) {
+      Alert.alert(
+        "Active Session",
+        "You already have an active session. Resume or end it first.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Resume Session",
+            onPress: () => router.push(`/session/${active.id}`),
+          },
+        ]
+      );
+      return;
+    }
     const id = makeId();
     addWorkout({
       id,
@@ -78,7 +93,7 @@ const styles = StyleSheet.create({
   input: {
     fontSize: 16,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginBottom: 24,
   },

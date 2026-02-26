@@ -16,6 +16,11 @@ export type SessionExercise = {
   restTime?: number;
   loadSource?: 'orm' | 'history' | 'rpe-estimate' | 'none';
   targetRPE?: number;
+  // Catalog match metadata (for debug / autofill tracing)
+  catalogId?: string;
+  matchedPattern?: string;
+  matchedAnchor?: string;
+  matchedModifier?: number;
 };
 
 export type WorkoutSession = {
@@ -250,6 +255,7 @@ export type LoadModifier = {
 };
 
 export type ExerciseClassification = {
+  catalogId: string | null;
   pattern: MovementPattern;
   baseLift: OrmLiftKey | null;
   modifier: LoadModifier;

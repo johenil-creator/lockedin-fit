@@ -10,7 +10,16 @@ type Props = {
 export function Card({ children, style }: Props) {
   const { theme } = useAppTheme();
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.surface }, style]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+        },
+        style,
+      ]}
+    >
       {children}
     </View>
   );
@@ -19,12 +28,13 @@ export function Card({ children, style }: Props) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
-    padding: spacing.md,
+    borderWidth: 1,
+    padding: spacing.md + 2,
     marginBottom: spacing.sm + 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
 });

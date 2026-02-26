@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   container: { gap: 10 },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   label: { width: 72, fontSize: 11 },
-  barTrack: { flex: 1, height: 20, borderRadius: 4, overflow: "hidden" },
-  bar: { height: "100%", borderRadius: 4 },
+  barTrack: { flex: 1, height: 22, borderRadius: 8, overflow: "hidden" },
+  bar: { height: "100%", borderRadius: 8 },
   value: { width: 52, fontSize: 12, fontWeight: "600", textAlign: "right" },
 });

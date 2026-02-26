@@ -17,6 +17,7 @@ export default function RootLayout() {
               <Stack.Screen name="start-session" />
               <Stack.Screen name="catalog" />
               <Stack.Screen name="orm-test" />
+              <Stack.Screen name="evolution" />
               <Stack.Screen name="settings" />
             </Stack>
           </PlanProvider>

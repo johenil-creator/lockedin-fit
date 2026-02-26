@@ -7,6 +7,7 @@ import type {
   PerformanceWeek,
   StreakData,
   OrmTestSession,
+  PlanProgress,
 } from "./types";
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
@@ -14,11 +15,13 @@ import type {
 const KEYS = {
   workouts: "@lockedinfit/workouts",
   plan: "@lockedinfit/plan",
+  planProgress: "@lockedinfit/plan-progress",
   profile: "@lockedinfit/profile",
   xp: "@lockedinfit/xp",
   performance: "@lockedinfit/performance",
   streak: "@lockedinfit/streak",
   ormTest: "@lockedinfit/orm-test",
+  customCatalog: "@lockedinfit/custom-catalog",
 } as const;
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
@@ -96,6 +99,16 @@ export async function saveStreak(data: StreakData): Promise<void> {
   await save(KEYS.streak, data);
 }
 
+// ── Plan Progress ─────────────────────────────────────────────────────────────
+
+export async function loadPlanProgress(): Promise<PlanProgress> {
+  return (await load<PlanProgress>(KEYS.planProgress)) ?? { completedDays: {} };
+}
+
+export async function savePlanProgress(data: PlanProgress): Promise<void> {
+  await save(KEYS.planProgress, data);
+}
+
 // ── ORM Test ──────────────────────────────────────────────────────────────────
 
 export async function loadOrmTest(): Promise<OrmTestSession | null> {
@@ -108,6 +121,16 @@ export async function saveOrmTest(data: OrmTestSession): Promise<void> {
 
 export async function clearOrmTest(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.ormTest);
+}
+
+// ── Custom Catalog ───────────────────────────────────────────────────────────
+
+export async function loadCustomCatalog(): Promise<any[]> {
+  return (await load<any[]>(KEYS.customCatalog)) ?? [];
+}
+
+export async function saveCustomCatalog(data: any[]): Promise<void> {
+  await save(KEYS.customCatalog, data);
 }
 
 // ── Clear All ─────────────────────────────────────────────────────────────────

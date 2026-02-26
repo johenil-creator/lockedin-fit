@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   xpText:   { fontSize: 11, fontWeight: "600" },
   nextText: { fontSize: 11, fontWeight: "600" },
   track: {
-    height:       6,
+    height:       8,
     borderRadius: radius.full,
     overflow:     "hidden",
   },

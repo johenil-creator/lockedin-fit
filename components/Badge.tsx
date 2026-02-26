@@ -33,9 +33,9 @@ export function Badge({ label, variant = "default" }: Props) {
 
 const styles = StyleSheet.create({
   badge: {
-    borderRadius: radius.sm,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: radius.full,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   text: { fontSize: 12, fontWeight: "600" },
 });

@@ -742,8 +742,8 @@ const styles = StyleSheet.create({
   unitPickerBtn: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 20,
+    borderRadius: 16,
+    paddingVertical: 22,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -762,14 +762,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   progressTrack: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
     flexDirection: "row",
     overflow: "hidden",
   },
   progressFill: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
     position: "absolute",
     left: 0,
     top: 0,
@@ -808,8 +808,8 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     textAlign: "center",
   },
 
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   setWeightInput: {
-    borderRadius: 6,
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
     fontSize: 14,
@@ -874,16 +874,16 @@ const styles = StyleSheet.create({
   setCheck: {
     width: 36,
     height: 36,
-    borderRadius: 6,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
 
   // AMRAP
   amrapBadge: {
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     alignSelf: "flex-start",
   },
   amrapBadgeText: {
@@ -933,8 +933,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalCard: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 24,
     paddingBottom: 40,
   },

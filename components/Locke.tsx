@@ -127,10 +127,10 @@ const styles = StyleSheet.create({
     paddingRight:    20,
   },
   bubbleCard: {
-    borderRadius:      14,
-    borderWidth:       1.5,
-    padding:           14,
-    maxWidth:          220,
+    borderRadius:      16,
+    borderWidth:       1,
+    padding:           16,
+    maxWidth:          240,
   },
   bubbleText: {
     fontSize:   14,

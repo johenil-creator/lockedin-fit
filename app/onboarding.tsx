@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
 
   checkbox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginBottom: 10,
   },
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
 
   liftCard: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 14,
   },
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     textAlign: "center",
   },
@@ -556,8 +556,8 @@ const styles = StyleSheet.create({
   unitPickerBtn: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 20,
+    borderRadius: 16,
+    paddingVertical: 22,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   unitPickerBtnSmall: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
 
   resultCard: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 14,
   },

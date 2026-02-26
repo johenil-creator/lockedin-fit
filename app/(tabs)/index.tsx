@@ -110,7 +110,7 @@ export default function HomeScreen() {
 
       {/* 1RM test CTA — shown when user skipped during onboarding */}
       {!has1RM && profile.onboardingComplete && (
-        <View style={[styles.ormCtaCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary }]}>
+        <View style={[styles.ormCtaCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.accent }]}>
           <View style={styles.ormCtaRow}>
             <LockeMascot size="icon" mood="encouraging" />
             <View style={styles.ormCtaTextWrap}>
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   rankCard: { marginBottom: 20 },
   rankRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   streakText: { fontSize: 13, fontWeight: "600" },
-  activeBanner: { borderRadius: 12, padding: 16, marginBottom: 16 },
+  activeBanner: { borderRadius: 16, padding: 18, marginBottom: 16 },
   recentSection: { marginTop: 28 },
   sectionLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 },
   recentCard: { marginBottom: 8, padding: 14 },

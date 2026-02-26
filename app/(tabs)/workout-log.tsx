@@ -126,9 +126,9 @@ export default function WorkoutLogScreen() {
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                           <Text style={[styles.rowName, { color: theme.colors.text }]}>{item.name}</Text>
                           {item.completedAt ? (
-                            <Text style={{ backgroundColor: theme.colors.success, color: theme.colors.successText, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>✓ Done</Text>
+                            <Text style={{ backgroundColor: theme.colors.success, color: theme.colors.successText, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>✓ Done</Text>
                           ) : item.isActive ? (
-                            <Text style={{ backgroundColor: theme.colors.danger, color: theme.colors.dangerText, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>● Active</Text>
+                            <Text style={{ backgroundColor: theme.colors.danger, color: theme.colors.dangerText, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>● Active</Text>
                           ) : null}
                         </View>
                         <Text style={[styles.rowMeta, { color: theme.colors.muted }]}>
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     width: 80,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     marginBottom: spacing.sm + 4,
   },
   deleteText: { fontWeight: "700", fontSize: 14 },

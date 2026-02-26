@@ -11,6 +11,7 @@ import { CATALOG_PLANS } from "../lib/catalog";
 import { usePlanContext } from "../contexts/PlanContext";
 import { useWorkouts } from "../hooks/useWorkouts";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { useProfileContext } from "../contexts/ProfileContext";
 import { Card } from "../components/Card";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
@@ -36,6 +37,7 @@ function PlanCard({ plan }: { plan: CatalogPlan }) {
   const { theme } = useAppTheme();
   const { setPlan } = usePlanContext();
   const { startSessionFromPlan } = useWorkouts();
+  const { profile } = useProfileContext();
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -49,7 +51,7 @@ function PlanCard({ plan }: { plan: CatalogPlan }) {
   async function handleStartDay1() {
     setLoading(true);
     try {
-      const id = await startSessionFromPlan(plan.name, "Week 1", "Day 1", day1Exercises);
+      const id = await startSessionFromPlan(plan.name, "Week 1", "Day 1", day1Exercises, profile);
       router.push(`/session/${id}`);
     } finally {
       setLoading(false);
@@ -152,7 +154,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   planName: { fontSize: 18, fontWeight: "700", flexShrink: 1, marginRight: 8 },
-  chip: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12 },
+  chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   chipText: { fontSize: 12, fontWeight: "600" },
 
   metaRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },

@@ -15,7 +15,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.LockedInFit",
-      "icon": "./assets/icon.png"
+      "icon": "./assets/icon.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,7 +36,20 @@
     "scheme": "lockedinfit",
     "plugins": [
       "expo-router",
-      ["expo-custom-assets", { "assetsPaths": ["./assets/locke"] }]
-    ]
+      [
+        "expo-custom-assets",
+        {
+          "assetsPaths": [
+            "./assets/locke"
+          ]
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b77f6e04-866a-463f-9585-28e3ee7063ee"
+      }
+    }
   }
 }

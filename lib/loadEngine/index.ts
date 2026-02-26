@@ -126,12 +126,15 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
     }
   }
 
-  // ── Tier 3: No data ─────────────────────────────────────────────────────
+  // ── Tier 3: No data — still populate sets/reps from prescription ────────
   return {
     workingWeight: null,
     source: "none",
     warmUps: [],
-    workingSets: [],
+    workingSets: Array.from({ length: workingSetCount }, () => ({
+      weight: "",
+      reps: targetReps,
+    })),
     targetRPE: prescription.rpe,
     classification,
   };

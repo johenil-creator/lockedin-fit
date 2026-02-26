@@ -29,6 +29,9 @@ import { buildPerformanceWeek, upsertPerformanceWeek, isoWeekKey } from "../../l
 import { useLocke } from "../../contexts/LockeContext";
 import { awardSessionXP } from "../../lib/xpService";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
+import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
+import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
+import { loadCustomCatalog, saveCustomCatalog } from "../../lib/storage";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
@@ -152,6 +155,12 @@ export default function SessionScreen() {
   const [manualName, setManualName] = useState("");
   const [elapsed, setElapsed] = useState(0);
 
+  // Classify exercise modal state
+  const [classifyVisible, setClassifyVisible] = useState(false);
+  const [classifyName, setClassifyName] = useState("");
+  const [classifyPattern, setClassifyPattern] = useState("squat");
+  const [classifyAnchor, setClassifyAnchor] = useState("none");
+
   // Rest timers: key = `${exerciseId}-${setIdx}`, value = seconds remaining
   const [restTimers, setRestTimers] = useState<Record<string, number>>({});
   const intervalsRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
@@ -238,6 +247,13 @@ export default function SessionScreen() {
     };
   }, []);
 
+  // Load custom catalog entries into the matcher on mount
+  useEffect(() => {
+    loadCustomCatalog().then((entries) => {
+      entries.forEach((e: ExerciseCatalogEntry) => addCustomEntry(e));
+    });
+  }, []);
+
   // If the active exercise was removed, reset to list view
   useEffect(() => {
     if (activeExerciseId && session && !session.exercises.some((ex) => ex.exerciseId === activeExerciseId)) {
@@ -315,16 +331,84 @@ export default function SessionScreen() {
     });
   }
 
-  function addExercise(name: string) {
-    if (!name.trim() || !session) return;
+  function addExerciseWithLoad(name: string, planSets?: string, planReps?: string) {
+    if (!session) return;
+    const weekMatch = session.name.match(/Week\s*(\d+)/i);
+    const weekStr = weekMatch ? `Week ${weekMatch[1]}` : "Week 1";
+    const workingSetCount = parseInt(planSets || "3", 10) || 3;
+    const targetReps = planReps || "8";
+
+    const load = resolveExerciseLoad({
+      exerciseName: name,
+      weekStr,
+      profile,
+      workouts,
+      workingSetCount,
+      targetReps,
+      plannedWarmUpCount: 0,
+    });
+
+    const sets = load.workingSets.map((ws) => ({
+      reps: ws.reps,
+      weight: ws.weight,
+      completed: false,
+    }));
+
     const newEx: SessionExercise = {
       exerciseId: makeId(),
-      name: name.trim(),
-      sets: [{ reps: "", weight: "", completed: false }],
+      name,
+      sets,
+      loadSource: load.source,
+      targetRPE: load.targetRPE,
+      catalogId:       load.classification.catalogId ?? undefined,
+      matchedPattern:  load.classification.pattern,
+      matchedAnchor:   load.classification.baseLift ?? undefined,
+      matchedModifier: load.classification.modifier.fraction,
     };
     update({ ...session, exercises: [...session.exercises, newEx] });
     setPickerVisible(false);
     setManualName("");
+    setClassifyVisible(false);
+  }
+
+  function addExercise(name: string, planSets?: string, planReps?: string) {
+    if (!name.trim() || !session) return;
+    const trimmed = name.trim();
+    const match = findExercise(trimmed);
+
+    if (!match) {
+      // No catalog match — show classify modal
+      setClassifyName(trimmed);
+      setClassifyPattern("squat");
+      setClassifyAnchor("none");
+      setClassifyVisible(true);
+      setPickerVisible(false);
+      setManualName("");
+      return;
+    }
+
+    addExerciseWithLoad(trimmed, planSets, planReps);
+  }
+
+  async function handleClassifyAndAdd() {
+    const entry: ExerciseCatalogEntry = {
+      id: `custom_${Date.now()}`,
+      canonicalName: classifyName,
+      aliases: [],
+      movementPattern: classifyPattern as any,
+      primaryMuscles: ["core"],
+      secondaryMuscles: [],
+      equipment: "other" as any,
+      anchorLift: classifyAnchor !== "none" ? (classifyAnchor as any) : undefined,
+      modifier: classifyAnchor !== "none" ? 0.7 : undefined,
+    };
+
+    addCustomEntry(entry);
+
+    const existing = await loadCustomCatalog();
+    await saveCustomCatalog([...existing, entry]);
+
+    addExerciseWithLoad(classifyName);
   }
 
   function addSet(exId: string) {
@@ -615,10 +699,17 @@ export default function SessionScreen() {
               )}
               {activeExercise.loadSource === "rpe-estimate" && (
                 <View style={{ backgroundColor: theme.colors.accent + "22", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
-                  <Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: "700" }}>Based on last session</Text>
+                  <Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: "700" }}>Auto-filled</Text>
                 </View>
               )}
             </View>
+
+            {/* DEV: catalog match debug */}
+            {__DEV__ && (
+              <Text style={{ color: theme.colors.muted, fontSize: 9, fontFamily: "monospace", marginBottom: 6, opacity: 0.7 }}>
+                Catalog match: {activeExercise.catalogId ?? "none"} | pattern: {activeExercise.matchedPattern ?? "?"} | anchor: {activeExercise.matchedAnchor ?? "none"} | modifier: {activeExercise.matchedModifier ?? "—"}
+              </Text>
+            )}
 
             <View style={styles.focusedContent}>
                   {activeExercise.notes ? (
@@ -849,7 +940,7 @@ export default function SessionScreen() {
                             <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: "600", marginTop: 2 }}>Auto-filled from 1RM</Text>
                           )}
                           {ex.loadSource === "rpe-estimate" && (
-                            <Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: "600", marginTop: 2 }}>Based on last session</Text>
+                            <Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: "600", marginTop: 2 }}>Auto-filled</Text>
                           )}
                         </View>
                         <Text style={[styles.exerciseListMeta, { color: theme.colors.muted }]}>{done}/{total}</Text>
@@ -990,7 +1081,7 @@ export default function SessionScreen() {
                 keyExtractor={(_, idx) => idx.toString()}
                 style={{ maxHeight: 300 }}
                 renderItem={({ item }) => (
-                  <Pressable style={[styles.planRow, { borderBottomColor: theme.colors.border }]} onPress={() => addExercise(item.exercise)}>
+                  <Pressable style={[styles.planRow, { borderBottomColor: theme.colors.border }]} onPress={() => addExercise(item.exercise, item.sets, item.reps)}>
                     <Text style={[styles.planRowName, { color: theme.colors.text }]}>{item.exercise}</Text>
                     {item.sets && <Badge label={`${item.sets}x${item.reps}`} />}
                   </Pressable>
@@ -1014,6 +1105,82 @@ export default function SessionScreen() {
               <Button label="Cancel" onPress={() => { setPickerVisible(false); setManualName(""); }} variant="secondary" />
               <View style={{ width: 12 }} />
               <Button label="Add" onPress={() => addExercise(manualName)} disabled={!manualName.trim()} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Classify exercise modal */}
+      <Modal visible={classifyVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Classify Exercise</Text>
+            <Text style={{ color: theme.colors.muted, fontSize: 13, marginBottom: 16, lineHeight: 18 }}>
+              "{classifyName}" isn't in the catalog yet. Pick a category so weights auto-fill next time.
+            </Text>
+
+            <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+              Movement Pattern
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 40 }}>
+              {(["squat", "hinge", "horizontal_push", "horizontal_pull", "vertical_push", "vertical_pull", "isolation_upper", "isolation_lower", "core", "conditioning", "carry"] as const).map((p) => (
+                <Pressable
+                  key={p}
+                  onPress={() => setClassifyPattern(p)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    backgroundColor: classifyPattern === p ? theme.colors.primary : theme.colors.mutedBg,
+                    marginRight: 6,
+                  }}
+                >
+                  <Text style={{
+                    color: classifyPattern === p ? theme.colors.primaryText : theme.colors.text,
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}>
+                    {p.replace(/_/g, " ")}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+              Anchor Lift (for auto-fill)
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
+              {(["none", "squat", "deadlift", "bench", "ohp"] as const).map((l) => (
+                <Pressable
+                  key={l}
+                  onPress={() => setClassifyAnchor(l)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    backgroundColor: classifyAnchor === l ? theme.colors.primary : theme.colors.mutedBg,
+                  }}
+                >
+                  <Text style={{
+                    color: classifyAnchor === l ? theme.colors.primaryText : theme.colors.text,
+                    fontSize: 13,
+                    fontWeight: "600",
+                    textTransform: "capitalize",
+                  }}>
+                    {l}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Button
+                label="Skip"
+                onPress={() => { addExerciseWithLoad(classifyName); }}
+                variant="secondary"
+              />
+              <View style={{ width: 12 }} />
+              <Button label="Save & Add" onPress={handleClassifyAndAdd} />
             </View>
           </View>
         </View>

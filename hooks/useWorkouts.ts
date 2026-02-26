@@ -137,6 +137,10 @@ export function useWorkouts() {
             notes:      ex.notes ?? "",
             loadSource: load?.source,
             targetRPE:  load?.targetRPE,
+            catalogId:       load?.classification.catalogId ?? undefined,
+            matchedPattern:  load?.classification.pattern,
+            matchedAnchor:   load?.classification.baseLift ?? undefined,
+            matchedModifier: load?.classification.modifier.fraction,
           };
         }),
       };

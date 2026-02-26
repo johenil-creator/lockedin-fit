@@ -25,6 +25,7 @@ import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
 import { EmptyState } from "../../components/EmptyState";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { useProfileContext } from "../../contexts/ProfileContext";
 import { spacing, radius } from "../../lib/theme";
 import type { Exercise } from "../../lib/types";
 
@@ -152,8 +153,19 @@ function smartParse(rawRows: string[][]): Exercise[] {
     const lc = cellEx.toLowerCase();
     if (lc.includes("rest day") || lc.startsWith("if you") || lc.startsWith("important")) continue;
 
+    // Commit to first option when alternatives are listed:
+    //   "Glute-Ham Raise [or Nordic Ham Curl]" → "Glute-Ham Raise"
+    //   "Pull-ups (or Chin-ups)"               → "Pull-ups"
+    //   "Bench Press / Dumbbell Press"          → "Bench Press"
+    //   "Deadlift or RDL"                       → "Deadlift"
+    const cleaned = cellEx
+      .replace(/\s*[\[(]or\s+[^\])]+[\])]/gi, "")   // [or ...] or (or ...)
+      .replace(/\s*\/\s*.+$/, "")                     // " / alternative"
+      .replace(/\s+or\s+.+$/i, "")                    // " or alternative"
+      .trim();
+
     exercises.push({
-      exercise:   cellEx,
+      exercise:   cleaned || cellEx,
       sets:       cell(row, setCol),
       reps:       cell(row, repCol),
       weight:     cell(row, wtCol),
@@ -210,15 +222,21 @@ function ExerciseCard({ exercise: ex }: { exercise: Exercise }) {
 export default function PlanScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { planName, exercises, loading, setPlan, clearPlan } = usePlanContext();
-  const { startSessionFromPlan } = useWorkouts();
+  const { planName, exercises, loading, setPlan, clearPlan, isDayCompleted } = usePlanContext();
+  const { startSessionFromPlan, getActiveSession } = useWorkouts();
+  const { profile } = useProfileContext();
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [urlModalVisible, setUrlModalVisible] = useState(false);
   const [sheetUrl, setSheetUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [startingDay, setStartingDay] = useState<string | null>(null);
+  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
 
   const hasDayColumn = exercises.some((ex) => ex.day !== "");
+
+  function toggleDay(dayKey: string) {
+    setExpandedDays((prev) => ({ ...prev, [dayKey]: !prev[dayKey] }));
+  }
 
   // ── File import ─────────────────────────────────────────────────────────────
   async function handleFileImport() {
@@ -402,42 +420,76 @@ export default function PlanScreen() {
 
           {/* Days + exercises */}
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-            {activeWeek?.days.map((dayGroup) => (
-              <View key={dayGroup.day} style={styles.daySection}>
-                <View style={styles.dayHeader}>
-                  {hasDayColumn && (
-                    <Text style={[styles.dayLabel, { color: theme.colors.muted }]}>{dayGroup.day}</Text>
-                  )}
-                  <Pressable
-                    style={[styles.startSessionBtn, { backgroundColor: theme.colors.primary }]}
-                    disabled={startingDay === dayGroup.day}
-                    onPress={async () => {
-                      setStartingDay(dayGroup.day);
-                      try {
-                        const id = await startSessionFromPlan(
-                          planName || "Workout",
-                          activeWeek.week,
-                          dayGroup.day,
-                          dayGroup.exercises
-                        );
-                        router.push(`/session/${id}`);
-                      } finally {
-                        setStartingDay(null);
-                      }
-                    }}
-                  >
-                    {startingDay === dayGroup.day ? (
-                      <ActivityIndicator size="small" color={theme.colors.primaryText} />
-                    ) : (
-                      <Text style={[styles.startSessionText, { color: theme.colors.primaryText }]}>▶ Start Session</Text>
+            {activeWeek?.days.map((dayGroup) => {
+              const dayDone = isDayCompleted(activeWeek.week, dayGroup.day);
+              const dayKey = `${activeWeek.week}|${dayGroup.day}`;
+              const isExpanded = expandedDays[dayKey] ?? false;
+              return (
+              <View key={dayGroup.day} style={[styles.daySection, dayDone && { opacity: 0.55 }]}>
+                <Pressable onPress={() => toggleDay(dayKey)}>
+                  <View style={styles.dayHeader}>
+                    {hasDayColumn && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        {dayDone && (
+                          <Text style={{ color: theme.colors.success, fontSize: 14, fontWeight: "700" }}>✓</Text>
+                        )}
+                        <Text style={[styles.dayLabel, { color: dayDone ? theme.colors.success : theme.colors.muted }]}>{dayGroup.day}</Text>
+                        <Text style={{ color: theme.colors.muted, fontSize: 12 }}>
+                          {dayGroup.exercises.length} exercise{dayGroup.exercises.length !== 1 ? "s" : ""}
+                        </Text>
+                      </View>
                     )}
-                  </Pressable>
-                </View>
-                {dayGroup.exercises.map((ex, i) => (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={{ color: theme.colors.muted, fontSize: 14 }}>{isExpanded ? "▾" : "▸"}</Text>
+                      <Pressable
+                        style={[styles.startSessionBtn, { backgroundColor: theme.colors.primary }]}
+                        disabled={startingDay === dayGroup.day}
+                        onPress={async () => {
+                          const active = getActiveSession();
+                          if (active) {
+                            Alert.alert(
+                              "Active Session",
+                              "You already have an active session. Resume or end it first.",
+                              [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                  text: "Resume Session",
+                                  onPress: () => router.push(`/session/${active.id}`),
+                                },
+                              ]
+                            );
+                            return;
+                          }
+                          setStartingDay(dayGroup.day);
+                          try {
+                            const id = await startSessionFromPlan(
+                              planName || "Workout",
+                              activeWeek.week,
+                              dayGroup.day,
+                              dayGroup.exercises,
+                              profile
+                            );
+                            router.push(`/session/${id}`);
+                          } finally {
+                            setStartingDay(null);
+                          }
+                        }}
+                      >
+                        {startingDay === dayGroup.day ? (
+                          <ActivityIndicator size="small" color={theme.colors.primaryText} />
+                        ) : (
+                          <Text style={[styles.startSessionText, { color: theme.colors.primaryText }]}>▶ Start</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+                </Pressable>
+                {isExpanded && dayGroup.exercises.map((ex, i) => (
                   <ExerciseCard key={i} exercise={ex} />
                 ))}
               </View>
-            ))}
+              );
+            })}
           </ScrollView>
         </>
       )}
@@ -508,9 +560,9 @@ const styles = StyleSheet.create({
   // Week tabs
   weekTabs: { flexGrow: 0, marginBottom: 20 },
   weekTab: {
-    paddingVertical: 7,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 999,
   },
   weekTabText: { fontSize: 13, fontWeight: "600" },
 
@@ -529,9 +581,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   startSessionBtn: {
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
   startSessionText: {
     fontSize: 12,

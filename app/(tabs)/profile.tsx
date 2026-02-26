@@ -15,12 +15,9 @@ import { useAppTheme } from "../../contexts/ThemeContext";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { useXP } from "../../hooks/useXP";
-import { useStreak } from "../../hooks/useStreak";
 import { clearAllData } from "../../lib/storage";
-import { RANK_LADDER } from "../../lib/rankService";
 import { spacing, radius, typography } from "../../lib/theme";
-import { RankBadge } from "../../components/RankBadge";
-import { XPBar } from "../../components/XPBar";
+import { RankEvolutionPath } from "../../components/RankEvolutionPath";
 import { Button } from "../../components/Button";
 
 const BIG_4 = [
@@ -42,8 +39,7 @@ export default function ProfileScreen() {
   const { theme } = useAppTheme();
   const { profile, loading: profileLoading, updateProfile } = useProfileContext();
   const { workouts, loading: workoutsLoading } = useWorkouts();
-  const { xp, rank, progress, toNext, nextTier } = useXP();
-  const { streak } = useStreak();
+  const { xp, rank, progress, toNext } = useXP();
 
   const [name, setName] = useState("");
   const [weight, setWeight] = useState("");
@@ -190,72 +186,13 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Section 2: Rank & Progress */}
-      <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-        <View style={styles.rankHeader}>
-          <Text style={[typography.subheading, { color: theme.colors.text }]}>Rank & Progress</Text>
-          <RankBadge rank={rank} />
-        </View>
-
-        <View style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
-          <XPBar
-            totalXP={xp.total}
-            progress={progress}
-            toNext={toNext}
-            nextRank={nextTier?.rank ?? null}
-          />
-        </View>
-
-        {/* Streak */}
-        <View style={styles.statRow}>
-          <Text style={[typography.caption, { color: theme.colors.muted }]}>Current streak</Text>
-          <Text style={[typography.small, { color: streak.current >= 3 ? theme.colors.primary : theme.colors.text, fontWeight: "600" }]}>
-            {streak.current} {streak.current === 1 ? "day" : "days"}
-          </Text>
-        </View>
-        <View style={styles.statRow}>
-          <Text style={[typography.caption, { color: theme.colors.muted }]}>Longest streak</Text>
-          <Text style={[typography.small, { color: theme.colors.text, fontWeight: "600" }]}>
-            {streak.longest} {streak.longest === 1 ? "day" : "days"}
-          </Text>
-        </View>
-        <View style={styles.statRow}>
-          <Text style={[typography.caption, { color: theme.colors.muted }]}>Lifetime XP</Text>
-          <Text style={[typography.small, { color: theme.colors.text, fontWeight: "600" }]}>
-            {xp.total} XP
-          </Text>
-        </View>
-
-        {/* Rank ladder */}
-        <View style={[styles.ladderContainer, { borderTopColor: theme.colors.border }]}>
-          {RANK_LADDER.map((tier) => {
-            const isEarned = xp.total >= tier.xp;
-            const isCurrent = tier.rank === rank;
-            return (
-              <View key={tier.rank} style={styles.ladderRow}>
-                <Text
-                  style={[
-                    styles.ladderRank,
-                    {
-                      color: isCurrent
-                        ? theme.colors.primary
-                        : isEarned
-                        ? theme.colors.text
-                        : theme.colors.border,
-                      fontWeight: isCurrent ? "700" : "400",
-                    },
-                  ]}
-                >
-                  {isCurrent ? "▶ " : "  "}{tier.rank}
-                </Text>
-                <Text style={[styles.ladderXP, { color: isEarned ? theme.colors.muted : theme.colors.border }]}>
-                  {tier.xp} XP
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
+      {/* Section 2: Evolution Path */}
+      <RankEvolutionPath
+        currentRank={rank}
+        currentXP={xp.total}
+        xpForNextRank={toNext}
+        progress={progress}
+      />
 
       {/* Section 3: 1RM Tracker */}
       <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
@@ -326,13 +263,13 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   card: {
     borderRadius: radius.lg,
-    padding: spacing.md,
+    padding: spacing.md + 2,
     marginBottom: spacing.sm + 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   input: {
     borderWidth: 1,
@@ -357,34 +294,9 @@ const styles = StyleSheet.create({
   liftRow: {
     marginBottom: spacing.md,
   },
-  rankHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  statRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  ladderContainer: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-  },
-  ladderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 3,
-  },
-  ladderRank: { fontSize: 13 },
-  ladderXP: { fontSize: 12 },
   dangerButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingHorizontal: 22,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",

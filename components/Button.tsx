@@ -52,15 +52,15 @@ export function Button({ label, onPress, variant = "primary", disabled, loading,
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingHorizontal: 22,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
   small: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
     borderRadius: radius.sm,
   },
   disabled: { opacity: 0.5 },

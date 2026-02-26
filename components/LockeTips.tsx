@@ -30,11 +30,11 @@ export function LockeTips({ tip }: Props) {
     <Animated.View
       style={[
         styles.container,
-        { borderLeftColor: theme.colors.primary },
+        { borderLeftColor: theme.colors.accent },
         animStyle,
       ]}
     >
-      <Text style={[styles.prefix, { color: theme.colors.primary }]}>
+      <Text style={[styles.prefix, { color: theme.colors.accent }]}>
         Locke Tip:{" "}
       </Text>
       <Text style={[styles.text, { color: theme.colors.muted }]}>{tip}</Text>

@@ -4,7 +4,8 @@ import { exerciseCatalog, type ExerciseCatalogEntry } from "./exerciseCatalog";
 const DEFAULT_MODIFIER: LoadModifier = { fraction: 1.0, label: "No 1RM anchor" };
 
 // Pre-build a lowercased lookup map for O(1) exact matching on
-// canonicalName and every alias.
+// canonicalName and every alias. Runs once at import time.
+const indexStart = typeof performance !== "undefined" ? performance.now() : Date.now();
 const nameIndex = new Map<string, ExerciseCatalogEntry>();
 for (const entry of exerciseCatalog) {
   nameIndex.set(entry.canonicalName.toLowerCase(), entry);
@@ -12,6 +13,16 @@ for (const entry of exerciseCatalog) {
     nameIndex.set(alias.toLowerCase(), entry);
   }
 }
+const indexMs = (typeof performance !== "undefined" ? performance.now() : Date.now()) - indexStart;
+
+if (typeof __DEV__ !== "undefined" && __DEV__) {
+  console.log(
+    `[classifier] Index built: ${exerciseCatalog.length} catalog entries, ${nameIndex.size} lookup keys, ${indexMs.toFixed(1)}ms`
+  );
+}
+
+/** Max catalog entries to scan during fuzzy fallback. */
+const FUZZY_SCAN_CAP = 200;
 
 /**
  * Build the result object from a catalog entry.
@@ -27,6 +38,7 @@ function entryToClassification(
     : DEFAULT_MODIFIER;
 
   return {
+    catalogId: entry.id,
     pattern: entry.movementPattern,
     baseLift,
     modifier,
@@ -42,6 +54,7 @@ function entryToClassification(
  * 1. Exact match on canonicalName or alias → confidence 1.0
  * 2. Fuzzy: score each catalog entry by how many words overlap with the
  *    input name. Best overlap wins. Confidence = overlapWords / totalWords.
+ *    Capped at FUZZY_SCAN_CAP entries to prevent frame drops.
  * 3. No match → pattern: 'unknown', confidence: 0
  */
 export function classifyExercise(name: string): ExerciseClassification {
@@ -53,25 +66,33 @@ export function classifyExercise(name: string): ExerciseClassification {
     return entryToClassification(exact, 1.0);
   }
 
-  // ── Step 2: Fuzzy word-overlap scoring ──────────────────────────────────
+  // ── Step 2: Fuzzy word-overlap scoring (capped) ───────────────────────
   const inputWords = lower.split(/[\s\-_()]+/).filter(Boolean);
   if (inputWords.length === 0) {
-    return { pattern: "unknown", baseLift: null, modifier: DEFAULT_MODIFIER, confidence: 0 };
+    return { catalogId: null, pattern: "unknown", baseLift: null, modifier: DEFAULT_MODIFIER, confidence: 0 };
   }
 
   let bestEntry: ExerciseCatalogEntry | null = null;
   let bestScore = 0;
+  let comparisons = 0;
 
   for (const entry of exerciseCatalog) {
-    // Check canonical name and all aliases, keep the best score
+    if (comparisons >= FUZZY_SCAN_CAP) break;
+    comparisons++;
+
     const candidates = [entry.canonicalName, ...entry.aliases];
     for (const candidate of candidates) {
       const candidateWords = candidate.toLowerCase().split(/[\s\-_()]+/).filter(Boolean);
       let overlap = 0;
       for (const word of inputWords) {
-        if (candidateWords.some((cw) => cw === word || cw.includes(word) || word.includes(cw))) {
+        if (
+          candidateWords.some(
+            (cw) =>
+              cw === word ||
+              (cw.length >= 3 && word.length >= 3 && (cw.includes(word) || word.includes(cw)))
+          )
+        )
           overlap++;
-        }
       }
       if (overlap > bestScore) {
         bestScore = overlap;
@@ -87,6 +108,7 @@ export function classifyExercise(name: string): ExerciseClassification {
 
   // ── Step 3: No match ────────────────────────────────────────────────────
   return {
+    catalogId: null,
     pattern: "unknown",
     baseLift: null,
     modifier: DEFAULT_MODIFIER,
