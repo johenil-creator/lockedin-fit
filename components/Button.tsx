@@ -18,13 +18,13 @@ export function Button({ label, onPress, variant = "primary", disabled, loading,
 
   const bg = {
     primary: theme.colors.primary,
-    secondary: theme.colors.mutedBg,
+    secondary: "transparent",
     danger: theme.colors.danger,
   }[variant];
 
   const textColor = {
     primary: theme.colors.primaryText,
-    secondary: theme.colors.muted,
+    secondary: theme.colors.accent,
     danger: theme.colors.dangerText,
   }[variant];
 
@@ -33,6 +33,7 @@ export function Button({ label, onPress, variant = "primary", disabled, loading,
       style={[
         styles.base,
         { backgroundColor: bg },
+        variant === "secondary" && { borderWidth: 1.5, borderColor: theme.colors.accent },
         small && styles.small,
         (disabled || loading) && styles.disabled,
       ]}

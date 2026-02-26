@@ -146,7 +146,7 @@ export function RankEvolutionPath({ currentRank, currentXP, xpForNextRank, progr
         </View>
 
         {/* Tap hint */}
-        <Text style={[styles.tapHint, { color: theme.colors.border }]}>
+        <Text style={[styles.tapHint, { color: theme.colors.muted }]}>
           Tap to view evolution path
         </Text>
       </View>
@@ -159,8 +159,8 @@ const AVATAR_SIZE = 120;
 const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm + 4,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -208,15 +208,15 @@ const styles = StyleSheet.create({
   },
   rankBadge: {
     backgroundColor: glowColors.viridianDim,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: 6,
   },
   rankBadgeText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "700",
     color: glowColors.viridian,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   xpSection: {
     width: "100%",
@@ -238,12 +238,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   xpText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "600",
   },
   tapHint: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "500",
-    marginTop: 6,
+    marginTop: 8,
   },
 });
