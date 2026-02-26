@@ -38,7 +38,6 @@ import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { useProfileContext } from "../../contexts/ProfileContext";
-import { LockeTips } from "../../components/LockeTips";
 import { LockeMascot } from "../../components/Locke/LockeMascot";
 import type { LockeMascotMood } from "../../components/Locke/LockeMascot";
 import type { WorkoutSession, SessionExercise, SetEntry } from "../../lib/types";
@@ -700,7 +699,7 @@ export default function SessionScreen() {
 
             <View style={styles.focusedContent}>
                   {activeExercise.notes ? (
-                    <LockeTips tip={activeExercise.notes} />
+                    <Text style={{ color: theme.colors.muted, fontSize: 13, fontStyle: "italic", marginBottom: 8 }}>{activeExercise.notes}</Text>
                   ) : (
                     <>
                       {editingNotes[activeExercise.exerciseId] && (
