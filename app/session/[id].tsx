@@ -1248,16 +1248,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     letterSpacing: 0.3,
   },
-  // Session notes
-  sessionNotesInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    marginTop: 10,
-    minHeight: 60,
-    textAlignVertical: "top",
-  },
   // Exercise card
   exerciseCard: { marginBottom: 16 },
   exHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
