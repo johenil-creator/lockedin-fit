@@ -384,6 +384,18 @@ export default function SessionScreen() {
     update({ ...session, exercises: updated });
   }
 
+  function removeWorkingSet(exId: string) {
+    if (!session) return;
+    const updated = session.exercises.map((ex) => {
+      if (ex.exerciseId !== exId) return ex;
+      const lastWorkingIdx = ex.sets.reduce((acc, s, i) => (!s.isWarmUp ? i : acc), -1);
+      if (lastWorkingIdx === -1) return ex;
+      const newSets = ex.sets.filter((_, i) => i !== lastWorkingIdx);
+      return { ...ex, sets: newSets };
+    });
+    update({ ...session, exercises: updated });
+  }
+
   function updateSet(exId: string, setIdx: number, patch: Partial<SetEntry>) {
     if (!session) return;
 
@@ -781,6 +793,11 @@ export default function SessionScreen() {
                 <Pressable style={styles.addSetBtn} onPress={() => addSet(activeExercise.exerciseId)}>
                   <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Working Set</Text>
                 </Pressable>
+                {activeExercise.sets.filter((s) => !s.isWarmUp).length > 1 && (
+                  <Pressable style={styles.addSetBtn} onPress={() => removeWorkingSet(activeExercise.exerciseId)}>
+                    <Text style={[styles.addSetText, { color: theme.colors.muted }]}>- Working Set</Text>
+                  </Pressable>
+                )}
               </View>
             </View>
 
