@@ -604,9 +604,21 @@ export default function SessionScreen() {
             </View>
 
             <Text style={[styles.focusedTitle, { color: theme.colors.text }]}>{activeExercise.name}</Text>
-            <Text style={[styles.focusedCounter, { color: theme.colors.muted }]}>
-              Exercise {activeExerciseIndex + 1} of {session.exercises.length}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <Text style={[styles.focusedCounter, { color: theme.colors.muted, marginBottom: 0 }]}>
+                Exercise {activeExerciseIndex + 1} of {session.exercises.length}
+              </Text>
+              {activeExercise.loadSource === "orm" && (
+                <View style={{ backgroundColor: theme.colors.primary + "22", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                  <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: "700" }}>Auto-filled from 1RM</Text>
+                </View>
+              )}
+              {activeExercise.loadSource === "rpe-estimate" && (
+                <View style={{ backgroundColor: theme.colors.accent + "22", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                  <Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: "700" }}>Based on last session</Text>
+                </View>
+              )}
+            </View>
 
             <View style={styles.focusedContent}>
                   {activeExercise.notes ? (
@@ -831,7 +843,15 @@ export default function SessionScreen() {
                         onPress={() => setActiveExerciseId(ex.exerciseId)}
                         onLongPress={() => removeExercise(ex.exerciseId)}
                       >
-                        <Text style={[styles.exerciseListName, { color: theme.colors.text }]} numberOfLines={1}>{ex.name}</Text>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={[styles.exerciseListName, { color: theme.colors.text, flex: 0 }]} numberOfLines={1}>{ex.name}</Text>
+                          {ex.loadSource === "orm" && (
+                            <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: "600", marginTop: 2 }}>Auto-filled from 1RM</Text>
+                          )}
+                          {ex.loadSource === "rpe-estimate" && (
+                            <Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: "600", marginTop: 2 }}>Based on last session</Text>
+                          )}
+                        </View>
                         <Text style={[styles.exerciseListMeta, { color: theme.colors.muted }]}>{done}/{total}</Text>
                         <Text style={[styles.exerciseListChevron, { color: theme.colors.muted }]}>
                           {allDone ? "✓" : "›"}
