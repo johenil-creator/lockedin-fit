@@ -173,7 +173,6 @@ export default function SessionScreen() {
   const [pendingNotes, setPendingNotes] = useState<Record<string, string>>({});
 
   // Session notes editing
-  const [sessionNotesOpen, setSessionNotesOpen] = useState(false);
 
   // Exercise list / focused view state
   const [activeExerciseId, _setActiveExerciseId] = useState<string | null>(null);
@@ -545,11 +544,6 @@ export default function SessionScreen() {
     setEditingNotes((prev) => ({ ...prev, [exId]: false }));
   }
 
-  function updateSessionNotes(notes: string) {
-    if (!session) return;
-    update({ ...session, notes });
-  }
-
   // ── Sequential set enforcement helpers ────────────────────────────────────
   // Returns the index of the first incomplete set for an exercise (the "current" set)
   function getCurrentSetIndex(ex: SessionExercise): number {
@@ -645,35 +639,6 @@ export default function SessionScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Session notes */}
-        <Card style={styles.sessionNotesCard}>
-          <Pressable
-            onPress={() => setSessionNotesOpen((v) => !v)}
-            style={styles.sessionNotesHeader}
-          >
-            <Text style={[styles.sessionNotesTitle, { color: theme.colors.muted }]}>Session Notes</Text>
-            <Text style={{ color: theme.colors.muted, fontSize: 14 }}>{sessionNotesOpen ? "▾" : "▸"}</Text>
-          </Pressable>
-          {sessionNotesOpen && (
-            <TextInput
-              style={[
-                styles.sessionNotesInput,
-                {
-                  backgroundColor: theme.colors.mutedBg,
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              placeholder="Session notes..."
-              placeholderTextColor={theme.colors.muted}
-              value={session.notes ?? ""}
-              onChangeText={(text) => update({ ...session, notes: text })}
-              onBlur={() => updateSessionNotes(session.notes ?? "")}
-              multiline
-            />
-          )}
-        </Card>
-
         {activeExercise ? (
           /* ── Focused Exercise View ─────────────────────────────────── */
           <View>
@@ -710,22 +675,23 @@ export default function SessionScreen() {
               </Text>
             )}
 
-            {/* How To cues */}
+            {/* Locke how-to cues */}
             {activeExercise.catalogId && EXERCISE_CUES[activeExercise.catalogId] && (
               <Pressable
                 onPress={() => setShowCues((v) => !v)}
-                style={[styles.howToHeader, { borderColor: theme.colors.border }]}
+                style={styles.lockeCuesToggle}
               >
-                <Text style={{ color: theme.colors.primary, fontSize: 13, fontWeight: "700" }}>
-                  {showCues ? "▾" : "▸"}  How To
+                <LockeMascot size="icon" mood="encouraging" />
+                <Text style={{ color: theme.colors.accent, fontSize: 13, fontWeight: "700", marginLeft: 6 }}>
+                  {showCues ? "▾ Hide Tips" : "▸ How do I do this?"}
                 </Text>
               </Pressable>
             )}
             {showCues && activeExercise.catalogId && EXERCISE_CUES[activeExercise.catalogId] && (
-              <View style={[styles.howToBody, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]}>
+              <View style={[styles.lockeCuesBody, { borderLeftColor: theme.colors.accent }]}>
                 {EXERCISE_CUES[activeExercise.catalogId]!.map((cue, i) => (
-                  <View key={i} style={styles.howToCueRow}>
-                    <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: "700", width: 18 }}>{i + 1}.</Text>
+                  <View key={i} style={styles.lockeCueRow}>
+                    <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: "700", width: 18 }}>{i + 1}.</Text>
                     <Text style={{ color: theme.colors.text, fontSize: 13, flex: 1, lineHeight: 18 }}>{cue}</Text>
                   </View>
                 ))}
@@ -1284,13 +1250,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   // Session notes
-  sessionNotesCard: { marginBottom: 16 },
-  sessionNotesHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  sessionNotesTitle: { fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
   sessionNotesInput: {
     borderWidth: 1,
     borderRadius: 12,
@@ -1425,17 +1384,19 @@ const styles = StyleSheet.create({
   focusedContent: {
     marginBottom: 8,
   },
-  howToHeader: {
+  lockeCuesToggle: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
     marginBottom: 4,
   },
-  howToBody: {
-    borderRadius: 12,
-    padding: 12,
+  lockeCuesBody: {
+    borderLeftWidth: 3,
+    paddingLeft: 12,
     marginBottom: 12,
-    borderWidth: 1,
+    marginLeft: 4,
   },
-  howToCueRow: {
+  lockeCueRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     marginBottom: 6,
