@@ -232,17 +232,16 @@ export type LockeMachineRecord = {
 
 export type MovementPattern =
   | 'squat'
-  | 'hip-hinge'
-  | 'horizontal-push'
-  | 'horizontal-pull'
-  | 'vertical-push'
-  | 'vertical-pull'
-  | 'hip-extension'
-  | 'lunge'
-  | 'isolation-push'
-  | 'isolation-pull'
+  | 'hinge'
+  | 'horizontal_push'
+  | 'horizontal_pull'
+  | 'vertical_push'
+  | 'vertical_pull'
+  | 'isolation_upper'
+  | 'isolation_lower'
   | 'core'
   | 'conditioning'
+  | 'carry'
   | 'unknown';
 
 export type LoadModifier = {
