@@ -14,6 +14,8 @@ export type SessionExercise = {
   notes?: string;
   warmUpSets?: number;
   restTime?: number;
+  loadSource?: 'orm' | 'history' | 'rpe-estimate' | 'none';
+  targetRPE?: number;
 };
 
 export type WorkoutSession = {
@@ -26,6 +28,8 @@ export type WorkoutSession = {
   completedAt?: string;
   notes?: string;
   goal?: string;
+  planWeek?: string;
+  planDay?: string;
 };
 
 export type Exercise = {
@@ -55,6 +59,17 @@ export type PlanData = {
   totalWeeks?: number;
   weeklyProgression?: ProgressionRule;
   currentWeek?: number;
+};
+
+export type ExerciseSlot = {
+  movementPattern: string;
+  variations: string[];
+  sets: string;
+  reps: string;
+  day: string;
+  warmUpSets?: string;
+  restTime?: string;
+  comments?: string;
 };
 
 export type CatalogPlan = {
@@ -159,6 +174,13 @@ export type StreakData = {
   lastActivityDate: string;   // ISO date "YYYY-MM-DD"
 };
 
+// ── Plan Progress ────────────────────────────────────────────────────────────
+
+export type PlanProgress = {
+  /** Keys are "Week X|Day Y" strings, value is ISO date of completion */
+  completedDays: Record<string, string>;
+};
+
 // ── Locke (Wolf Mascot) ───────────────────────────────────────────────────────
 
 export type LockeState =
@@ -204,4 +226,51 @@ export type LockeMachineRecord = {
   state:        LockeStateMachineState;
   enteredAt:    string;   // ISO timestamp of last state change
   eventCount:   number;   // how many events have fired in current state
+};
+
+// ── Load Engine Types ────────────────────────────────────────────────────────
+
+export type MovementPattern =
+  | 'squat'
+  | 'hip-hinge'
+  | 'horizontal-push'
+  | 'horizontal-pull'
+  | 'vertical-push'
+  | 'vertical-pull'
+  | 'hip-extension'
+  | 'lunge'
+  | 'isolation-push'
+  | 'isolation-pull'
+  | 'core'
+  | 'conditioning'
+  | 'unknown';
+
+export type LoadModifier = {
+  fraction: number;
+  label: string;
+};
+
+export type ExerciseClassification = {
+  pattern: MovementPattern;
+  baseLift: OrmLiftKey | null;
+  modifier: LoadModifier;
+  confidence: number;
+};
+
+export type WeekPrescription = {
+  intensity: number;
+  rpe: number;
+  sets: number;
+  reps: number;
+  phaseLabel: string;
+  isDeload: boolean;
+};
+
+export type ExerciseLoadResult = {
+  workingWeight: number | null;
+  source: 'orm' | 'history' | 'rpe-estimate' | 'none';
+  warmUps: { weight: string; reps: string }[];
+  workingSets: { weight: string; reps: string }[];
+  targetRPE: number;
+  classification: ExerciseClassification;
 };

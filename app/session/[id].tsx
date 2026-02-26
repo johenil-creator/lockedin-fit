@@ -11,6 +11,8 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -26,6 +28,7 @@ import { usePerformance } from "../../hooks/usePerformance";
 import { buildPerformanceWeek, upsertPerformanceWeek, isoWeekKey } from "../../lib/performanceScore";
 import { useLocke } from "../../contexts/LockeContext";
 import { awardSessionXP } from "../../lib/xpService";
+import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
@@ -97,6 +100,40 @@ function SessionProgressBar({
   );
 }
 
+// ── Pause Overlay ──────────────────────────────────────────────────────────
+
+function PauseOverlay({
+  visible,
+  onResume,
+}: {
+  visible: boolean;
+  onResume: () => void;
+}) {
+  const { theme } = useAppTheme();
+  if (!visible) return null;
+
+  return (
+    <View style={pauseStyles.overlay}>
+      <View style={[pauseStyles.card, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[pauseStyles.title, { color: theme.colors.text }]}>
+          Session Paused
+        </Text>
+        <Text style={[pauseStyles.subtitle, { color: theme.colors.muted }]}>
+          Welcome back! Your progress has been saved.
+        </Text>
+        <Pressable
+          style={[pauseStyles.resumeBtn, { backgroundColor: theme.colors.primary }]}
+          onPress={onResume}
+        >
+          <Text style={[pauseStyles.resumeBtnText, { color: theme.colors.primaryText }]}>
+            Resume Session
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 // ── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function SessionScreen() {
@@ -104,7 +141,7 @@ export default function SessionScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
   const { workouts, loading: workoutsLoading, updateWorkout } = useWorkouts();
-  const { exercises: planExercises } = usePlanContext();
+  const { exercises: planExercises, markDayCompleted } = usePlanContext();
   const { xp, setXPRecord, rank } = useXP();
   const { recordActivity } = useStreak();
   const { performance, savePerformanceRecord } = usePerformance();
@@ -130,12 +167,64 @@ export default function SessionScreen() {
   // Exercise list / focused view state
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
 
+  // ── Auto-pause state ──────────────────────────────────────────────────────
+  const [paused, setPaused] = useState(false);
+  const backgroundTimestampRef = useRef<number | null>(null);
+  const totalBackgroundMsRef = useRef(0);
+
   const session = workouts.find((w) => w.id === id);
+
+  // ── Auto-save on app background / restore on foreground ───────────────────
+  useEffect(() => {
+    const handleAppState = (nextState: AppStateStatus) => {
+      if (!session?.isActive) return;
+
+      if (nextState === "background" || nextState === "inactive") {
+        backgroundTimestampRef.current = Date.now();
+      } else if (nextState === "active" && backgroundTimestampRef.current) {
+        const bgDuration = Date.now() - backgroundTimestampRef.current;
+        backgroundTimestampRef.current = null;
+
+        // Accumulate background time so elapsed timer excludes it
+        totalBackgroundMsRef.current += bgDuration;
+
+        // Advance rest timers by the time spent in background
+        if (bgDuration > 1000) {
+          const elapsedSec = Math.floor(bgDuration / 1000);
+          setRestTimers((prev) => {
+            const updated: Record<string, number> = {};
+            for (const [key, remaining] of Object.entries(prev)) {
+              const adjusted = remaining - elapsedSec;
+              if (adjusted > 0) {
+                updated[key] = adjusted;
+              } else {
+                // Timer expired while in background — clean up interval
+                if (intervalsRef.current[key]) {
+                  clearInterval(intervalsRef.current[key]);
+                  delete intervalsRef.current[key];
+                }
+              }
+            }
+            return updated;
+          });
+        }
+
+        setPaused(true);
+      }
+    };
+
+    const sub = AppState.addEventListener("change", handleAppState);
+    return () => sub.remove();
+  }, [session?.isActive]);
+
+  const handleResumePause = useCallback(() => {
+    setPaused(false);
+  }, []);
 
   useEffect(() => {
     if (!session?.isActive || !session?.startedAt) return;
     const start = new Date(session.startedAt).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+    const tick = () => setElapsed(Math.floor((Date.now() - start - totalBackgroundMsRef.current) / 1000));
     tick();
     const intervalId = setInterval(tick, 1000);
     return () => clearInterval(intervalId);
@@ -175,7 +264,7 @@ export default function SessionScreen() {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
         <Pressable onPress={() => router.back()}>
-          <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>✕</Text>
+          <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>←</Text>
         </Pressable>
         <Text style={[styles.notFound, { color: theme.colors.muted }]}>Workout not found.</Text>
       </View>
@@ -185,7 +274,18 @@ export default function SessionScreen() {
   function startRestTimer(exId: string, setIdx: number, restTime: number) {
     const key = `${exId}-${setIdx}`;
     const duration = restTime || 90;
-    setRestTimers((prev) => ({ ...prev, [key]: duration }));
+
+    // Enforce single active rest timer — dismiss any existing ones first
+    Object.keys(intervalsRef.current).forEach((existingKey) => {
+      if (existingKey !== key) {
+        clearInterval(intervalsRef.current[existingKey]);
+        delete intervalsRef.current[existingKey];
+      }
+    });
+    setRestTimers((_prev) => {
+      // Clear all other timers, keep only the new one
+      return { [key]: duration };
+    });
 
     // Clear any existing interval for this key
     if (intervalsRef.current[key]) clearInterval(intervalsRef.current[key]);
@@ -240,30 +340,102 @@ export default function SessionScreen() {
   function updateSet(exId: string, setIdx: number, patch: Partial<SetEntry>) {
     if (!session) return;
 
+    const ex = session.exercises.find((e) => e.exerciseId === exId);
+    if (!ex) return;
+
+    // Sequential enforcement: prevent unchecking a set if later sets are completed
+    if (patch.completed === false) {
+      const hasLaterCompleted = ex.sets.some((s, i) => i > setIdx && s.completed);
+      if (hasLaterCompleted) return; // can't uncheck — later sets depend on it
+    }
+
     // If marking completed (transitioning from false to true), start rest timer
     if (patch.completed === true) {
-      const ex = session.exercises.find((e) => e.exerciseId === exId);
-      const wasCompleted = ex?.sets[setIdx]?.completed;
-      if (!wasCompleted && ex) {
+      const wasCompleted = ex.sets[setIdx]?.completed;
+      if (!wasCompleted) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         startRestTimer(exId, setIdx, ex.restTime ?? 90);
       }
     }
 
-    const updated = session.exercises.map((ex) =>
-      ex.exerciseId === exId
+    const updated = session.exercises.map((e) =>
+      e.exerciseId === exId
         ? {
-            ...ex,
-            sets: ex.sets.map((s, i) => (i === setIdx ? { ...s, ...patch } : s)),
+            ...e,
+            sets: e.sets.map((s, i) => (i === setIdx ? { ...s, ...patch } : s)),
           }
-        : ex
+        : e
     );
     update({ ...session, exercises: updated });
   }
 
   function removeExercise(exId: string) {
     if (!session) return;
-    update({ ...session, exercises: session.exercises.filter((ex) => ex.exerciseId !== exId) });
+    const ex = session.exercises.find((e) => e.exerciseId === exId);
+    Alert.alert(
+      "Delete Exercise?",
+      `Remove "${ex?.name ?? "this exercise"}" and all its sets from this session?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            // Clean up any rest timers for this exercise
+            const keysToClean = Object.keys(restTimers).filter((k) => k.startsWith(exId + "-"));
+            keysToClean.forEach((k) => dismissRestTimer(k));
+            // If focused on this exercise, go back to list
+            if (activeExerciseId === exId) setActiveExerciseId(null);
+            update({ ...session, exercises: session.exercises.filter((e) => e.exerciseId !== exId) });
+          },
+        },
+      ]
+    );
+  }
+
+  function addWarmUpSet(exId: string) {
+    if (!session) return;
+    const updated = session.exercises.map((ex) => {
+      if (ex.exerciseId !== exId) return ex;
+      // Try to resolve a warm-up weight via the load engine
+      const weekMatch = session.name.match(/Week\s*(\d+)/i);
+      const weekStr = weekMatch ? `Week ${weekMatch[1]}` : "Week 1";
+      const load = resolveExerciseLoad({
+        exerciseName: ex.name,
+        weekStr,
+        profile,
+        workouts,
+        plannedWarmUpCount: 1,
+      });
+      // Use the last warm-up weight from the engine, or empty
+      const warmUpWeight = load.warmUps.length > 0
+        ? load.warmUps[load.warmUps.length - 1].weight
+        : "";
+      // Insert warm-up set before the first working set
+      const firstWorkingIdx = ex.sets.findIndex((s) => !s.isWarmUp);
+      const insertIdx = firstWorkingIdx === -1 ? ex.sets.length : firstWorkingIdx;
+      const newSets = [...ex.sets];
+      newSets.splice(insertIdx, 0, { reps: "", weight: warmUpWeight, completed: false, isWarmUp: true });
+      return { ...ex, sets: newSets, warmUpSets: (ex.warmUpSets ?? 0) + 1 };
+    });
+    update({ ...session, exercises: updated });
+  }
+
+  function removeWarmUpSet(exId: string) {
+    if (!session) return;
+    const updated = session.exercises.map((ex) => {
+      if (ex.exerciseId !== exId) return ex;
+      const warmUpCount = ex.sets.filter((s) => !!s.isWarmUp).length;
+      if (warmUpCount === 0) return ex;
+      // Remove the last warm-up set (last one before working sets)
+      const lastWarmUpIdx = ex.sets.reduce((acc, s, i) => (s.isWarmUp ? i : acc), -1);
+      if (lastWarmUpIdx === -1) return ex;
+      // Don't remove if it's already completed
+      if (ex.sets[lastWarmUpIdx].completed) return ex;
+      const newSets = ex.sets.filter((_, i) => i !== lastWarmUpIdx);
+      return { ...ex, sets: newSets, warmUpSets: Math.max(0, (ex.warmUpSets ?? 0) - 1) };
+    });
+    update({ ...session, exercises: updated });
   }
 
   function updateExerciseNote(exId: string, note: string) {
@@ -278,6 +450,36 @@ export default function SessionScreen() {
   function updateSessionNotes(notes: string) {
     if (!session) return;
     update({ ...session, notes });
+  }
+
+  // ── Sequential set enforcement helpers ────────────────────────────────────
+  // Returns the index of the first incomplete set for an exercise (the "current" set)
+  function getCurrentSetIndex(ex: SessionExercise): number {
+    const idx = ex.sets.findIndex((s) => !s.completed);
+    return idx === -1 ? ex.sets.length : idx; // all done = past end
+  }
+
+
+  // Check if a specific exercise has an active rest timer
+  function exerciseHasActiveRestTimer(ex: SessionExercise): boolean {
+    return Object.keys(restTimers).some((key) => key.startsWith(ex.exerciseId));
+  }
+
+  // Check if a specific set is the "current" (next to complete) set for its exercise
+  function isCurrentSet(ex: SessionExercise, setIdx: number): boolean {
+    return getCurrentSetIndex(ex) === setIdx;
+  }
+
+  // Check if a set is locked (cannot be interacted with yet)
+  // Scoped per-exercise: resting on bench doesn't lock squat sets
+  function isSetLocked(ex: SessionExercise, setIdx: number): boolean {
+    const currentIdx = getCurrentSetIndex(ex);
+    if (setIdx < currentIdx) return false; // already completed
+    if (setIdx === currentIdx) {
+      // Current set is locked only if THIS exercise has an active rest timer
+      return exerciseHasActiveRestTimer(ex);
+    }
+    return true; // future set
   }
 
   const completedSets = session.exercises.reduce(
@@ -321,7 +523,7 @@ export default function SessionScreen() {
             router.back();
           }
         }}>
-          <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>✕</Text>
+          <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>←</Text>
         </Pressable>
         <View style={styles.headerCenter}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -341,6 +543,14 @@ export default function SessionScreen() {
             {(() => { const d = new Date(session.date); return `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`; })()}
           </Text>
         </View>
+        {session.isActive && (
+          <Pressable
+            onPress={() => setPaused(true)}
+            style={[styles.pauseBtn, { backgroundColor: theme.colors.mutedBg }]}
+          >
+            <Text style={{ color: theme.colors.muted, fontSize: 14, fontWeight: "700" }}>⏸</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Progress bar */}
@@ -465,39 +675,79 @@ export default function SessionScreen() {
                 const workingIndex = isWarmUp
                   ? 0
                   : activeExercise.sets.slice(0, i).filter((prev) => !prev.isWarmUp).length + 1;
+                const isCurrent = isCurrentSet(activeExercise, i);
+                const locked = isSetLocked(activeExercise, i);
+                const isFutureSet = i > getCurrentSetIndex(activeExercise);
                 return (
                   <View key={i}>
-                    <View style={[styles.setRow, isWarmUp && { opacity: 0.85 }]}>
+                    {/* Current set indicator */}
+                    {isCurrent && !s.completed && (
+                      <View style={[styles.currentSetIndicator, { backgroundColor: theme.colors.primary + "18" }]}>
+                        <Text style={[styles.currentSetLabel, { color: theme.colors.primary }]}>
+                          {exerciseHasActiveRestTimer(activeExercise) ? "Resting..." : "Current Set"}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={[
+                      styles.setRow,
+                      isWarmUp && { opacity: 0.85 },
+                      isFutureSet && { opacity: 0.4 },
+                    ]}>
                       <View style={styles.setColNum}>
                         {isWarmUp ? (
-                          <View style={[styles.warmUpBadge, { backgroundColor: theme.colors.accent }]}>
+                          <View style={[styles.warmUpBadge, { backgroundColor: isFutureSet ? theme.colors.muted : theme.colors.accent }]}>
                             <Text style={[styles.warmUpBadgeText, { color: theme.colors.accentText }]}>W{warmUpIndex}</Text>
                           </View>
                         ) : (
-                          <Text style={[styles.setNum, { color: theme.colors.muted }]}>{workingIndex}</Text>
+                          <Text style={[styles.setNum, { color: isCurrent && !s.completed ? theme.colors.primary : theme.colors.muted }]}>{workingIndex}</Text>
                         )}
                       </View>
                       <TextInput
-                        style={[styles.setInput, styles.setColWeight, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text }]}
+                        style={[styles.setInput, styles.setColWeight, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
                         placeholder={sessionUnit}
                         placeholderTextColor={theme.colors.muted}
                         value={s.weight}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { weight: v })}
                         keyboardType="decimal-pad"
+                        editable={!isFutureSet}
                       />
                       <TextInput
-                        style={[styles.setInput, styles.setColReps, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text }]}
+                        style={[styles.setInput, styles.setColReps, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
                         placeholder="reps"
                         placeholderTextColor={theme.colors.muted}
                         value={s.reps}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { reps: v })}
                         keyboardType="number-pad"
+                        editable={!isFutureSet}
                       />
                       <Pressable
-                        style={[styles.checkBtn, styles.setColCheck, { backgroundColor: s.completed ? theme.colors.primary : theme.colors.mutedBg }]}
-                        onPress={() => updateSet(activeExercise.exerciseId, i, { completed: !s.completed })}
+                        style={[
+                          styles.checkBtn,
+                          styles.setColCheck,
+                          {
+                            backgroundColor: s.completed
+                              ? theme.colors.primary
+                              : locked
+                              ? theme.colors.border
+                              : theme.colors.mutedBg,
+                          },
+                        ]}
+                        onPress={() => {
+                          if (locked && !s.completed) return; // blocked
+                          updateSet(activeExercise.exerciseId, i, { completed: !s.completed });
+                        }}
+                        disabled={locked && !s.completed}
                       >
-                        <Text style={{ color: s.completed ? theme.colors.primaryText : theme.colors.muted, fontSize: 14 }}>✓</Text>
+                        <Text style={{
+                          color: s.completed
+                            ? theme.colors.primaryText
+                            : locked
+                            ? theme.colors.muted + "66"
+                            : theme.colors.muted,
+                          fontSize: 14,
+                        }}>
+                          {isFutureSet ? "🔒" : "✓"}
+                        </Text>
                       </Pressable>
                     </View>
                     {/* Rest timer pill */}
@@ -509,16 +759,41 @@ export default function SessionScreen() {
                         <Text style={[styles.restPillText, { color: theme.colors.accent }]}>
                           Rest: {formatRestTime(restRemaining)}
                         </Text>
-                        <Text style={{ color: theme.colors.muted, fontSize: 11, marginLeft: 8 }}>tap to dismiss</Text>
+                        <Text style={{ color: theme.colors.muted, fontSize: 11, marginLeft: 8 }}>tap to skip</Text>
                       </Pressable>
                     )}
                   </View>
                 );
               })}
 
-              <Pressable style={styles.addSetBtn} onPress={() => addSet(activeExercise.exerciseId)}>
-                <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Set</Text>
-              </Pressable>
+              <View style={styles.setActionsRow}>
+                <Pressable style={styles.addSetBtn} onPress={() => addSet(activeExercise.exerciseId)}>
+                  <Text style={[styles.addSetText, { color: theme.colors.accent }]}>+ Working Set</Text>
+                </Pressable>
+                <View style={styles.warmUpControls}>
+                  <Text style={[styles.warmUpLabel, { color: theme.colors.muted }]}>Warm-up:</Text>
+                  <Pressable
+                    style={[styles.warmUpBtn, { backgroundColor: theme.colors.mutedBg }]}
+                    onPress={() => removeWarmUpSet(activeExercise.exerciseId)}
+                    disabled={activeExercise.sets.filter((s) => !!s.isWarmUp).length === 0}
+                  >
+                    <Text style={[styles.warmUpBtnText, {
+                      color: activeExercise.sets.filter((s) => !!s.isWarmUp).length === 0
+                        ? theme.colors.muted + "44"
+                        : theme.colors.text,
+                    }]}>-</Text>
+                  </Pressable>
+                  <Text style={[styles.warmUpCount, { color: theme.colors.text }]}>
+                    {activeExercise.sets.filter((s) => !!s.isWarmUp).length}
+                  </Text>
+                  <Pressable
+                    style={[styles.warmUpBtn, { backgroundColor: theme.colors.mutedBg }]}
+                    onPress={() => addWarmUpSet(activeExercise.exerciseId)}
+                  >
+                    <Text style={[styles.warmUpBtnText, { color: theme.colors.text }]}>+</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
 
             {/* Next Exercise / Back to List */}
@@ -554,6 +829,7 @@ export default function SessionScreen() {
                       <Pressable
                         style={[styles.exerciseListRow, { opacity: allDone ? 0.6 : 1 }]}
                         onPress={() => setActiveExerciseId(ex.exerciseId)}
+                        onLongPress={() => removeExercise(ex.exerciseId)}
                       >
                         <Text style={[styles.exerciseListName, { color: theme.colors.text }]} numberOfLines={1}>{ex.name}</Text>
                         <Text style={[styles.exerciseListMeta, { color: theme.colors.muted }]}>{done}/{total}</Text>
@@ -592,6 +868,11 @@ export default function SessionScreen() {
                               completedAt: new Date().toISOString(),
                             };
                             await updateWorkout(completed);
+
+                            // ── Mark plan day completed ──────────────────────────
+                            if (session.planWeek && session.planDay) {
+                              markDayCompleted(session.planWeek, session.planDay);
+                            }
 
                             // ── Streak ──────────────────────────────────────────
                             const newStreak = await recordActivity();
@@ -717,6 +998,9 @@ export default function SessionScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Auto-pause overlay */}
+      <PauseOverlay visible={paused && !!session.isActive} onResume={handleResumePause} />
     </View>
   );
 }
@@ -725,6 +1009,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 56, paddingHorizontal: 24 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 0, marginBottom: 12 },
   exitBtn: { fontSize: 24, padding: 4 },
+  pauseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   unitLabel: { fontSize: 13, fontWeight: "700", letterSpacing: 0.5 },
   headerCenter: { flex: 1, marginHorizontal: 12 },
   sessionName: { fontSize: 17, fontWeight: "600" },
@@ -737,14 +1028,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   progressTrack: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
     flexDirection: "row",
     overflow: "hidden",
   },
   progressFill: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
     position: "absolute",
     left: 0,
     top: 0,
@@ -765,7 +1056,7 @@ const styles = StyleSheet.create({
   sessionNotesTitle: { fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
   sessionNotesInput: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     fontSize: 14,
     marginTop: 10,
@@ -799,19 +1090,19 @@ const styles = StyleSheet.create({
   setRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   setNum: { fontSize: 12, fontWeight: "600", textAlign: "center" },
   setInput: {
-    borderRadius: 6,
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
     fontSize: 14,
     textAlign: "center",
   },
   // Warm-up badge
-  warmUpBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, alignSelf: "flex-start" },
+  warmUpBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: "flex-start" },
   warmUpBadgeText: { fontSize: 9, fontWeight: "800" },
   checkBtn: {
     width: 36,
     height: 36,
-    borderRadius: 6,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -820,15 +1111,62 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     marginBottom: 8,
     marginLeft: 56,
   },
   restPillText: { fontSize: 13, fontWeight: "600", fontFamily: "monospace" },
-  addSetBtn: { marginTop: 4, alignSelf: "flex-start" },
+  // Current set indicator
+  currentSetIndicator: {
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 4,
+    marginLeft: 56,
+    alignSelf: "flex-start",
+  },
+  currentSetLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  setActionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  addSetBtn: { alignSelf: "flex-start" },
   addSetText: { fontSize: 13, fontWeight: "600" },
+  warmUpControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  warmUpLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  warmUpBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  warmUpBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  warmUpCount: {
+    fontSize: 14,
+    fontWeight: "600",
+    minWidth: 18,
+    textAlign: "center",
+  },
   // Exercise list rows
   // Focused exercise view
   focusedNavRow: {
@@ -873,8 +1211,8 @@ const styles = StyleSheet.create({
   },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalCard: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 24,
     paddingBottom: 40,
   },
@@ -890,10 +1228,50 @@ const styles = StyleSheet.create({
   noPlanText: { textAlign: "center", paddingVertical: 16 },
   orLabel: { fontSize: 13, marginTop: 16, marginBottom: 8 },
   manualInput: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 14,
     fontSize: 15,
     marginBottom: 16,
   },
   modalActions: { flexDirection: "row" },
+});
+
+const pauseStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  card: {
+    borderRadius: 16,
+    padding: 32,
+    alignItems: "center",
+    width: "85%",
+    maxWidth: 340,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  resumeBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    width: "100%",
+    alignItems: "center",
+  },
+  resumeBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
 });
