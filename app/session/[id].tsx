@@ -10,6 +10,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  Image,
   ActivityIndicator,
   AppState,
   AppStateStatus,
@@ -33,13 +34,12 @@ import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
 import { loadCustomCatalog, saveCustomCatalog } from "../../lib/storage";
 import { EXERCISE_CUES } from "../../src/data/exerciseCues";
+import { RANK_IMAGES } from "../../components/RankEvolutionPath";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { Badge } from "../../components/Badge";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { useProfileContext } from "../../contexts/ProfileContext";
-import { LockeMascot } from "../../components/Locke/LockeMascot";
-import type { LockeMascotMood } from "../../components/Locke/LockeMascot";
 import type { WorkoutSession, SessionExercise, SetEntry } from "../../lib/types";
 
 function makeId() {
@@ -61,47 +61,6 @@ function formatRestTime(seconds: number): string {
 }
 
 // ── Progress Bar ────────────────────────────────────────────────────────────
-
-function SessionProgressBar({
-  completedSets,
-  totalSets,
-}: {
-  completedSets: number;
-  totalSets: number;
-}) {
-  const { theme } = useAppTheme();
-  const pct = totalSets > 0 ? completedSets / totalSets : 0;
-  const [trackWidth, setTrackWidth] = useState(0);
-  const fillWidth = useSharedValue(0);
-
-  useEffect(() => {
-    if (trackWidth > 0) {
-      fillWidth.value = withTiming(trackWidth * pct, { duration: 400 });
-    }
-  }, [pct, trackWidth]);
-
-  const barStyle = useAnimatedStyle(() => ({ width: fillWidth.value }));
-
-  return (
-    <View style={styles.progressContainer}>
-      <View
-        style={[styles.progressTrack, { backgroundColor: theme.colors.mutedBg }]}
-        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
-      >
-        <Animated.View
-          style={[
-            styles.progressFill,
-            { backgroundColor: theme.colors.primary },
-            barStyle,
-          ]}
-        />
-      </View>
-      <Text style={[styles.progressLabel, { color: theme.colors.muted }]}>
-        {completedSets} of {totalSets} sets
-      </Text>
-    </View>
-  );
-}
 
 // ── Pause Overlay ──────────────────────────────────────────────────────────
 
@@ -579,14 +538,6 @@ export default function SessionScreen() {
   );
   const totalSets = session.exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
 
-  // Locke mascot mood
-  const lockeMood: LockeMascotMood = !session.isActive
-    ? "neutral"
-    : completedSets === totalSets && totalSets > 0
-    ? "celebrating"
-    : completedSets > totalSets * 0.5
-    ? "encouraging"
-    : "intense";
 
   // Focused exercise view
   const activeExercise = activeExerciseId
@@ -601,7 +552,9 @@ export default function SessionScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => {
-          if (session.isActive) {
+          if (activeExerciseId) {
+            setActiveExerciseId(null);
+          } else if (session.isActive) {
             Alert.alert(
               "Leave session?",
               "Your progress is saved.",
@@ -617,85 +570,46 @@ export default function SessionScreen() {
           <Text style={[styles.exitBtn, { color: theme.colors.muted }]}>←</Text>
         </Pressable>
         <View style={styles.headerCenter}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={[styles.sessionName, { color: theme.colors.text }]} numberOfLines={1}>{session.name}</Text>
-            {session.isActive && (
-              <Text style={{ color: theme.colors.success, fontSize: 12, fontWeight: "600" }}>● Active</Text>
-            )}
-          </View>
-          <Text style={[styles.sessionDate, { color: theme.colors.muted }]}>
-            {(() => { const d = new Date(session.date); return `${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`; })()}
-          </Text>
+          <Text style={[styles.sessionName, { color: theme.colors.text }]} numberOfLines={1}>{session.name}</Text>
         </View>
       </View>
 
-      {/* Progress bar */}
-      <SessionProgressBar completedSets={completedSets} totalSets={totalSets} />
 
-      {/* Locke mascot */}
-      <View style={{ alignItems: "center", marginVertical: 8 }}>
-        <LockeMascot size="icon" mood={lockeMood} />
-      </View>
+      {/* Rank mascot + how-to cues */}
+      {activeExercise?.catalogId && EXERCISE_CUES[activeExercise.catalogId] ? (
+        <View style={{ marginVertical: 8 }}>
+          <Pressable
+            onPress={() => setShowCues((v) => !v)}
+            style={styles.lockeCuesToggle}
+          >
+            <Image source={RANK_IMAGES[rank] ?? RANK_IMAGES["Scout"]} style={{ width: 88, height: 88, marginTop: -28 }} resizeMode="contain" />
+            <Text style={{ color: theme.colors.accent, fontSize: 13, fontWeight: "700", marginLeft: 8 }}>
+              {showCues ? "▾ Hide Tips" : "▸ How do I do this?"}
+            </Text>
+          </Pressable>
+          {showCues && (
+            <View style={[styles.lockeCuesBody, { borderLeftColor: theme.colors.accent }]}>
+              {EXERCISE_CUES[activeExercise.catalogId]!.map((cue, i) => (
+                <View key={i} style={styles.lockeCueRow}>
+                  <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: "700", width: 18 }}>{i + 1}.</Text>
+                  <Text style={{ color: theme.colors.text, fontSize: 13, flex: 1, lineHeight: 18 }}>{cue}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={{ alignItems: "center", marginVertical: 8 }}>
+          <Image source={RANK_IMAGES[rank] ?? RANK_IMAGES["Scout"]} style={{ width: 88, height: 88, marginTop: -28 }} resizeMode="contain" />
+        </View>
+      )}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {activeExercise ? (
           /* ── Focused Exercise View ─────────────────────────────────── */
           <View>
-            <View style={styles.focusedNavRow}>
-              <Pressable onPress={() => setActiveExerciseId(null)} style={{ paddingVertical: 8 }}>
-                <Text style={{ color: theme.colors.primary, fontSize: 14, fontWeight: "600" }}>← All Exercises</Text>
-              </Pressable>
-              <Pressable onPress={() => removeExercise(activeExercise.exerciseId)}>
-                <Text style={[styles.removeEx, { color: theme.colors.muted }]}>✕</Text>
-              </Pressable>
-            </View>
-
             <Text style={[styles.focusedTitle, { color: theme.colors.text }]}>{activeExercise.name}</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <Text style={[styles.focusedCounter, { color: theme.colors.muted, marginBottom: 0 }]}>
-                Exercise {activeExerciseIndex + 1} of {session.exercises.length}
-              </Text>
-              {activeExercise.loadSource === "orm" && (
-                <View style={{ backgroundColor: theme.colors.primary + "22", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
-                  <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: "700" }}>Auto-filled from 1RM</Text>
-                </View>
-              )}
-              {activeExercise.loadSource === "rpe-estimate" && (
-                <View style={{ backgroundColor: theme.colors.accent + "22", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
-                  <Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: "700" }}>Auto-filled</Text>
-                </View>
-              )}
-            </View>
 
-            {/* DEV: catalog match debug */}
-            {__DEV__ && (
-              <Text style={{ color: theme.colors.muted, fontSize: 9, fontFamily: "monospace", marginBottom: 6, opacity: 0.7 }}>
-                Catalog match: {activeExercise.catalogId ?? "none"} | pattern: {activeExercise.matchedPattern ?? "?"} | anchor: {activeExercise.matchedAnchor ?? "none"} | modifier: {activeExercise.matchedModifier ?? "—"}
-              </Text>
-            )}
-
-            {/* Locke how-to cues */}
-            {activeExercise.catalogId && EXERCISE_CUES[activeExercise.catalogId] && (
-              <Pressable
-                onPress={() => setShowCues((v) => !v)}
-                style={styles.lockeCuesToggle}
-              >
-                <LockeMascot size="icon" mood="encouraging" />
-                <Text style={{ color: theme.colors.accent, fontSize: 13, fontWeight: "700", marginLeft: 6 }}>
-                  {showCues ? "▾ Hide Tips" : "▸ How do I do this?"}
-                </Text>
-              </Pressable>
-            )}
-            {showCues && activeExercise.catalogId && EXERCISE_CUES[activeExercise.catalogId] && (
-              <View style={[styles.lockeCuesBody, { borderLeftColor: theme.colors.accent }]}>
-                {EXERCISE_CUES[activeExercise.catalogId]!.map((cue, i) => (
-                  <View key={i} style={styles.lockeCueRow}>
-                    <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: "700", width: 18 }}>{i + 1}.</Text>
-                    <Text style={{ color: theme.colors.text, fontSize: 13, flex: 1, lineHeight: 18 }}>{cue}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
 
             <View style={styles.focusedContent}>
                   {activeExercise.notes ? (
@@ -885,20 +799,57 @@ export default function SessionScreen() {
               </View>
             </View>
 
-            {/* Next Exercise / Back to List */}
-            <View style={{ marginTop: 12 }}>
-              <Button
-                label={activeExerciseIndex < session.exercises.length - 1 ? "Next Exercise" : "All Exercises"}
-                onPress={() => {
-                  if (activeExerciseIndex < session.exercises.length - 1) {
-                    setActiveExerciseId(session.exercises[activeExerciseIndex + 1].exerciseId);
-                  } else {
-                    setActiveExerciseId(null);
-                  }
-                }}
-                variant="secondary"
-              />
-            </View>
+            {/* Continue / Next Exercise / All Exercises */}
+            {(() => {
+              const allSetsComplete = activeExercise.sets.length > 0 && activeExercise.sets.every((s) => s.completed);
+              const isLastExercise = activeExerciseIndex >= session.exercises.length - 1;
+
+              if (allSetsComplete) {
+                return (
+                  <View style={{ marginTop: 12 }}>
+                    <Button
+                      label={isLastExercise ? "All Exercises" : "Next Exercise"}
+                      onPress={() => {
+                        if (!isLastExercise) {
+                          setActiveExerciseId(session.exercises[activeExerciseIndex + 1].exerciseId);
+                        } else {
+                          setActiveExerciseId(null);
+                        }
+                      }}
+                    />
+                  </View>
+                );
+              }
+
+              const nextSetIdx = activeExercise.sets.findIndex((s) => !s.completed);
+              const nextSet = activeExercise.sets[nextSetIdx];
+              const label = nextSet.isWarmUp
+                ? `Log Warm-Up ${activeExercise.sets.slice(0, nextSetIdx).filter((s) => !!s.isWarmUp).length + 1}`
+                : `Log Set ${activeExercise.sets.slice(0, nextSetIdx).filter((s) => !s.isWarmUp).length + 1}`;
+              return (
+                <View style={{ marginTop: 12 }}>
+                  <Button
+                    label={label}
+                    onPress={() => {
+                      updateSet(activeExercise.exerciseId, nextSetIdx, { completed: true });
+                    }}
+                    variant={undefined}
+                  />
+                </View>
+              );
+            })()}
+
+            <Pressable
+              onPress={() =>
+                Alert.alert("Remove Exercise", `Remove "${activeExercise.name}" from this session?`, [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Remove", style: "destructive", onPress: () => removeExercise(activeExercise.exerciseId) },
+                ])
+              }
+              style={styles.removeExBtn}
+            >
+              <Text style={{ color: theme.colors.danger, fontSize: 13, fontWeight: "600" }}>Remove Exercise</Text>
+            </Pressable>
           </View>
         ) : (
           /* ── Exercise List View ────────────────────────────────────── */
@@ -1174,20 +1125,15 @@ export default function SessionScreen() {
 
       {/* Floating pause bar */}
       {session.isActive && (
-        <View style={[styles.floatingPauseBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ color: theme.colors.success, fontSize: 10, fontWeight: "700" }}>●</Text>
-            <Text style={{ color: theme.colors.text, fontSize: 14, fontWeight: "600", fontFamily: "monospace" }}>
-              {formatElapsed(elapsed)}
-            </Text>
-          </View>
-          <Pressable
-            onPress={() => setPaused(true)}
-            style={[styles.floatingPauseBtn, { backgroundColor: theme.colors.primary }]}
-          >
-            <Text style={{ color: theme.colors.primaryText, fontSize: 15, fontWeight: "700" }}>⏸  Pause</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() => setPaused(true)}
+          style={[styles.floatingPauseBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}
+        >
+          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: "700", fontFamily: "monospace", marginRight: 10 }}>
+            {formatElapsed(elapsed)}
+          </Text>
+          <Text style={{ color: theme.colors.accent, fontSize: 14, fontWeight: "700" }}>pause</Text>
+        </Pressable>
       )}
 
       {/* Auto-pause overlay */}
@@ -1206,48 +1152,19 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 32,
+    paddingTop: 14,
+    paddingBottom: 34,
     borderTopWidth: 1,
-  },
-  floatingPauseBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
   },
   unitLabel: { fontSize: 13, fontWeight: "700", letterSpacing: 0.5 },
   headerCenter: { flex: 1, marginHorizontal: 12 },
   sessionName: { fontSize: 17, fontWeight: "600" },
-  sessionDate: { fontSize: 12 },
   notFound: { textAlign: "center", marginTop: 48 },
   emptyHint: { textAlign: "center", marginTop: 32, marginBottom: 24 },
   // Progress bar
-  progressContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: 4,
-    flexDirection: "row",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: 8,
-    borderRadius: 4,
-    position: "absolute",
-    left: 0,
-    top: 0,
-  },
-  progressLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 6,
-    letterSpacing: 0.3,
-  },
   // Exercise card
   exerciseCard: { marginBottom: 16 },
   exHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
@@ -1262,7 +1179,7 @@ const styles = StyleSheet.create({
   },
   addNoteBtn: { marginTop: 2 },
   addNoteText: { fontSize: 12, fontWeight: "600" },
-  removeEx: { fontSize: 14, padding: 4 },
+  removeExBtn: { alignItems: "center", paddingVertical: 14, marginTop: 8 },
   // Set header
   setHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   setHeaderCell: { fontSize: 10, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
@@ -1354,12 +1271,6 @@ const styles = StyleSheet.create({
   },
   // Exercise list rows
   // Focused exercise view
-  focusedNavRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
   focusedTitle: {
     fontSize: 22,
     fontWeight: "700",
@@ -1376,6 +1287,7 @@ const styles = StyleSheet.create({
   lockeCuesToggle: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 8,
     marginBottom: 4,
   },

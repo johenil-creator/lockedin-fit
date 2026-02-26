@@ -143,7 +143,7 @@ function expandSlotsWithProgression(
         day: s.day,
         warmUpSets: s.warmUpSets,
         restTime: s.restTime,
-        notes: phase.label,
+        notes: "",
       });
     }
   }
