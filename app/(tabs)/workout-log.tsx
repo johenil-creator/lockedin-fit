@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
+  Keyboard,
 } from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -64,6 +65,7 @@ export default function WorkoutLogScreen() {
 
   function handleAdd() {
     if (!name.trim()) return;
+    Keyboard.dismiss();
     const session: WorkoutSession = {
       id: makeId(),
       name: name.trim(),
@@ -76,6 +78,7 @@ export default function WorkoutLogScreen() {
   }
 
   function handleCancel() {
+    Keyboard.dismiss();
     setName("");
     setModalVisible(false);
   }
