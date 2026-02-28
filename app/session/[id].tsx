@@ -30,7 +30,24 @@ import { awardSessionXP, buildWorkoutCompleteParams } from "../../lib/xpService"
 import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
-import { loadCustomCatalog, saveCustomCatalog } from "../../lib/storage";
+import {
+  loadCustomCatalog,
+  saveCustomCatalog,
+  loadCachedFatigueState,
+  saveCachedFatigueState,
+  saveDailySnapshot,
+  saveTrainingLoad,
+} from "../../lib/storage";
+import {
+  computeSessionFatigue,
+  mergeFatigue,
+  decayFatigue,
+  emptyFatigueMap,
+} from "../../lib/muscleMapping";
+import { updateTrainingLoad } from "../../lib/adaptationModel";
+import { clearRecoveryCache } from "../../lib/recoveryEstimator";
+import { clearReadinessCache } from "../../lib/readinessScore";
+import { clearForecastCache } from "../../lib/fatigueForecast";
 import { EXERCISE_CUES } from "../../src/data/exerciseCues";
 import { RANK_IMAGES } from "../../components/RankEvolutionPath";
 import { Card } from "../../components/Card";
@@ -45,7 +62,13 @@ import { useAppTheme } from "../../contexts/ThemeContext";
 import { useRestTimers } from "../../hooks/useRestTimers";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { makeId } from "../../lib/helpers";
-import type { WorkoutSession, SessionExercise, SetEntry } from "../../lib/types";
+import type {
+  WorkoutSession,
+  SessionExercise,
+  SetEntry,
+  MuscleGroup,
+  MuscleFatigueMap,
+} from "../../lib/types";
 
 function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -59,6 +82,113 @@ function formatRestTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// ── Fatigue pipeline (fire-and-forget) ───────────────────────────────────────
+
+const FATIGUE_HALF_LIFE_HOURS = 36; // 50% recovery every 36 hours
+
+/**
+ * Update fatigue, daily snapshot, and training load after a session completes.
+ *
+ * This runs asynchronously and must NEVER block or error-out the completion
+ * UI flow.  All errors are silently swallowed in production.
+ *
+ * Pipeline:
+ *   1. Compute this session's per-muscle fatigue contribution
+ *   2. Load existing CachedFatigueState, apply exponential decay for elapsed time
+ *   3. Merge decayed base + session fatigue (clamped to 100 per muscle)
+ *   4. Persist updated CachedFatigueState (rawFatigueMap stored without decay;
+ *      decay is applied at read-time using the stored timestamp)
+ *   5. Write today's DailySnapshot with overall fatigue + top muscles
+ *   6. Recompute and persist the TrainingLoadRecord (ACWR)
+ */
+async function recordSessionFatigue(
+  completed: WorkoutSession,
+  allSessions: WorkoutSession[],
+): Promise<void> {
+  try {
+    // 1. This session's fatigue contribution
+    const sessionFatigue = computeSessionFatigue(completed);
+
+    // 2. Load existing state and apply decay for hours elapsed since last update
+    const existing = await loadCachedFatigueState();
+    let decayedBase: MuscleFatigueMap;
+    if (existing) {
+      const elapsedHours =
+        (Date.now() - new Date(existing.computedAt).getTime()) / 3_600_000;
+      decayedBase = decayFatigue(existing.rawFatigueMap, elapsedHours, FATIGUE_HALF_LIFE_HOURS);
+    } else {
+      decayedBase = emptyFatigueMap();
+    }
+
+    // 3. Merge: decayed history + new session (each muscle capped at 100)
+    const updatedFatigue = mergeFatigue(decayedBase, sessionFatigue);
+
+    // 4. Persist CachedFatigueState — rawFatigueMap is the current value at `computedAt`
+    await saveCachedFatigueState({
+      computedAt: completed.completedAt!,
+      rawFatigueMap: updatedFatigue,
+      halfLifeHours: FATIGUE_HALF_LIFE_HOURS,
+      lastSessionId: completed.id,
+    });
+
+    // 5. Daily snapshot: overall fatigue + top-3 most fatigued muscles
+    const muscleEntries = Object.entries(updatedFatigue) as [MuscleGroup, number][];
+    const overallFatigue = Math.round(
+      muscleEntries.reduce((sum, [, v]) => sum + v, 0) / muscleEntries.length,
+    );
+    const topMuscles: MuscleGroup[] = muscleEntries
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .filter(([, v]) => v > 0)
+      .map(([m]) => m);
+
+    const freshness = Math.max(0, 100 - overallFatigue);
+    const readinessLabel =
+      freshness >= 80 ? "Prime" :
+      freshness >= 60 ? "Ready" :
+      freshness >= 40 ? "Manage Load" : "Recover";
+
+    const topMusclesFatigue = muscleEntries
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .filter(([, v]) => v > 0)
+      .map(([muscle, fatigue]) => ({ muscle, fatigue: Math.round(fatigue) }));
+
+    await saveDailySnapshot({
+      date: completed.completedAt!.split("T")[0],
+      overallFatigue,
+      topMuscles,
+      topMusclesFatigue,
+      // Readiness is approximated here; the dashboard recomputes it more accurately.
+      readinessScore: {
+        score: freshness,
+        label: readinessLabel,
+        components: {
+          muscleFreshness: freshness,
+          blockContext: 50,
+          streakModifier: 50,
+          forecastScore: 50,
+          acwrScore: 50,
+        },
+      },
+    });
+
+    // 6. Training load (ACWR) — uses the full session history including this session
+    const trainingLoad = updateTrainingLoad(allSessions);
+    await saveTrainingLoad(trainingLoad);
+
+    // 7. Invalidate module-level caches so recovery dashboard reads fresh data
+    clearRecoveryCache();
+    clearReadinessCache();
+    clearForecastCache();
+
+  } catch (e) {
+    if (__DEV__) {
+      console.warn("[fatigue] recordSessionFatigue failed:", e);
+    }
+  }
 }
 
 // ── Progress Bar ────────────────────────────────────────────────────────────
@@ -979,6 +1109,14 @@ export default function SessionScreen() {
                               streakDays: newStreak.current,
                               lastWorkoutAt: completed.completedAt ?? null,
                             });
+
+                            // ── Fatigue + training load (fire-and-forget) ─────────
+                            // Runs in background — never blocks the UX transition.
+                            // Pass all sessions including the newly completed one.
+                            void recordSessionFatigue(
+                              completed,
+                              [...workouts.filter((w) => w.id !== completed.id), completed],
+                            );
 
                             // ── Navigate to Workout Complete screen ──────────────
                             const params = buildWorkoutCompleteParams(

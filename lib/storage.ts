@@ -8,6 +8,11 @@ import type {
   StreakData,
   OrmTestSession,
   PlanProgress,
+  TrainingLoadRecord,
+  MuscleFatigueMap,
+  DailySnapshot,
+  CachedFatigueState,
+  RecoveryBundle,
 } from "./types";
 import type { ExerciseCatalogEntry } from "../src/lib/exerciseMatch";
 
@@ -23,6 +28,13 @@ const KEYS = {
   streak: "@lockedinfit/streak",
   ormTest: "@lockedinfit/orm-test",
   customCatalog: "@lockedinfit/custom-catalog",
+  trainingLoad: "@lockedinfit/training-load",
+  muscleFatigue: "@lockedinfit/muscle-fatigue",
+  dailySnapshots: "@lockedinfit/daily-snapshots",
+  // fatigueState stores CachedFatigueState (timestamp-aware, for decay-at-read-time).
+  // Distinct from muscleFatigue (raw MuscleFatigueMap) — use fatigueState for the
+  // recovery dashboard so decay can be applied with exact elapsed hours on every read.
+  fatigueState: "@lockedinfit/fatigue-state",
 } as const;
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
@@ -137,6 +149,87 @@ export async function loadCustomCatalog(): Promise<ExerciseCatalogEntry[]> {
 
 export async function saveCustomCatalog(data: ExerciseCatalogEntry[]): Promise<void> {
   await save(KEYS.customCatalog, data);
+}
+
+// ── Training Load (ACWR / Adaptation Model) ───────────────────────────────────
+
+export async function loadTrainingLoad(): Promise<TrainingLoadRecord | null> {
+  return load<TrainingLoadRecord>(KEYS.trainingLoad);
+}
+
+export async function saveTrainingLoad(data: TrainingLoadRecord): Promise<void> {
+  await save(KEYS.trainingLoad, data);
+}
+
+// ── Muscle Fatigue Map ────────────────────────────────────────────────────────
+
+export async function loadMuscleFatigue(): Promise<MuscleFatigueMap | null> {
+  return load<MuscleFatigueMap>(KEYS.muscleFatigue);
+}
+
+export async function saveMuscleFatigue(data: MuscleFatigueMap): Promise<void> {
+  await save(KEYS.muscleFatigue, data);
+}
+
+// ── Daily Snapshots ───────────────────────────────────────────────────────────
+
+/** Load all daily fatigue snapshots (most recent first). */
+export async function loadDailySnapshots(): Promise<DailySnapshot[]> {
+  return (await load<DailySnapshot[]>(KEYS.dailySnapshots)) ?? [];
+}
+
+export async function saveDailySnapshots(data: DailySnapshot[]): Promise<void> {
+  await save(KEYS.dailySnapshots, data);
+}
+
+/**
+ * Append or replace today's snapshot, keeping at most the last 30 days.
+ * Snapshots are stored newest-first. If a snapshot for `snapshot.date`
+ * already exists it is replaced rather than duplicated.
+ */
+export async function saveDailySnapshot(snapshot: DailySnapshot): Promise<void> {
+  const MAX_DAYS = 30;
+  const existing = await loadDailySnapshots();
+  const updated = [snapshot, ...existing.filter((s) => s.date !== snapshot.date)]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, MAX_DAYS);
+  await save(KEYS.dailySnapshots, updated);
+}
+
+/**
+ * Return the most-recent `days` snapshots (newest-first).
+ * Capped at whatever is available — never throws on empty storage.
+ */
+export async function getDailySnapshots(days: number): Promise<DailySnapshot[]> {
+  const all = await loadDailySnapshots();
+  return all.slice(0, days);
+}
+
+// ── Cached Fatigue State ──────────────────────────────────────────────────────
+
+export async function loadCachedFatigueState(): Promise<CachedFatigueState | null> {
+  return load<CachedFatigueState>(KEYS.fatigueState);
+}
+
+export async function saveCachedFatigueState(data: CachedFatigueState): Promise<void> {
+  await save(KEYS.fatigueState, data);
+}
+
+// ── Recovery Bundle (single multiGet round-trip) ──────────────────────────────
+
+/**
+ * Load fatigueState + dailySnapshots in ONE AsyncStorage.multiGet call.
+ * Use this on the Recovery Dashboard to avoid sequential awaits at mount.
+ */
+export async function loadRecoveryBundle(): Promise<RecoveryBundle> {
+  const pairs = await AsyncStorage.multiGet([KEYS.fatigueState, KEYS.dailySnapshots]);
+  const fatigueState: CachedFatigueState | null = pairs[0][1]
+    ? JSON.parse(pairs[0][1])
+    : null;
+  const dailySnapshots: DailySnapshot[] = pairs[1][1]
+    ? JSON.parse(pairs[1][1])
+    : [];
+  return { fatigueState, dailySnapshots };
 }
 
 // ── Clear All ─────────────────────────────────────────────────────────────────
