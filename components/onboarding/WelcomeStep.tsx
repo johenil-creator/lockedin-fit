@@ -16,7 +16,7 @@ export function WelcomeStep({ lockeMood, onContinue }: Props) {
     <StepSlide>
       <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
         <View style={styles.center}>
-          <LockeMascot size="full" mood={lockeMood} />
+          <LockeMascot size={400} mood={lockeMood} />
           <Text style={[styles.lockeIntro, { color: theme.colors.primary }]}>I'm Locke.</Text>
           <Text style={[styles.welcomeSub, { color: theme.colors.muted }]}>
             I'll be your training partner.
