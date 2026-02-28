@@ -16,6 +16,8 @@ export function BackButton({ variant = "back", onPress }: Props) {
     <Pressable
       style={styles.hitArea}
       onPress={onPress ?? (() => router.back())}
+      accessibilityRole="button"
+      accessibilityLabel={variant === "close" ? "Close" : "Go back"}
     >
       <Ionicons
         name={variant === "close" ? "close" : "chevron-back"}

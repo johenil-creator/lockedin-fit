@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { loadOrmTest, saveOrmTest, clearOrmTest } from '../lib/storage';
+import { makeId } from '../lib/helpers';
 import type {
   UserProfile,
   OrmLiftKey,
@@ -30,10 +31,6 @@ const SET_PROTOCOL: { prescribedPct: number; prescribedReps: number | 'amrap' }[
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
-}
 
 function roundTo2_5(weight: number): number {
   return Math.round(weight / 2.5) * 2.5;
@@ -109,7 +106,7 @@ export function useOrmTest(
     }
 
     const newSession: OrmTestSession = {
-      id: generateId(),
+      id: makeId(),
       startedAt: new Date().toISOString(),
       completedAt: null,
       unit,
@@ -236,11 +233,12 @@ export function useOrmTest(
   }, []);
 
   const finishTest = useCallback(async () => {
-    // Guard: session must exist
-    if (!session) return;
+    // Use ref to avoid stale closure
+    const sess = sessionRef.current;
+    if (!sess) return;
 
     const completedSession: OrmTestSession = {
-      ...session,
+      ...sess,
       status: 'completed' as const,
       completedAt: new Date().toISOString(),
     };
@@ -267,13 +265,15 @@ export function useOrmTest(
     // Save completed session then clear from storage
     await saveOrmTest(completedSession);
     await clearOrmTest();
-  }, [session, updateProfile]);
+  }, [updateProfile]);
 
   const saveAndExit = useCallback(async () => {
-    if (!session) return;
+    // Use ref to avoid stale closure
+    const sess = sessionRef.current;
+    if (!sess) return;
 
     // Write any completed lift results to the profile
-    const completedLifts = session.lifts.filter((l) => l.completed && l.finalOrm);
+    const completedLifts = sess.lifts.filter((l) => l.completed && l.finalOrm);
     if (completedLifts.length > 0) {
       const estimated1RM: Record<string, string> = {};
       for (const lift of completedLifts) {
@@ -283,25 +283,26 @@ export function useOrmTest(
         estimated1RM: estimated1RM as UserProfile['estimated1RM'],
         manual1RM: estimated1RM as UserProfile['manual1RM'],
         onboardingComplete: true,
-        weightUnit: session.unit,
+        weightUnit: sess.unit,
       });
     } else {
       // No lifts completed — still mark onboarding done so user isn't stuck
-      await updateProfile({ onboardingComplete: true, weightUnit: session.unit });
+      await updateProfile({ onboardingComplete: true, weightUnit: sess.unit });
     }
 
     await clearOrmTest();
-  }, [session, updateProfile]);
+  }, [updateProfile]);
 
   const restartTest = useCallback(async (unit: 'kg' | 'lbs') => {
     // Mark current session abandoned
-    if (session && session.status === 'in_progress') {
-      const abandoned = { ...session, status: 'abandoned' as const };
+    const sess = sessionRef.current;
+    if (sess && sess.status === 'in_progress') {
+      const abandoned = { ...sess, status: 'abandoned' as const };
       await saveOrmTest(abandoned);
     }
     // Start fresh
     const newSession: OrmTestSession = {
-      id: generateId(),
+      id: makeId(),
       startedAt: new Date().toISOString(),
       completedAt: null,
       unit,
@@ -312,7 +313,7 @@ export function useOrmTest(
     await saveOrmTest(newSession);
     sessionRef.current = newSession;
     setSession(newSession);
-  }, [session]);
+  }, []);
 
   const clearSession = useCallback(async () => {
     await clearOrmTest();

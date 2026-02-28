@@ -6,6 +6,7 @@
 
 import React, { useEffect, useRef } from "react";
 import { Pressable, View } from "react-native";
+import { Asset } from "expo-asset";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -38,6 +39,11 @@ const MOOD_ASSETS: Record<LockeMascotMood, any> = {
 const ALL_MOODS: LockeMascotMood[] = ["neutral", "encouraging", "celebrating", "disappointed", "intense", "savage"];
 type Mood = LockeMascotMood;
 
+/** Call once at app startup to decode all Locke PNGs into memory. */
+export function preloadLockeAssets(): Promise<void> {
+  return Asset.loadAsync(Object.values(MOOD_ASSETS)).then(() => {}).catch(() => {});
+}
+
 export interface LockeMascotProps {
   size?: number | "icon" | "full";
   mood?: Mood;
@@ -48,8 +54,8 @@ export interface LockeMascotProps {
 // ── Size resolver ────────────────────────────────────────────────────────────
 
 function resolveSize(size: number | "icon" | "full"): number {
-  if (size === "icon") return 64;
-  if (size === "full") return 160;
+  if (size === "icon") return 128;
+  if (size === "full") return 280;
   return size;
 }
 
@@ -251,7 +257,7 @@ function LockeMascotInner({
         startIdleBreathe();
         break;
     }
-  }, [mood, isDark]);
+  }, [mood]);
 
   // ── Container animated style (wraps all stacked images) ───────────────
 
@@ -319,6 +325,7 @@ function LockeMascotInner({
               moodStyles[m] as any,
             ]}
             resizeMode="contain"
+            fadeDuration={0}
           />
         ))}
       </Animated.View>

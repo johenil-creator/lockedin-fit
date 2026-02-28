@@ -7,11 +7,11 @@ import Animated, {
 } from "react-native-reanimated";
 
 export function StepSlide({ children }: { children: React.ReactNode }) {
-  const tx = useSharedValue(320);
+  const opacity = useSharedValue(0);
   useEffect(() => {
-    tx.value = withTiming(0, { duration: 300 });
+    opacity.value = withTiming(1, { duration: 250 });
   }, []);
-  const anim = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
+  const anim = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return <Animated.View style={[{ flex: 1 }, anim]}>{children}</Animated.View>;
 }
 
@@ -25,7 +25,7 @@ export const onboardingStyles = StyleSheet.create({
   skipTextBtn: { alignItems: "center", paddingVertical: 4 },
   skipText: { fontSize: 14, fontWeight: "500" },
 
-  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24, marginTop: -60 },
   lockeIntro: { fontSize: 28, fontWeight: "800", marginBottom: 8 },
   welcomeTitle: { fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 12, lineHeight: 30 },
   nameInput: { width: "100%", fontSize: 18, fontWeight: "600", borderWidth: 1, borderRadius: 14, padding: 14, textAlign: "center", marginTop: 16 },
@@ -46,9 +46,6 @@ export const onboardingStyles = StyleSheet.create({
   inputLabel: { fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
   numInput: { fontSize: 18, fontWeight: "600", borderWidth: 1, borderRadius: 12, padding: 12, textAlign: "center" },
   manualRow: { flexDirection: "row", gap: 12 },
-  unitPickerRow: { flexDirection: "row", gap: 12 },
-  unitPickerLabel: { fontSize: 24, fontWeight: "800" },
-  unitPickerBtnSmall: { flex: 1, borderWidth: 1, borderRadius: 12, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
 
   resultCard: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 14 },
   resultTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

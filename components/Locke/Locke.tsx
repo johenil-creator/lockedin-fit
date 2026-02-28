@@ -108,23 +108,6 @@ export function Locke({
   return content;
 }
 
-// ── Icon variant (header / small) ─────────────────────────────────────────────
-
-export function LockeMiniNew({
-  mood    = "neutral",
-  rank    = "runt",
-  onPress,
-}: Pick<LockeProps, "mood" | "rank" | "onPress">) {
-  return (
-    <Locke
-      size="icon"
-      mood={mood}
-      rank={rank}
-      onPress={onPress}
-    />
-  );
-}
-
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({

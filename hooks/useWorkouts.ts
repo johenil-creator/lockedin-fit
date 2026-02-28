@@ -54,11 +54,15 @@ export function useWorkouts() {
 
   const updateWorkout = useCallback(
     async (session: WorkoutSession): Promise<void> => {
-      await enqueue(async () => {
+      // Optimistic in-memory update — UI reflects the change immediately
+      // so TextInputs don't glitch while the async storage write completes.
+      setWorkouts(prev => prev.map(w => w.id === session.id ? session : w));
+
+      // Persist to storage asynchronously
+      enqueue(async () => {
         const current = await loadWorkouts();
         const updated = current.map((w) => (w.id === session.id ? session : w));
         await saveWorkouts(updated);
-        setWorkouts(updated);
       });
     },
     []
@@ -77,6 +81,15 @@ export function useWorkouts() {
       await enqueue(async () => {
         // Load fresh to get accurate history for lastUsedWeight fallback
         const current = await loadWorkouts();
+
+        // Storage-level guard — prevents duplicate active sessions even when
+        // in-memory state is stale (e.g. home tab never remounts between navigations)
+        const existingActive = current.find((w) => w.isActive);
+        if (existingActive) {
+          setWorkouts(current); // sync stale in-memory state
+          id = existingActive.id;
+          return;
+        }
 
         id = makeId();
         const session: WorkoutSession = {

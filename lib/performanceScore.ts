@@ -75,9 +75,8 @@ export function buildPerformanceWeek(
     .flatMap((s) => s.exercises.flatMap((e) => e.sets))
     .filter((set) => set.completed).length;
 
-  // Estimate target: average completed sets from prior history × sessions this week
-  // Kept simple — callers can pass a more precise target via calcWeeklyScore directly
-  const targetSets = Math.max(setsCompleted, weekSessions.length * 15);
+  // Estimate target: ~15 sets per session as a reasonable baseline
+  const targetSets = weekSessions.length > 0 ? weekSessions.length * 15 : setsCompleted || 1;
 
   const score = calcWeeklyScore(setsCompleted, targetSets, streakDays, prsHit);
 

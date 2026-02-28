@@ -9,6 +9,7 @@ import type {
   OrmTestSession,
   PlanProgress,
 } from "./types";
+import type { ExerciseCatalogEntry } from "../src/lib/exerciseMatch";
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 
@@ -130,11 +131,11 @@ export async function clearOrmTest(): Promise<void> {
 
 // ── Custom Catalog ───────────────────────────────────────────────────────────
 
-export async function loadCustomCatalog(): Promise<any[]> {
-  return (await load<any[]>(KEYS.customCatalog)) ?? [];
+export async function loadCustomCatalog(): Promise<ExerciseCatalogEntry[]> {
+  return (await load<ExerciseCatalogEntry[]>(KEYS.customCatalog)) ?? [];
 }
 
-export async function saveCustomCatalog(data: any[]): Promise<void> {
+export async function saveCustomCatalog(data: ExerciseCatalogEntry[]): Promise<void> {
   await save(KEYS.customCatalog, data);
 }
 

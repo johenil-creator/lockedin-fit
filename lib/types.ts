@@ -36,6 +36,20 @@ export type WorkoutSession = {
   planWeek?: string;
   planDay?: string;
   xpClaimed?: boolean;
+  // ── Cardio ────────────────────────────────────────────────────────────────
+  sessionType?: 'strength' | 'cardio';
+  cardioModality?: 'running' | 'cycling' | 'rowing' | 'walking' | 'swimming' | 'elliptical' | 'stairclimber' | 'jump_rope' | 'other';
+  cardioGoalType?: 'time' | 'distance' | 'intervals';
+  cardioGoalValue?: number;          // minutes, km, or round count
+  cardioIntensity?: number;          // RPE 1-10
+  cardioDurationMs?: number;         // actual active time excluding pauses
+  cardioDistanceKm?: number;
+  cardioIntervalsCompleted?: number;
+  cardioIntervalConfig?: { rounds: number; workSeconds: number; restSeconds: number };
+  virtualSets?: number;              // for XP calculation
+  // ── Idempotency flags ─────────────────────────────────────────────────────
+  prAwarded?: boolean;
+  badgesUnlocked?: string[];         // badge IDs already awarded for this session
 };
 
 export type Exercise = {
@@ -113,6 +127,8 @@ export type UserProfile = {
   freezesResetWeek?: string;   // ISO week string (e.g. "2026-W09") when freezes last reset
   defaultRestTimer?: number;   // rest timer default in seconds (30/60/90/120)
   hapticsEnabled?: boolean;    // global haptics toggle (default true)
+  cardioPRs?: CardioPRs;
+  badges?: Badge[];
 };
 
 // ── 1RM Test Session ────────────────────────────────────────────────────────
@@ -168,6 +184,7 @@ export type XPRecord = {
   total: number;         // lifetime XP — never decreases
   rank: RankLevel;
   history: XPHistoryEntry[];
+  awardedMilestones?: string[];  // permanent record of streak milestones awarded
 };
 
 export type PerformanceWeek = {
@@ -183,6 +200,28 @@ export type StreakData = {
   current: number;            // consecutive training days
   longest: number;
   lastActivityDate: string;   // ISO date "YYYY-MM-DD"
+};
+
+// ── Cardio PRs & Badges ───────────────────────────────────────────────────────
+
+export type CardioPRKey =
+  | 'longestSteady'
+  | 'longestZone2'
+  | 'longestDistance'
+  | 'fastest1mi'
+  | 'fastest1km'
+  | 'fastest5km'
+  | 'mostIntervals'
+  | 'longestIntervalSession';
+
+export type CardioPRs = Partial<Record<CardioPRKey, { value: number; date: string }>>;
+
+export type Badge = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  unlockedAt: string;
 };
 
 // ── Plan Progress ────────────────────────────────────────────────────────────

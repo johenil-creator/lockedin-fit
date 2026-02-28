@@ -8,17 +8,22 @@ const DEFAULT_STREAK: StreakData = {
   lastActivityDate: "",
 };
 
-/** "YYYY-MM-DD" for a given Date (or today). */
+/** "YYYY-MM-DD" for a given Date (or today) in local time. */
 function toDateStr(d: Date = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-/** Days between two "YYYY-MM-DD" strings (b - a). */
+/** Days between two "YYYY-MM-DD" strings (b - a), parsed as local dates. */
 function daysBetween(a: string, b: string): number {
   if (!a) return Infinity;
   const msPerDay = 86400000;
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
   return Math.round(
-    (new Date(b).getTime() - new Date(a).getTime()) / msPerDay
+    (new Date(by, bm - 1, bd).getTime() - new Date(ay, am - 1, ad).getTime()) / msPerDay
   );
 }
 
@@ -48,7 +53,7 @@ export function useStreak() {
       streakRef.current = resolved;
       setStreak(resolved);
       setLoading(false);
-    });
+    }).catch(() => { setLoading(false); });
   }, []);
 
   /**

@@ -1,6 +1,6 @@
 export { LockeMascot }                from "./LockeMascot";
 export type { LockeMascotMood, LockeMascotProps } from "./LockeMascot";
-export { Locke, LockeMiniNew }        from "./Locke";
+export { Locke }                      from "./Locke";
 export { LockeSVG }                   from "./LockeSVG";
 export { LockeOverlay }               from "./LockeOverlay";
 export { LockeRive }                  from "./LockeRive";

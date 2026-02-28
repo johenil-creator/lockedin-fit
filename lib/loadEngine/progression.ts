@@ -1,53 +1,90 @@
 import type { MovementPattern, WeekPrescription } from "../types";
 
 // ── 12-Week Compound Tables ─────────────────────────────────────────────────
-// Every week is unique in at least one dimension (intensity, sets, reps, or RPE).
+// Block periodization: 3 blocks × 4 weeks each.
+// Block 1 – ACCUMULATION  (W1-4):  higher volume, moderate intensity (8–10 reps)
+// Block 2 – INTENSIFICATION (W5-8): strength bias, heavier loads (4–6 reps)
+// Block 3 – REALIZATION   (W9-12): peak intensity, low volume (2–4 reps)
+// Weeks 4, 8, 12 are always deloads (reduced volume and intensity).
 
 /** Compound intensity as fraction of 1RM. W4/W8 are mini-deloads, W12 is full deload. */
 const COMPOUND_INTENSITY: number[] = [
-  // W1    W2    W3    W4*   W5    W6    W7    W8*   W9    W10   W11   W12**
-  0.78, 0.80, 0.82, 0.75, 0.83, 0.85, 0.87, 0.80, 0.88, 0.90, 0.92, 0.65,
+  // B1: Accumulation          B2: Intensification        B3: Realization
+  // W1    W2    W3    W4*     W5    W6    W7    W8*     W9    W10   W11   W12**
+  0.72, 0.75, 0.78, 0.65,   0.80, 0.83, 0.86, 0.72,   0.88, 0.90, 0.93, 0.60,
 ];
 
 /** Compound sets per week. */
 const COMPOUND_SETS: number[] = [
-  4, 4, 5, 3, 4, 4, 5, 3, 5, 5, 6, 3,
+  // B1 (accumulation — more volume)     B2 (intensity — moderate vol.)   B3 (realization — low vol.)
+  4,    4,    5,    3,                   4,    4,    5,    3,             5,    5,    6,    3,
 ];
 
 /** Compound reps per week. */
 const COMPOUND_REPS: number[] = [
-  8, 7, 6, 10, 6, 5, 4, 8, 3, 3, 2, 5,
+  // B1 (8-10 rep range)    B2 (4-6 rep range)    B3 (2-4 rep range)
+  10,   9,    8,    12,     6,    5,    4,    8,   4,    3,    2,    5,
 ];
 
 // ── 12-Week Accessory Tables ────────────────────────────────────────────────
 // RPE-driven, no 1RM needed.
+// Block 1: 12-15 reps (hypertrophy)
+// Block 2: 10-12 reps (moderate)
+// Block 3: 8-10 reps (lower volume, higher effort)
+// Deload weeks: 2 sets, higher reps (recovery focus)
 
 const ACCESSORY_SETS: number[] = [
-  3, 3, 4, 3, 3, 3, 4, 3, 3, 3, 3, 2,
+  // B1                B2                B3
+  3,  3,  4,  2,      3,  3,  4,  2,    3,  3,  3,  2,
 ];
 
 const ACCESSORY_REPS: number[] = [
-  12, 11, 10, 15, 10, 10, 8, 12, 8, 8, 8, 12,
+  // B1 (12-15 reps)    B2 (10-12 reps)    B3 (8-10 reps)
+  15, 14, 12, 15,       12, 11, 10, 12,    10,  9,  8, 10,
 ];
 
 // ── RPE Targets ─────────────────────────────────────────────────────────────
 // Used for history-based (Tier 2) exercises.
+// RPE progressively increases across blocks; deload weeks drop to RPE 6.
 
 const RPE_TARGETS: number[] = [
-  7, 7, 7.5, 6, 8, 8, 8.5, 7, 9, 9, 9, 6,
+  // B1: moderate       B2: heavier        B3: peak effort
+  7,  7,  7.5, 6,      8,  8,  8.5, 6,   9,  9,  9.5, 6,
 ];
 
 // ── Phase Labels ────────────────────────────────────────────────────────────
 
 function getPhaseLabel(week: number): string {
-  if (week <= 4) return "Base Volume";
-  if (week <= 8) return "Progressive Overload";
-  if (week <= 11) return "Intensity Phase";
+  if (week <= 4) return "Accumulation";
+  if (week <= 8) return "Intensification";
+  if (week <= 11) return "Realization";
   return "Deload";
 }
 
 function isDeloadWeek(week: number): boolean {
   return week === 4 || week === 8 || week === 12;
+}
+
+/**
+ * Block-aware intensity multiplier for smart estimation (Tier 3).
+ *
+ * Mirrors the compound intensity table to keep Tier 3 estimates
+ * proportionally consistent with Tier 1 ORM-based loads:
+ *   - Accumulation   W1: 0.72, W2: 0.75, W3: 0.78
+ *   - Deload         W4: 0.65
+ *   - Intensification W5: 0.80, W6: 0.83, W7: 0.86
+ *   - Deload         W8: 0.72
+ *   - Realization    W9: 0.88, W10: 0.90, W11: 0.93
+ *   - Deload         W12: 0.60
+ *
+ * Used as the `intensity` argument to estimatePatternWeight so that
+ * pattern-proxy and bodyweight estimates scale correctly by week.
+ */
+export function getBlockIntensityMultiplier(weekNumber: number): number {
+  const week = ((weekNumber - 1) % 12) + 1;
+  // Mirror COMPOUND_INTENSITY table exactly so estimates stay proportional
+  const TABLE = [0.72, 0.75, 0.78, 0.65, 0.80, 0.83, 0.86, 0.72, 0.88, 0.90, 0.93, 0.60];
+  return TABLE[week - 1];
 }
 
 /**

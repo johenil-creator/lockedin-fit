@@ -15,7 +15,7 @@ export function useXP() {
       xpRef.current = resolved;
       setXP(resolved);
       setLoading(false);
-    });
+    }).catch(() => { setLoading(false); });
   }, []);
 
   /** Award XP and persist. Returns the updated record. */

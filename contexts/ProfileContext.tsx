@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { loadProfile, saveProfile } from '../lib/storage';
 import type { UserProfile } from '../lib/types';
 
@@ -35,7 +35,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       setProfile(value);
       setLoading(false);
       setHydrated(true);
-    });
+    }).catch(() => { setLoading(false); setHydrated(true); });
   }, []);
 
   const updateProfile = useCallback(async (patch: Partial<UserProfile>) => {
@@ -47,15 +47,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const reloadProfile = useCallback(async () => {
     setLoading(true);
-    const p = await loadProfile();
-    const value = p ?? DEFAULT_PROFILE;
-    profileRef.current = value;
-    setProfile(value);
-    setLoading(false);
+    try {
+      const p = await loadProfile();
+      const value = p ?? DEFAULT_PROFILE;
+      profileRef.current = value;
+      setProfile(value);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  const value = useMemo(
+    () => ({ profile, loading, hydrated, profileRef, updateProfile, reloadProfile }),
+    [profile, loading, hydrated, updateProfile, reloadProfile]
+  );
+
   return (
-    <ProfileContext.Provider value={{ profile, loading, hydrated, profileRef, updateProfile, reloadProfile }}>
+    <ProfileContext.Provider value={value}>
       {children}
     </ProfileContext.Provider>
   );

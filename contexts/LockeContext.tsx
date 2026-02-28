@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useRef,
   useEffect,
+  useMemo,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { lockeReact, type LockeContext as LockeCtxInput } from "../lib/lockeEngine";
@@ -82,6 +83,11 @@ export function LockeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Cleanup pending timer on unmount
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
+
   const dismiss = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setLocke((prev) => ({ ...prev, visible: false }));
@@ -116,8 +122,10 @@ export function LockeProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const value = useMemo(() => ({ locke, fire, dismiss }), [locke, fire, dismiss]);
+
   return (
-    <LockeCtx.Provider value={{ locke, fire, dismiss }}>
+    <LockeCtx.Provider value={value}>
       {children}
       <LockeOverlay
         visible={locke.visible && locke.showOverlay}

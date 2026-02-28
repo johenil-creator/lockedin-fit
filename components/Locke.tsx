@@ -38,7 +38,7 @@ export function LockeMini() {
   return (
     <View>
       <LockeMascot
-        size="icon"
+        size={120}
         mood={mood}
         onPress={() => {
           if (locke.message) setShowBubble((v) => !v);

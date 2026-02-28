@@ -11,16 +11,22 @@ import {
   getLastUsedWeight,
   applyRPEProgression,
   roundToPlate,
+  estimatePatternWeight,
 } from "./loadCalculator";
-import { getWeekPrescription } from "./progression";
+import { getWeekPrescription, getBlockIntensityMultiplier } from "./progression";
 
 export { classifyExercise } from "./classifier";
-export { getWeekPrescription } from "./progression";
+export { getWeekPrescription, getBlockIntensityMultiplier } from "./progression";
 export {
   roundToPlate,
   get1RM,
   getLastUsedWeight,
+  estimatePatternWeight,
+  PATTERN_BODYWEIGHT_DEFAULTS,
 } from "./loadCalculator";
+
+// Re-export cues for convenient single-import access from the load engine barrel
+export { EXERCISE_CUES, getExerciseCues } from "../../src/data/exerciseCues";
 
 /** Parse week number from strings like "Week 6", "Week 12", etc. */
 function parseWeekNumber(weekStr: string): number {
@@ -47,11 +53,12 @@ export type ResolveExerciseLoadParams = {
 };
 
 /**
- * Single public API that resolves exercise load using a three-tier waterfall:
+ * Single public API that resolves exercise load using a four-tier waterfall:
  *
  * 1. **Tier 1 (ORM)**: baseLift exists + user has 1RM → calculate from 1RM
  * 2. **Tier 2 (History + RPE)**: No 1RM but exercise done before → last weight + RPE adjustment
- * 3. **Tier 3 (None)**: No data → empty weights
+ * 3. **Tier 3 (Smart Estimate)**: No history → cross-lift or bodyweight-fraction estimate
+ * 4. **Tier 4 (Minimal)**: Conditioning/time-based exercises → empty (truly no weight applies)
  */
 export function resolveExerciseLoad(params: ResolveExerciseLoadParams): ExerciseLoadResult {
   const {
@@ -126,7 +133,31 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
     }
   }
 
-  // ── Tier 3: No data — still populate sets/reps from prescription ────────
+  // ── Tier 3: Smart pattern/cross-lift/bodyweight estimation ──────────────
+  // Conditioning exercises (treadmill, bike, etc.) have no weight — skip estimation
+  if (classification.pattern !== "conditioning") {
+    // Use block-aware intensity scaling for the estimate
+    const blockMultiplier = getBlockIntensityMultiplier(weekNumber);
+    const estimate = estimatePatternWeight(profile, classification.pattern, blockMultiplier);
+
+    if (estimate !== null && estimate.weight > 0) {
+      const workingSets = Array.from({ length: workingSetCount }, () => ({
+        weight: String(estimate.weight),
+        reps: targetReps,
+      }));
+
+      return {
+        workingWeight: estimate.weight,
+        source: "rpe-estimate", // closest semantic source — it's an estimate
+        warmUps: [],
+        workingSets,
+        targetRPE: prescription.rpe,
+        classification,
+      };
+    }
+  }
+
+  // ── Tier 4: Truly no weight (conditioning/time-based) ───────────────────
   return {
     workingWeight: null,
     source: "none",

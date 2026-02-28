@@ -42,13 +42,15 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       }
       setCompletedDays(progress.completedDays);
       setLoading(false);
-    });
+    }).catch(() => { setLoading(false); });
   }, []);
 
   const setPlan = useCallback((name: string, data: Exercise[]) => {
     setPlanName(name);
     setExercises(data);
+    setCompletedDays({});
     savePlan({ name, data });
+    savePlanProgress({ completedDays: {} });
   }, []);
 
   const clearPlan = useCallback(() => {
@@ -64,7 +66,8 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     setCompletedDays((prev) => {
       if (prev[key]) return prev; // already marked
       const updated = { ...prev, [key]: new Date().toISOString() };
-      savePlanProgress({ completedDays: updated });
+      // Persist outside the updater to avoid side effects in React strict mode
+      queueMicrotask(() => savePlanProgress({ completedDays: updated }));
       return updated;
     });
   }, []);

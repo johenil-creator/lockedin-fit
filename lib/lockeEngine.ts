@@ -26,10 +26,6 @@ export type LockeOutput = {
   animation: import("./lockeMachine").LockeAnimationPreset;
 };
 
-// ── Triggers that bypass the machine entirely (fixed visual state) ────────────
-
-const BYPASS_TRIGGERS = new Set<string>(["onboarding", "1rm_test"]);
-
 // ── Map trigger → machine event ───────────────────────────────────────────────
 
 function toMachineEvent(ctx: LockeContext): LockeMachineEvent {

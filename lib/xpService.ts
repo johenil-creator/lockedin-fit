@@ -1,4 +1,4 @@
-import type { WorkoutSession, XPRecord, XPHistoryEntry, RankLevel } from "./types";
+import type { WorkoutSession, XPRecord, XPHistoryEntry, RankLevel, Badge } from "./types";
 import { rankForXP, didRankUp, rankProgress, xpToNextRank, nextRank } from "./rankService";
 
 // ── XP award amounts ──────────────────────────────────────────────────────────
@@ -41,7 +41,8 @@ export function defaultXPRecord(): XPRecord {
 export function applyXP(
   record: XPRecord,
   amount: number,
-  reason: string
+  reason: string,
+  milestone?: string,
 ): XPRecord {
   if (amount <= 0) return record;
   const newTotal = record.total + amount;
@@ -54,6 +55,9 @@ export function applyXP(
     total:   newTotal,
     rank:    rankForXP(newTotal),
     history: [...record.history, entry].slice(-200),
+    awardedMilestones: milestone
+      ? [...(record.awardedMilestones ?? []), milestone]
+      : record.awardedMilestones,
   };
 }
 
@@ -109,11 +113,14 @@ export function awardSessionXP(
     breakdown.push({ reason: "Personal record", amount: XP_AWARDS.PR_HIT });
   }
 
-  // 4. Streak milestones (only award when exact day count matches)
+  // 4. Streak milestones — award any milestone crossed that hasn't been awarded yet.
+  // Uses persistent awardedMilestones array (not history, which is truncated to 200).
+  const awardedMilestones = new Set(current.awardedMilestones ?? []);
   for (const [days, xp, label] of STREAK_MILESTONES) {
-    if (streakDays === days) {
-      current = applyXP(current, xp, label);
+    if (streakDays >= days && !awardedMilestones.has(label)) {
+      current = applyXP(current, xp, label, label);
       breakdown.push({ reason: label, amount: xp });
+      awardedMilestones.add(label);
     }
   }
 
@@ -159,6 +166,13 @@ export type WorkoutCompleteParams = {
   nextRankName:     string | null;
   isPR:             boolean;
   streakDays:       number;
+  // ── Cardio ────────────────────────────────────────────────────────────────
+  isCardio?:        boolean;
+  virtualSets?:     number;
+  cardioCalories?:  number;     // active kcal to display on complete screen
+  cardioDistanceKm?: number;    // estimated distance (null for non-linear modalities)
+  newPRs?:          string[];   // PR keys to display on complete screen
+  newBadges?:       Badge[];
 };
 
 export function buildWorkoutCompleteParams(

@@ -88,6 +88,22 @@ export const glowColors = {
   currentPulse:   "#00E85CCC",
 } as const;
 
+// ── Workout-specific metric colors (always pure black bg, ignores theme) ──
+export const workoutMetricColors = {
+  elapsed:   "#FFD60A",   // Yellow — hero timer
+  distance:  "#30D158",   // Green
+  pace:      "#64D2FF",   // Light blue
+  rounds:    "#BF5AF2",   // Purple
+  rpe:       "#FF9F0A",   // Orange — intensity
+  work:      "#30D158",   // Green — WORK phase
+  rest:      "#FF375F",   // Pink — REST phase
+  bg:        "#000000",   // Pure black
+  label:     "#98989D",   // Small gray label
+  ctrlEnd:   "#FF3B30",   // Red — End button
+  ctrlPause: "#FFD60A",   // Yellow — Pause button
+  ctrlResume:"#30D158",   // Green — Resume button
+} as const;
+
 // ── Active palette exports ────────────────────────────────────────────────────
 export const lightColors: AppThemeColors = lightViridianColors;
 export const darkColors:  AppThemeColors = lockdInColors;

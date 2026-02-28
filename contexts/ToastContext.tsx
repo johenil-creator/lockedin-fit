@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import { StyleSheet, Text } from "react-native";
 import Animated, {
   useSharedValue,
@@ -36,6 +36,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<ToastConfig | null>(null);
   const translateY = useSharedValue(-100);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up timer on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const hide = useCallback(() => {
     translateY.value = withTiming(-100, { duration: 300 });

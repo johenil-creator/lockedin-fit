@@ -23,16 +23,23 @@ export function AppBottomSheet({
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
 
-  // When using dynamic sizing (no explicit snap points), provide a max snap
-  // point so keyboardBehavior="extend" has a position to expand into.
+  // Dynamic sizing and explicit snap points are mutually exclusive in
+  // gorhom/bottom-sheet. Pick one based on whether the caller provided snaps.
+  const useDynamic = !userSnapPoints && enableDynamicSizing;
   const snapPoints = useMemo(
-    () => userSnapPoints ?? ["90%"],
-    [userSnapPoints]
+    () => (useDynamic ? undefined : (userSnapPoints ?? ["90%"])),
+    [userSnapPoints, useDynamic]
   );
 
   useEffect(() => {
     if (visible) {
-      ref.current?.expand();
+      // Use setTimeout instead of requestAnimationFrame — the BottomSheet
+      // needs a full layout pass before expand() works, especially when the
+      // component is freshly mounted with visible=true.
+      const id = setTimeout(() => {
+        ref.current?.expand();
+      }, 50);
+      return () => clearTimeout(id);
     } else {
       ref.current?.close();
     }
@@ -64,7 +71,7 @@ export function AppBottomSheet({
       ref={ref}
       index={-1}
       snapPoints={snapPoints}
-      enableDynamicSizing={!userSnapPoints && enableDynamicSizing}
+      enableDynamicSizing={useDynamic}
       enablePanDownToClose
       onClose={handleSheetClose}
       backdropComponent={renderBackdrop}

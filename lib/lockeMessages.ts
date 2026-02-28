@@ -1,4 +1,4 @@
-import type { LockeState, LockeTrigger, RankLevel } from "./types";
+import type { LockeState, LockeTrigger } from "./types";
 
 // ── Message bank ──────────────────────────────────────────────────────────────
 // Each entry is keyed by trigger, then state.
@@ -286,18 +286,6 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
 
 };
 
-// ── Rank-specific suffix lines (optional, appended sometimes) ────────────────
-
-export const RANK_CALLOUTS: Partial<Record<RankLevel, string>> = {
-  Runt:     "You're at the bottom. Earn your way up.",
-  Scout:    "You're moving. Don't stop.",
-  Stalker:  "Patient. Calculated. Keep going.",
-  Hunter:   "You hunt. Now prove it.",
-  Sentinel: "The pack watches you now.",
-  Alpha:    "Lead by example or lose the title.",
-  Apex:     "Top of the ladder. The only way is maintenance.",
-};
-
 // ── Selector ──────────────────────────────────────────────────────────────────
 
 /**
@@ -312,4 +300,25 @@ export function pickMessage(trigger: LockeTrigger, state: LockeState): string {
   if (!pool.length) return "Log it and move on.";
 
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/**
+ * Pick a random message from ANY mood pool for the given trigger.
+ * Returns both the message and the mood it came from.
+ */
+export function pickMessageWithMood(trigger: LockeTrigger): { message: string; mood: LockeState } {
+  const bank = MESSAGES[trigger];
+  if (!bank) return { message: "Log it and move on.", mood: "neutral" };
+
+  const entries: { message: string; mood: LockeState }[] = [];
+  for (const [mood, pool] of Object.entries(bank)) {
+    if (pool?.length) {
+      for (const msg of pool) {
+        entries.push({ message: msg, mood: mood as LockeState });
+      }
+    }
+  }
+  if (!entries.length) return { message: "Log it and move on.", mood: "neutral" };
+
+  return entries[Math.floor(Math.random() * entries.length)];
 }
