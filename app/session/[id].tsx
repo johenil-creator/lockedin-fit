@@ -15,9 +15,6 @@ import {
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
   FadeIn,
   FadeOut,
 } from "react-native-reanimated";
@@ -28,6 +25,7 @@ import { useXP } from "../../hooks/useXP";
 import { useStreak } from "../../hooks/useStreak";
 import { usePerformance } from "../../hooks/usePerformance";
 import { buildPerformanceWeek, upsertPerformanceWeek, isoWeekKey } from "../../lib/performanceScore";
+import { useIconMood } from "../../hooks/useIconMood";
 import { awardSessionXP, buildWorkoutCompleteParams } from "../../lib/xpService";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
@@ -110,6 +108,7 @@ export default function SessionScreen() {
   const { xp, setXPRecord, rank } = useXP();
   const { recordActivity } = useStreak();
   const { performance, savePerformanceRecord } = usePerformance();
+  const { checkIconMood } = useIconMood();
   const { profile } = useProfileContext();
   const sessionUnit = profile.weightUnit === "lbs" ? "lbs" : "kg";
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -129,11 +128,6 @@ export default function SessionScreen() {
 
   // Rest timers
   const { restTimers, startRestTimer, dismissRestTimer, advanceTimers } = useRestTimers();
-
-  // Per-exercise note editing: key = exerciseId
-  const [editingNotes, setEditingNotes] = useState<Record<string, boolean>>({});
-  // Tracks in-progress note text while the TextInput is focused
-  const [pendingNotes, setPendingNotes] = useState<Record<string, string>>({});
 
   // Session notes editing
 
@@ -459,15 +453,6 @@ export default function SessionScreen() {
   }
 
 
-  function updateExerciseNote(exId: string, note: string) {
-    if (!session) return;
-    const updated = session.exercises.map((ex) =>
-      ex.exerciseId === exId ? { ...ex, notes: note } : ex
-    );
-    update({ ...session, exercises: updated });
-    setEditingNotes((prev) => ({ ...prev, [exId]: false }));
-  }
-
   // ── Sequential set enforcement helpers ────────────────────────────────────
   // Returns the index of the first incomplete set for an exercise (the "current" set)
   function getCurrentSetIndex(ex: SessionExercise): number {
@@ -519,6 +504,10 @@ export default function SessionScreen() {
     );
     const completionRate = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
 
+    const planCtx = session.planWeek && session.planDay
+      ? `${session.planWeek} · ${session.planDay}`
+      : undefined;
+
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
         <SessionHeader
@@ -526,6 +515,7 @@ export default function SessionScreen() {
           isActive={false}
           activeExerciseId={null}
           onClearActiveExercise={() => {}}
+          planContext={planCtx}
         />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, paddingTop: 8 }}>
           {/* Summary stats */}
@@ -581,6 +571,11 @@ export default function SessionScreen() {
     ? session.exercises.findIndex((ex) => ex.exerciseId === activeExerciseId)
     : -1;
 
+  const sessionPlanContext = session.planWeek && session.planDay
+    ? `${session.planWeek} · ${session.planDay}`
+    : undefined;
+  const setsProgressFraction = totalSets > 0 ? completedSets / totalSets : 0;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       {/* Header */}
@@ -589,6 +584,9 @@ export default function SessionScreen() {
         isActive={!!session.isActive}
         activeExerciseId={activeExerciseId}
         onClearActiveExercise={() => setActiveExerciseId(null)}
+        planContext={sessionPlanContext}
+        setsProgress={setsProgressFraction}
+        elapsed={formatElapsed(elapsed)}
       />
 
 
@@ -621,7 +619,7 @@ export default function SessionScreen() {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }}>
         {activeExercise ? (
           /* ── Focused Exercise View ─────────────────────────────────── */
           <View>
@@ -641,7 +639,7 @@ export default function SessionScreen() {
               {/* Set headers */}
               <View style={styles.setHeaderRow}>
                 <Text style={[styles.setHeaderCell, styles.setColNum, { color: theme.colors.text, opacity: 0.6 }]}>SET</Text>
-                <Text style={[styles.setHeaderCell, styles.setColWeight, { color: theme.colors.text, opacity: 0.6 }]}>WEIGHT</Text>
+                <Text style={[styles.setHeaderCell, styles.setColWeight, { color: theme.colors.text, opacity: 0.6 }]}>WEIGHT <Text style={{ fontSize: 7 }}>({sessionUnit})</Text></Text>
                 <Text style={[styles.setHeaderCell, styles.setColReps, { color: theme.colors.text, opacity: 0.6 }]}>REPS</Text>
                 <View style={styles.setColCheck} />
               </View>
@@ -809,6 +807,7 @@ export default function SessionScreen() {
               }
 
               const nextSetIdx = activeExercise.sets.findIndex((s) => !s.completed);
+              if (nextSetIdx < 0) return null;
               const nextSet = activeExercise.sets[nextSetIdx];
               const label = nextSet.isWarmUp
                 ? `Log Warm-Up ${activeExercise.sets.slice(0, nextSetIdx).filter((s) => !!s.isWarmUp).length + 1}`
@@ -973,6 +972,14 @@ export default function SessionScreen() {
 
                             // ── Locke reaction (suppressed — workout-complete screen owns celebration)
 
+                            // ── Icon mood ──────────────────────────────────────
+                            checkIconMood({
+                              isSessionActive: false,
+                              prHitInLast24h: isPR,
+                              streakDays: newStreak.current,
+                              lastWorkoutAt: completed.completedAt ?? null,
+                            });
+
                             // ── Navigate to Workout Complete screen ──────────────
                             const params = buildWorkoutCompleteParams(
                               completed,
@@ -1129,8 +1136,7 @@ export default function SessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 56, paddingHorizontal: 20 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 0, marginBottom: 16 },
+  container: { flex: 1, paddingTop: 56, paddingHorizontal: 16 },
   floatingPauseBar: {
     position: "absolute",
     bottom: 0,
@@ -1139,22 +1145,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 14,
-    paddingBottom: 34,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
     borderTopWidth: 1,
   },
-  unitLabel: { fontSize: 13, fontWeight: "700", letterSpacing: 0.5 },
-  headerCenter: { flex: 1, marginHorizontal: 12 },
   sessionName: { fontSize: 17, fontWeight: "600" },
   notFound: { textAlign: "center", marginTop: 48 },
   emptyHint: { textAlign: "center", marginTop: 32, marginBottom: 24 },
   // Progress bar
   // Exercise card
-  exerciseCard: { marginBottom: 16 },
-  exHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
+  exerciseCard: { marginBottom: 12 },
+  exHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 },
   exName: { fontSize: 17, fontWeight: "600", flexShrink: 1 },
-  exNote: { fontSize: 13, fontStyle: "italic", marginTop: 2 },
+  exNote: { fontSize: 13, fontStyle: "italic", marginTop: 4 },
   noteInput: {
     borderWidth: 1,
     borderRadius: 6,
@@ -1164,28 +1168,28 @@ const styles = StyleSheet.create({
   },
   addNoteBtn: { marginTop: 2 },
   addNoteText: { fontSize: 12, fontWeight: "600" },
-  removeExBtn: { alignItems: "center", paddingVertical: 16, marginTop: 12 },
+  removeExBtn: { alignItems: "center", paddingVertical: 12, marginTop: 10 },
   // Set header
-  setHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, paddingHorizontal: 8 },
-  setHeaderCell: { fontSize: 11, fontWeight: "800", letterSpacing: 1.0, textTransform: "uppercase", textAlign: "center" },
+  setHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 8, paddingHorizontal: 8 },
+  setHeaderCell: { fontSize: 11, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase", textAlign: "center" },
   // Column widths
   setColNum: { width: 56 },
-  setColWeight: { flex: 1, marginRight: 8 },
-  setColReps: { flex: 1, marginRight: 8 },
+  setColWeight: { flex: 1, marginRight: 12 },
+  setColReps: { flex: 1, marginRight: 12 },
   setColCheck: { width: 40 },
   // Set rows
-  setRow: { flexDirection: "row", alignItems: "center", marginBottom: 10, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8 },
+  setRow: { flexDirection: "row", alignItems: "center", marginBottom: 8, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 8 },
   setNum: { fontSize: 14, fontWeight: "700", textAlign: "center" },
   setInput: {
     borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     fontSize: 16,
     fontWeight: "600",
     textAlign: "center",
   },
   // Warm-up badge
-  warmUpBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, alignSelf: "flex-start" },
+  warmUpBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, alignSelf: "flex-start" },
   warmUpBadgeText: { fontSize: 12, fontWeight: "800" },
   checkBtn: {
     width: 40,
@@ -1200,9 +1204,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginBottom: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 6,
     marginLeft: 56,
   },
   restPillText: { fontSize: 13, fontWeight: "600", fontFamily: "monospace" },
@@ -1215,7 +1219,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   setActionsGroup: {
-    marginTop: 20,
+    marginTop: 16,
   },
   setActionsRow: {
     flexDirection: "row",
@@ -1224,8 +1228,8 @@ const styles = StyleSheet.create({
   setActionPill: {
     borderWidth: 1.5,
     borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   setActionPillText: {
     fontSize: 13,
@@ -1248,15 +1252,10 @@ const styles = StyleSheet.create({
   focusedTitle: {
     fontSize: 22,
     fontWeight: "700",
-    marginBottom: 6,
-  },
-  focusedCounter: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   focusedContent: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   lockeCuesToggle: {
     flexDirection: "row",
@@ -1280,7 +1279,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 18,
+    paddingVertical: 14,
     paddingHorizontal: 12,
   },
   exerciseListName: {

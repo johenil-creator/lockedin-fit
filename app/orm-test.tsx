@@ -8,8 +8,6 @@ import {
   TextInput,
   Alert,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -28,6 +26,7 @@ import { Card } from "../components/Card";
 import { BackButton } from "../components/BackButton";
 import { Skeleton } from "../components/Skeleton";
 import { AppBottomSheet } from "../components/AppBottomSheet";
+import { LIFT_TIPS } from "../lib/liftTips";
 
 // ── Progress Bar ────────────────────────────────────────────────────────────
 
@@ -89,6 +88,7 @@ export default function OrmTestScreen() {
   const [exitModalVisible, setExitModalVisible] = useState(false);
   const [setsVisible, setSetsVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [tipExpanded, setTipExpanded] = useState(false);
 
   // Rest timer
   const REST_DURATION = 120; // 2 minutes between 1RM sets
@@ -161,6 +161,9 @@ export default function OrmTestScreen() {
     }
   }, [ormTest.loading]);
 
+  // Reset tip when lift changes
+  useEffect(() => { setTipExpanded(false); }, [ormTest.session?.currentLiftIndex]);
+
   // ── Derived values ──────────────────────────────────────────────────────────
 
   const liftIndex = ormTest.session?.currentLiftIndex ?? 0;
@@ -198,8 +201,12 @@ export default function OrmTestScreen() {
 
   async function handleCompleteLift() {
     dismissRestTimer();
-    await ormTest.completeLift();
-    setSetsVisible(false);
+    try {
+      await ormTest.completeLift();
+      setSetsVisible(false);
+    } catch (e) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Something went wrong.");
+    }
   }
 
   function navigateOut() {
@@ -213,15 +220,25 @@ export default function OrmTestScreen() {
   async function handleFinish() {
     if (isSaving) return;
     setIsSaving(true);
-    await ormTest.finishTest();
-    navigateOut();
+    try {
+      await ormTest.finishTest();
+      navigateOut();
+    } catch (e) {
+      setIsSaving(false);
+      Alert.alert("Save Failed", e instanceof Error ? e.message : "Could not save results. Please try again.");
+    }
   }
 
   async function handleSaveAndExit() {
     if (isSaving) return;
     setIsSaving(true);
-    await ormTest.saveAndExit();
-    navigateOut();
+    try {
+      await ormTest.saveAndExit();
+      navigateOut();
+    } catch (e) {
+      setIsSaving(false);
+      Alert.alert("Save Failed", e instanceof Error ? e.message : "Could not save results. Please try again.");
+    }
   }
 
   async function handleRestart() {
@@ -230,7 +247,64 @@ export default function OrmTestScreen() {
     setExitModalVisible(false);
   }
 
-  // ── Loading state ───────────────────────────────────────────────────────────
+  // ── Unit Picker (shown before test starts or while loading) ────────────────
+
+  if (!unitChosen) {
+    const unitCardStyle = (selected: boolean) => ({
+      flex: 1 as const,
+      flexDirection: "row" as const,
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 2,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: 6,
+      backgroundColor: selected ? theme.colors.primary : theme.colors.surface,
+      borderColor: selected ? theme.colors.primary : theme.colors.border,
+    });
+    const unitLabelColor = (selected: boolean) =>
+      selected ? theme.colors.primaryText : theme.colors.text;
+    const unitSubColor = (selected: boolean) =>
+      selected ? theme.colors.primaryText + "BB" : theme.colors.muted;
+
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+        <View style={styles.header}>
+          <BackButton />
+        </View>
+        <View style={styles.unitPickerCenter}>
+          <LockeMascot size={240} mood="neutral" />
+          <Text style={[styles.unitPickerMicrocopy, { color: theme.colors.muted }]}>
+            Just need to know how you measure.
+          </Text>
+          <Text style={[styles.unitPickerTitle, { color: theme.colors.text }]}>
+            How do you measure weight?
+          </Text>
+          <View style={styles.unitPickerRow}>
+            <Pressable
+              style={unitCardStyle(unit === "kg")}
+              onPress={() => setUnit("kg")}
+            >
+              <Text style={[styles.unitPickerLabel, { color: unitLabelColor(unit === "kg") }]}>KG</Text>
+              <Text style={[styles.unitPickerSub, { color: unitSubColor(unit === "kg") }]}>Kilograms</Text>
+            </Pressable>
+            <Pressable
+              style={unitCardStyle(unit === "lbs")}
+              onPress={() => setUnit("lbs")}
+            >
+              <Text style={[styles.unitPickerLabel, { color: unitLabelColor(unit === "lbs") }]}>LBS</Text>
+              <Text style={[styles.unitPickerSub, { color: unitSubColor(unit === "lbs") }]}>Pounds</Text>
+            </Pressable>
+          </View>
+        </View>
+        <View style={styles.unitPickerBottom}>
+          <Button label="Continue" onPress={() => handlePickUnit(unit)} />
+        </View>
+      </View>
+    );
+  }
+
+  // ── Loading state (only for test content, not unit picker) ─────────────────
 
   if (ormTest.loading) {
     return (
@@ -249,63 +323,12 @@ export default function OrmTestScreen() {
     );
   }
 
-  // ── Unit Picker (shown before test starts) ─────────────────────────────────
-
-  if (!unitChosen) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
-        <View style={styles.header}>
-          <BackButton variant="close" />
-        </View>
-        <View style={styles.unitPickerCenter}>
-          <LockeMascot size="icon" mood="intense" />
-          <View style={{ height: 16 }} />
-          <Text style={[styles.unitPickerTitle, { color: theme.colors.text }]}>
-            How do you measure weight?
-          </Text>
-          <View style={{ height: 24 }} />
-          <View style={styles.unitPickerRow}>
-            <Pressable
-              style={[
-                styles.unitPickerBtn,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => handlePickUnit("kg")}
-            >
-              <Text style={[styles.unitPickerLabel, { color: theme.colors.text }]}>KG</Text>
-              <Text style={[styles.unitPickerSub, { color: theme.colors.muted }]}>Kilograms</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.unitPickerBtn,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              onPress={() => handlePickUnit("lbs")}
-            >
-              <Text style={[styles.unitPickerLabel, { color: theme.colors.text }]}>LBS</Text>
-              <Text style={[styles.unitPickerSub, { color: theme.colors.muted }]}>Pounds</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
   // ── Review Screen (shown after all 4 lifts complete, before finishTest) ─────
 
   function ReviewScreen() {
     if (!ormTest.session) return null;
     return (
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={styles.scrollContent}>
         <Text style={[styles.eyebrow, { color: theme.colors.primary }]}>
           1RM REVIEW
         </Text>
@@ -343,7 +366,7 @@ export default function OrmTestScreen() {
         <View style={{ height: 12 }} />
         <Button label="Retake Test" onPress={handleRestart} variant="secondary" />
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </View>
     );
   }
 
@@ -355,51 +378,46 @@ export default function OrmTestScreen() {
     // State A: Estimated input
     if (!setsVisible) {
       return (
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <View style={styles.estimateContainer}>
-            <Text style={[styles.liftTitle, { color: theme.colors.text }]}>
-              {currentLift.liftLabel}
-            </Text>
-            <Text style={[styles.liftSubtitle, { color: theme.colors.muted }]}>
-              Enter your estimated 1RM to generate your warm-up weights
-            </Text>
+        <View style={styles.estimateContainer}>
+          <Text style={[styles.liftTitle, { color: theme.colors.text }]}>
+            {currentLift.liftLabel}
+          </Text>
+          <Text style={[styles.liftSubtitle, { color: theme.colors.muted }]}>
+            Enter your estimated 1RM to generate your warm-up weights
+          </Text>
 
-            <Text style={[styles.estimateLabel, { color: theme.colors.muted }]}>
-              ESTIMATED 1RM ({unit})
-            </Text>
-            <TextInput
-              style={[
-                styles.estimateInput,
-                {
-                  backgroundColor: theme.colors.mutedBg,
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              keyboardType="numeric"
-              maxLength={3}
-              placeholder="0"
-              placeholderTextColor={theme.colors.muted}
-              value={currentLift.estimatedInput}
-              onChangeText={(v) => ormTest.setEstimatedInput(liftIndex, v)}
-              autoFocus
+          <Text style={[styles.estimateLabel, { color: theme.colors.muted }]}>
+            ESTIMATED 1RM ({unit})
+          </Text>
+          <TextInput
+            style={[
+              styles.estimateInput,
+              {
+                backgroundColor: theme.colors.mutedBg,
+                color: theme.colors.text,
+                borderColor: theme.colors.border,
+              },
+            ]}
+            keyboardType="numeric"
+            maxLength={3}
+            placeholder="0"
+            placeholderTextColor={theme.colors.muted}
+            value={currentLift.estimatedInput}
+            onChangeText={(v) => ormTest.setEstimatedInput(liftIndex, v)}
+            autoFocus
+          />
+
+          <View style={{ marginTop: 24 }}>
+            <Button
+              label="Generate Sets"
+              onPress={handleGenerateSets}
+              disabled={
+                !currentLift.estimatedInput ||
+                currentLift.estimatedInput === "0"
+              }
             />
-
-            <View style={{ marginTop: 24 }}>
-              <Button
-                label="Generate Sets"
-                onPress={handleGenerateSets}
-                disabled={
-                  !currentLift.estimatedInput ||
-                  currentLift.estimatedInput === "0"
-                }
-              />
-            </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       );
     }
 
@@ -407,14 +425,7 @@ export default function OrmTestScreen() {
     const nextSetIndex = currentLift.sets.findIndex((s) => !s.completed);
 
     return (
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
+        <View style={styles.scrollContent}>
           <Text style={[styles.liftTitle, { color: theme.colors.text }]}>
             {currentLift.liftLabel}
           </Text>
@@ -540,7 +551,7 @@ export default function OrmTestScreen() {
                           fontSize: 14,
                         }}
                       >
-                        {set.completed ? "✓" : "✓"}
+                        ✓
                       </Text>
                     </Pressable>
                   </View>
@@ -677,8 +688,7 @@ export default function OrmTestScreen() {
             />
           )}
           <View style={{ height: 40 }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
     );
   }
 
@@ -747,16 +757,41 @@ export default function OrmTestScreen() {
       {/* Progress bar */}
       <OrmProgressBar completedLifts={completedCount} totalLifts={4} />
 
-      {/* Locke mascot — celebrates on completion, intense during test */}
-      <View style={{ alignItems: "center", marginVertical: 8 }}>
-        <LockeMascot
-          size="icon"
-          mood={allLiftsComplete ? "celebrating" : "intense"}
-        />
-      </View>
+      {/* Single scrollable area — native keyboard inset handling */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets
+      >
+        {/* Locke mascot — celebrates on completion, encouraging during test */}
+        <View style={{ alignItems: "center", marginVertical: 8 }}>
+          <LockeMascot
+            size={240}
+            mood={allLiftsComplete ? "celebrating" : "encouraging"}
+          />
+          {!allLiftsComplete && currentLift && LIFT_TIPS[currentLift.liftLabel] && (
+            <Pressable
+              onPress={() => setTipExpanded((v) => !v)}
+              style={{ marginTop: -70, paddingHorizontal: 32, alignItems: "center" }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.colors.primary }}>
+                {tipExpanded ? "Hide how-to ▲" : "How do I do this? ▼"}
+              </Text>
+              {tipExpanded && (
+                <Text style={{ fontSize: 13, lineHeight: 18, color: theme.colors.muted, textAlign: "center", marginTop: 6 }}>
+                  {LIFT_TIPS[currentLift.liftLabel]}
+                </Text>
+              )}
+            </Pressable>
+          )}
+        </View>
 
-      {/* Content */}
-      {allLiftsComplete ? ReviewScreen() : LiftView()}
+        {/* Content — rendered inline (no nested ScrollView/KAV) */}
+        <View style={{ marginTop: 40 }} />
+        {allLiftsComplete ? ReviewScreen() : LiftView()}
+      </ScrollView>
 
       {/* Exit modal */}
       {ExitModal()}
@@ -789,33 +824,36 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
+  },
+  unitPickerMicrocopy: {
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 24,
   },
   unitPickerTitle: {
     fontSize: 22,
     fontWeight: "700",
     textAlign: "center",
+    marginBottom: 24,
   },
   unitPickerRow: {
     flexDirection: "row",
     gap: 12,
-    width: "100%",
-  },
-  unitPickerBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 22,
-    alignItems: "center",
-    justifyContent: "center",
+    alignSelf: "stretch",
   },
   unitPickerLabel: {
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: "800",
   },
   unitPickerSub: {
     fontSize: 12,
-    marginTop: 4,
+    fontWeight: "500",
+  },
+  unitPickerBottom: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
 
   // Progress bar
@@ -845,7 +883,6 @@ const styles = StyleSheet.create({
 
   // Estimate input
   estimateContainer: {
-    flex: 1,
     paddingHorizontal: 24,
     paddingTop: 24,
   },

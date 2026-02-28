@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,24 +7,26 @@ import {
   Pressable,
   Alert,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CATALOG_PLANS } from "../lib/catalog";
 import { usePlanContext } from "../contexts/PlanContext";
 import { useWorkouts } from "../hooks/useWorkouts";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useProfileContext } from "../contexts/ProfileContext";
-import { Card } from "../components/Card";
-import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { BackButton } from "../components/BackButton";
 import type { CatalogPlan } from "../lib/types";
 
+// ── Difficulty chip ────────────────────────────────────────────────────────────
+
 function DifficultyChip({ difficulty }: { difficulty: CatalogPlan["difficulty"] }) {
   const { theme } = useAppTheme();
   const colorMap: Record<CatalogPlan["difficulty"], { bg: string; text: string }> = {
-    Beginner:     { bg: theme.colors.success, text: theme.colors.successText },
-    Intermediate: { bg: theme.colors.accent,  text: theme.colors.accentText },
-    Advanced:     { bg: theme.colors.danger,  text: theme.colors.dangerText },
+    Beginner:     { bg: theme.colors.success + "22", text: theme.colors.success },
+    Intermediate: { bg: theme.colors.accent  + "22", text: theme.colors.accent },
+    Advanced:     { bg: theme.colors.danger  + "22", text: theme.colors.danger },
   };
   const { bg, text } = colorMap[difficulty];
   return (
@@ -34,18 +36,135 @@ function DifficultyChip({ difficulty }: { difficulty: CatalogPlan["difficulty"] 
   );
 }
 
-function PlanCard({ plan }: { plan: CatalogPlan }) {
+// ── Who it's for mapping ──────────────────────────────────────────────────────
+
+const WHO_ITS_FOR: Record<string, string> = {
+  "glute-buster":       "Anyone wanting bigger, stronger glutes with dedicated hip-dominant sessions",
+  "chest-pump":         "Push-day lovers chasing a fuller chest with high-volume pressing",
+  "arm-destroyer":      "Beginners wanting dedicated arm days with bicep/tricep supersets",
+  "full-body-burn":     "Anyone training 3 days/week who wants whole-body stimulus each session",
+  "squat-pr-builder":   "Powerlifters and athletes focused on a competition-peaking squat cycle",
+  "push-pull-legs":     "Experienced lifters comfortable with 5-6 sessions/week wanting PPL structure",
+  "5x5-strength":       "Intermediate lifters focused on adding weight to the bar every session",
+  "core-and-abs":       "Anyone wanting a dedicated core and abs programme alongside other training",
+  "shoulder-sculptor":  "Lifters who want broader, rounder delts with 4 focused shoulder sessions",
+  "deadlift-dominator": "Anyone who wants to pull heavier with a dedicated hinge-focused programme",
+  "upper-lower-split":  "Intermediate lifters who want balanced upper/lower frequency and recovery",
+  "cardio-shred":       "Anyone looking to add structured cardio conditioning alongside lifting",
+  "quick-start":        "Beginners looking for a short, low-commitment intro to structured training",
+  "strength-blitz":     "Advanced lifters wanting a fast peaking cycle or mini-block before a meet",
+  "hypertrophy-surge":  "Intermediate lifters who want a focused 6-week muscle-building block",
+  "cut-and-condition":  "Anyone cutting who wants to preserve muscle while adding metabolic work",
+  "powerbuilder-6wk":   "Intermediate lifters who want to build strength and size in a shorter cycle",
+};
+
+// ── Split label derivation ────────────────────────────────────────────────────
+
+function getSplitLabel(plan: CatalogPlan): string {
+  const goal = plan.goal.toLowerCase();
+  if (goal.includes("ppl")) return "Push / Pull / Legs";
+  if (goal.includes("upper") && goal.includes("lower")) return "Upper / Lower Split";
+  if (goal.includes("push") && goal.includes("pull")) return "Push / Pull / Legs";
+  if (goal.includes("full body") || goal.includes("full-body")) return "Full Body";
+  if (goal.includes("glute") || goal.includes("lower body")) return "Lower Body Focus";
+  if (goal.includes("chest") || goal.includes("push")) return "Push Focus";
+  if (goal.includes("arm")) return "Arms Specialization";
+  if (goal.includes("squat")) return "Squat Specialization";
+  if (goal.includes("deadlift") || goal.includes("posterior")) return "Hinge Specialization";
+  if (goal.includes("shoulder")) return "Shoulder Focus";
+  if (goal.includes("core") || goal.includes("abs")) return "Core Focus";
+  if (goal.includes("cardio") || goal.includes("conditioning")) return "Conditioning";
+  if (goal.includes("strength") || goal.includes("power")) return "Strength / Power";
+  if (goal.includes("hypertrophy")) return `${plan.daysPerWeek}-Day Hypertrophy Split`;
+  return `${plan.daysPerWeek}-Day Split`;
+}
+
+// ── Week structure summary ────────────────────────────────────────────────────
+
+function getWeekStructure(plan: CatalogPlan): string[] {
+  const totalWeeks = plan.totalWeeks ?? 12;
+  if (totalWeeks === 3) {
+    return [
+      "Week 1: Accumulation — moderate volume, build the base",
+      "Week 2: Intensification — heavier loads, fewer reps",
+      "Week 3: Realization — peak effort, test your strength",
+    ];
+  }
+  if (totalWeeks === 6) {
+    return [
+      "Weeks 1–2: Accumulation — high volume, build the base",
+      "Weeks 3–4: Intensification — add load, reduce reps",
+      "Week 5: Realization — peak effort, heavy work",
+      "Week 6: Deload — lower volume, active recovery",
+    ];
+  }
+  if (totalWeeks === 12) {
+    return [
+      "Weeks 1–4: Accumulation — high volume, build the base",
+      "Weeks 5–8: Intensification — add load, reduce reps",
+      "Weeks 9–11: Realization — peak effort, heavy work",
+      "Week 12: Deload — lower volume, active recovery",
+    ];
+  }
+  return [`${totalWeeks} progressive weeks with built-in deloads`];
+}
+
+// ── Day preview ───────────────────────────────────────────────────────────────
+
+function getDayPreviews(plan: CatalogPlan): { day: string; exercises: string[] }[] {
+  const dayMap = new Map<string, string[]>();
+  for (const ex of plan.exercises) {
+    if (ex.week !== "Week 1") continue;
+    const day = ex.day || "Day 1";
+    if (!dayMap.has(day)) dayMap.set(day, []);
+    const arr = dayMap.get(day)!;
+    if (arr.length < 3) arr.push(ex.exercise);
+  }
+  return Array.from(dayMap.entries()).map(([day, exercises]) => ({ day, exercises }));
+}
+
+// ── Plan Card ─────────────────────────────────────────────────────────────────
+
+function PlanCard({ plan, startSessionFromPlan, getActiveSession }: {
+  plan: CatalogPlan;
+  startSessionFromPlan: ReturnType<typeof useWorkouts>["startSessionFromPlan"];
+  getActiveSession: ReturnType<typeof useWorkouts>["getActiveSession"];
+}) {
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { setPlan } = usePlanContext();
-  const { startSessionFromPlan, getActiveSession } = useWorkouts();
+  const { setPlan, planName: currentPlanName, exercises: currentExercises } = usePlanContext();
   const { profile } = useProfileContext();
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const day1Exercises = plan.exercises.filter((e) => e.day === "Day 1" && e.week === "Week 1");
+  // Use the actual first day label from Week 1 — handles "Day 1A", "Day 1B", etc.
+  const firstDay = plan.exercises.find((e) => e.week === "Week 1")?.day ?? "Day 1";
+  const day1Exercises = plan.exercises.filter((e) => e.week === "Week 1" && e.day === firstDay);
+  const splitLabel = useMemo(() => getSplitLabel(plan), [plan]);
+  const weekStructure = useMemo(() => getWeekStructure(plan), [plan]);
+  const dayPreviews = useMemo(() => getDayPreviews(plan), [plan]);
+  const whoFor = WHO_ITS_FOR[plan.id] ?? plan.description;
+  const isActivePlan = currentPlanName === plan.name && currentExercises.length > 0;
 
-  async function handleLoadPlan() {
+  function handleLoadPlan() {
+    if (currentExercises.length > 0) {
+      Alert.alert(
+        "Replace Plan?",
+        `Replace "${currentPlanName}"? Your progress will be reset.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Replace",
+            style: "destructive",
+            onPress: () => {
+              setPlan(plan.name, plan.exercises);
+              router.push("/plan");
+            },
+          },
+        ]
+      );
+      return;
+    }
     setPlan(plan.name, plan.exercises);
     router.push("/plan");
   }
@@ -58,63 +177,126 @@ function PlanCard({ plan }: { plan: CatalogPlan }) {
         "You already have an active session. Resume or end it first.",
         [
           { text: "Cancel", style: "cancel" },
-          {
-            text: "Resume Session",
-            onPress: () => router.push(`/session/${active.id}`),
-          },
+          { text: "Resume Session", onPress: () => router.push(`/session/${active.id}`) },
         ]
       );
       return;
     }
-    setLoading(true);
-    try {
-      const id = await startSessionFromPlan(plan.name, "Week 1", "Day 1", day1Exercises, profile);
-      router.push(`/session/${id}`);
-    } finally {
-      setLoading(false);
+
+    async function doStart() {
+      setLoading(true);
+      try {
+        setPlan(plan.name, plan.exercises);
+        const id = await startSessionFromPlan(plan.name, "Week 1", firstDay, day1Exercises, profile);
+        router.push(`/session/${id}`);
+      } catch (e) {
+        Alert.alert("Couldn't start session", e instanceof Error ? e.message : "Please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
+
+    if (currentExercises.length > 0) {
+      Alert.alert(
+        "Replace Plan?",
+        `Replace "${currentPlanName}"? Your progress will be reset.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Replace & Start", style: "destructive", onPress: doStart },
+        ]
+      );
+      return;
+    }
+
+    await doStart();
   }
 
   return (
-    <Card style={styles.planCard}>
+    <View style={[styles.planCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+      {/* ── Card Header ── */}
       <View style={styles.cardHeader}>
-        <Text style={[styles.planName, { color: theme.colors.text }]}>{plan.name}</Text>
-        <DifficultyChip difficulty={plan.difficulty} />
+        <View style={{ flex: 1, paddingRight: 8 }}>
+          <Text style={[styles.planName, { color: theme.colors.text }]}>{plan.name}</Text>
+          <Text style={[styles.splitLabel, { color: theme.colors.muted }]}>{splitLabel}</Text>
+        </View>
+        <View style={{ alignItems: "flex-end", gap: 4 }}>
+          <DifficultyChip difficulty={plan.difficulty} />
+          {isActivePlan && (
+            <View style={[styles.chip, { backgroundColor: theme.colors.accent + "22" }]}>
+              <Text style={[styles.chipText, { color: theme.colors.accent }]}>Active ✓</Text>
+            </View>
+          )}
+        </View>
       </View>
 
-      <View style={styles.metaRow}>
-        <Badge label={plan.goal} />
-        <Text style={[styles.metaText, { color: theme.colors.muted }]}>
-          {plan.daysPerWeek} days/week
-        </Text>
+      {/* ── Quick stats row ── */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Ionicons name="calendar-outline" size={14} color="#E07A3F" />
+          <Text style={[styles.statText, { color: "#E07A3F" }]}>
+            {plan.daysPerWeek} days/week
+          </Text>
+        </View>
+        <View style={styles.statDot} />
+        <View style={styles.statItem}>
+          <Ionicons name="time-outline" size={14} color="#D9A100" />
+          <Text style={[styles.statText, { color: "#D9A100" }]}>
+            {plan.totalWeeks ?? 12} weeks
+          </Text>
+        </View>
+        <View style={styles.statDot} />
+        <View style={styles.statItem}>
+          <Ionicons name="barbell-outline" size={14} color="#E63946" />
+          <Text style={[styles.statText, { color: "#E63946" }]} numberOfLines={1}>
+            {splitLabel}
+          </Text>
+        </View>
       </View>
 
-      <Text style={[styles.description, { color: theme.colors.muted }]} numberOfLines={2}>
-        {plan.goal} · {plan.daysPerWeek} days/week · {plan.totalWeeks || 12}-week progressive program
+      {/* ── Who it's for ── */}
+      <Text style={[styles.whoFor, { color: theme.colors.muted }]} numberOfLines={expanded ? undefined : 2}>
+        {whoFor}
       </Text>
 
+      {/* ── Expandable details ── */}
       {expanded && (
-        <View style={[styles.previewSection, { borderTopColor: theme.colors.border }]}>
-          <Text style={[styles.previewTitle, { color: theme.colors.text }]}>Day 1 Preview</Text>
-          {day1Exercises.map((ex, i) => (
-            <View key={i} style={styles.previewRow}>
-              <Text style={[styles.previewExName, { color: theme.colors.text }]}>{ex.exercise}</Text>
-              <Text style={[styles.previewDetail, { color: theme.colors.muted }]}>
-                {ex.sets}x{ex.reps}
+        <View style={[styles.expandedSection, { borderTopColor: theme.colors.border }]}>
+          {/* Block structure */}
+          <Text style={[styles.expandLabel, { color: theme.colors.muted }]}>BLOCK STRUCTURE</Text>
+          {weekStructure.map((line, i) => (
+            <Text key={i} style={[styles.blockLine, { color: theme.colors.text }]}>• {line}</Text>
+          ))}
+
+          {/* Sample week — day previews */}
+          <Text style={[styles.expandLabel, { color: theme.colors.muted, marginTop: 14 }]}>WEEK 1 SAMPLE</Text>
+          {dayPreviews.map(({ day, exercises }) => (
+            <View key={day} style={styles.dayPreviewRow}>
+              <Text style={[styles.dayLabel, { color: theme.colors.primary }]}>{day}</Text>
+              <Text style={[styles.dayExercises, { color: theme.colors.text }]}>
+                {exercises.join(" · ")}
+                {exercises.length < (plan.exercises.filter(e => e.week === "Week 1" && e.day === day).length)
+                  ? " + more"
+                  : ""}
               </Text>
             </View>
           ))}
         </View>
       )}
 
+      {/* ── Actions ── */}
       <View style={styles.cardActions}>
-        <Pressable onPress={() => setExpanded(!expanded)}>
-          <Text style={[styles.previewToggle, { color: theme.colors.accent }]}>
-            {expanded ? "Hide Preview" : "Preview"}
+        <Pressable style={styles.previewToggle} onPress={() => setExpanded(!expanded)}>
+          <Text style={[styles.previewToggleText, { color: theme.colors.accent }]}>
+            {expanded ? "Collapse" : "See inside"}
           </Text>
+          <Ionicons
+            name={expanded ? "chevron-up" : "chevron-down"}
+            size={14}
+            color={theme.colors.accent}
+          />
         </Pressable>
         <View style={styles.actionButtons}>
-          <Button label="Load Plan" onPress={handleLoadPlan} variant="secondary" small />
+          <Button label="Set as My Plan" onPress={handleLoadPlan} variant="secondary" small />
           <View style={{ width: 8 }} />
           <Button
             label="Start Day 1"
@@ -124,72 +306,197 @@ function PlanCard({ plan }: { plan: CatalogPlan }) {
           />
         </View>
       </View>
-    </Card>
+    </View>
   );
 }
 
+// ── Screen ────────────────────────────────────────────────────────────────────
+
+const DIFFICULTY_OPTIONS = ["All", "Beginner", "Intermediate", "Advanced"] as const;
+const DAYS_OPTIONS = [3, 4, 5, 6] as const;
+
 export default function CatalogScreen() {
-  const router = useRouter();
   const { theme } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const { startSessionFromPlan, getActiveSession } = useWorkouts();
+  const [difficultyFilter, setDifficultyFilter] = useState<string>("All");
+  const [daysFilter, setDaysFilter] = useState<number | null>(null);
+
+  const filtered = useMemo(
+    () => CATALOG_PLANS.filter(p => {
+      if (difficultyFilter !== "All" && p.difficulty !== difficultyFilter) return false;
+      if (daysFilter !== null && p.daysPerWeek !== daysFilter) return false;
+      return true;
+    }),
+    [difficultyFilter, daysFilter]
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
         <BackButton />
+        <View style={{ flex: 1 }} />
       </View>
 
       <Text style={[styles.title, { color: theme.colors.text }]}>Workout Plans</Text>
       <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-        Choose a plan to get started
+        Plans range from 3 to 12 weeks with block periodization — volume, intensity, and deload built in.
       </Text>
 
+      {/* ── Filter chips ── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterRow}
+        contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+      >
+        {DIFFICULTY_OPTIONS.map((d) => {
+          const active = difficultyFilter === d;
+          return (
+            <Pressable
+              key={d}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor: active ? theme.colors.accent : theme.colors.mutedBg,
+                  borderColor: active ? theme.colors.accent : theme.colors.border,
+                },
+              ]}
+              onPress={() => setDifficultyFilter(d)}
+            >
+              <Text style={[styles.filterChipText, { color: active ? theme.colors.accentText : theme.colors.muted }]}>
+                {d}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <View style={[styles.filterDivider, { backgroundColor: theme.colors.border }]} />
+        {DAYS_OPTIONS.map((d) => {
+          const active = daysFilter === d;
+          return (
+            <Pressable
+              key={d}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor: active ? theme.colors.accent : theme.colors.mutedBg,
+                  borderColor: active ? theme.colors.accent : theme.colors.border,
+                },
+              ]}
+              onPress={() => setDaysFilter(active ? null : d)}
+            >
+              <Text style={[styles.filterChipText, { color: active ? theme.colors.accentText : theme.colors.muted }]}>
+                {d}d/wk
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
-        {CATALOG_PLANS.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} />
-        ))}
+        {filtered.length === 0 ? (
+          <View style={styles.noResults}>
+            <Text style={[styles.noResultsText, { color: theme.colors.muted }]}>No plans match your filters.</Text>
+          </View>
+        ) : (
+          filtered.map((plan) => (
+            <PlanCard key={plan.id} plan={plan} startSessionFromPlan={startSessionFromPlan} getActiveSession={getActiveSession} />
+          ))
+        )}
+        <View style={{ height: 20 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 64, paddingHorizontal: 24 },
-  header: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  title: { fontSize: 32, fontWeight: "700", marginBottom: 4 },
-  subtitle: { fontSize: 15, marginBottom: 20 },
+  container: { flex: 1, paddingHorizontal: 20 },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  title: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5, marginBottom: 4 },
+  subtitle: { fontSize: 14, lineHeight: 20, marginBottom: 20 },
   list: { paddingBottom: 40 },
 
-  planCard: { marginBottom: 16 },
+  planCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
   cardHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 8,
   },
-  planName: { fontSize: 18, fontWeight: "700", flexShrink: 1, marginRight: 8 },
+  planName: { fontSize: 18, fontWeight: "700", marginBottom: 2 },
+  splitLabel: { fontSize: 12, fontWeight: "500" },
+
   chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-  chipText: { fontSize: 12, fontWeight: "600" },
+  chipText: { fontSize: 11, fontWeight: "700" },
 
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  metaText: { fontSize: 13 },
-  description: { fontSize: 13, lineHeight: 18, marginBottom: 12 },
-
-  previewSection: { borderTopWidth: 1, paddingTop: 12, marginBottom: 12 },
-  previewTitle: { fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
-  previewRow: {
+  statsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 4,
+    gap: 6,
+    marginBottom: 10,
+    flexWrap: "wrap",
   },
-  previewExName: { fontSize: 14, flexShrink: 1 },
-  previewDetail: { fontSize: 13 },
+  statItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  statText: { fontSize: 12 },
+  statDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "#888",
+    opacity: 0.4,
+  },
+
+  whoFor: { fontSize: 13, lineHeight: 19, marginBottom: 12 },
+
+  expandedSection: {
+    borderTopWidth: 1,
+    paddingTop: 14,
+    marginBottom: 12,
+  },
+  expandLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  blockLine: { fontSize: 13, lineHeight: 20 },
+  dayPreviewRow: { marginBottom: 6 },
+  dayLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 1 },
+  dayExercises: { fontSize: 13, lineHeight: 18 },
 
   cardActions: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  previewToggle: { fontSize: 14, fontWeight: "600" },
+  previewToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  previewToggleText: { fontSize: 14, fontWeight: "600" },
   actionButtons: { flexDirection: "row", alignItems: "center" },
+
+  // Filter chips
+  filterRow: { flexGrow: 0, flexShrink: 0, marginBottom: 16 },
+  filterChip: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderWidth: 1,
+  },
+  filterChipText: { fontSize: 13, fontWeight: "600" },
+  filterDivider: { width: 1, alignSelf: "stretch", marginHorizontal: 4, opacity: 0.4 },
+  noResults: { paddingVertical: 40, alignItems: "center" },
+  noResultsText: { fontSize: 14 },
 });

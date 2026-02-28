@@ -294,13 +294,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 15,
   },
-  weightLabelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-    marginTop: spacing.md,
-  },
   weightRow: {
     flexDirection: "row",
     alignItems: "center",

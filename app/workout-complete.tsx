@@ -17,6 +17,7 @@ import Animated, {
   withSequence,
   withSpring,
   withRepeat,
+  FadeIn,
   Easing,
   interpolate,
 } from "react-native-reanimated";
@@ -26,7 +27,9 @@ import { useAppTheme } from "../contexts/ThemeContext";
 import { glowColors, spacing, radius } from "../lib/theme";
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { RANK_IMAGES } from "../components/RankEvolutionPath";
+import { formatPRName } from "../lib/prService";
 import type { WorkoutCompleteParams } from "../lib/xpService";
+import type { CardioPRKey } from "../lib/types";
 
 // ── Rank flavor text ─────────────────────────────────────────────────────────
 
@@ -364,7 +367,10 @@ export default function WorkoutCompleteScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const statCardWidth = (screenWidth - 48 - STAT_CARD_GAP * 2) / 3;
 
-  const params: WorkoutCompleteParams | null = data ? JSON.parse(data) : null;
+  let params: WorkoutCompleteParams | null = null;
+  try { params = data ? JSON.parse(data) : null; } catch (e) {
+    if (__DEV__) console.warn("Failed to parse workout-complete params:", e);
+  }
 
   const [claimed, setClaimed] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -596,8 +602,12 @@ export default function WorkoutCompleteScreen() {
         </Animated.View>
 
         <Animated.View style={[styles.statCard, { width: statCardWidth, backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, card2Style]}>
-          <Text style={[styles.statLabel, { color: theme.colors.muted }]}>PERFECT</Text>
-          <Text style={[styles.statValue, { color: theme.colors.text }]}>{completionPct}%</Text>
+          <Text style={[styles.statLabel, { color: theme.colors.muted }]}>
+            {params.isCardio ? "CALORIES" : "PERFECT"}
+          </Text>
+          <Text style={[styles.statValue, { color: theme.colors.text }]}>
+            {params.isCardio ? `${params.cardioCalories ?? 0} cal` : `${completionPct}%`}
+          </Text>
         </Animated.View>
 
         <Animated.View style={[styles.statCard, { width: statCardWidth, backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, card3Style]}>
@@ -605,6 +615,35 @@ export default function WorkoutCompleteScreen() {
           <Text style={[styles.statValue, { color: theme.colors.text }]}>{durationStr}</Text>
         </Animated.View>
       </View>
+
+      {/* PR pills (cardio) */}
+      {params.isCardio && params.newPRs && params.newPRs.length > 0 && (
+        <Animated.View entering={FadeIn.delay(600).duration(300)} style={styles.prSection}>
+          <Text style={[styles.prSectionLabel, { color: theme.colors.muted }]}>NEW RECORDS</Text>
+          <View style={styles.prPills}>
+            {params.newPRs.map((key) => (
+              <View key={key} style={[styles.prPill, { backgroundColor: theme.colors.primary + "20", borderColor: theme.colors.primary + "40" }]}>
+                <Text style={[styles.prPillText, { color: theme.colors.primary }]}>
+                  {formatPRName(key as CardioPRKey)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Badges unlocked */}
+      {params.newBadges && params.newBadges.length > 0 && (
+        <Animated.View entering={FadeIn.delay(700).duration(300)} style={styles.badgeSection}>
+          <Text style={[styles.badgeSectionLabel, { color: theme.colors.muted }]}>BADGES UNLOCKED</Text>
+          {params.newBadges.map((badge) => (
+            <View key={badge.id} style={[styles.badgeRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+              <Text style={[styles.badgeName, { color: theme.colors.text }]}>{badge.name}</Text>
+              <Text style={[styles.badgeDesc, { color: theme.colors.muted }]}>{badge.description}</Text>
+            </View>
+          ))}
+        </Animated.View>
+      )}
 
       {/* CLAIM XP / CLAIMED button */}
       <Animated.View style={claimBtnStyle}>
@@ -714,5 +753,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 1,
+  },
+  // PR pills
+  prSection: {
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  prSectionLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  prPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    justifyContent: "center",
+  },
+  prPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  prPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  // Badges
+  badgeSection: {
+    alignItems: "center",
+    width: "100%",
+    marginBottom: spacing.md,
+  },
+  badgeSectionLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  badgeRow: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 6,
+  },
+  badgeName: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  badgeDesc: {
+    fontSize: 12,
   },
 });

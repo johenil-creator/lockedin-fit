@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -37,7 +37,7 @@ import {
   looksLikeHtml,
   validateParsedPlan,
 } from "../../lib/importPlan";
-import type { DayGroup, WeekGroup, ParsedPlanSummary } from "../../lib/importPlan";
+import type { DayGroup, WeekGroup } from "../../lib/importPlan";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -158,7 +158,7 @@ function WeekStepper({ weeksInBlock, selectedWeekInBlock, canGoPrev, canGoNext, 
 
   return (
     <View style={wsStyles.row}>
-      <Pressable onPress={onPrev} disabled={!canGoPrev} style={[wsStyles.arrow, { opacity: canGoPrev ? 1 : 0.25 }]}>
+      <Pressable onPress={onPrev} disabled={!canGoPrev} style={[wsStyles.arrow, { opacity: canGoPrev ? 1 : 0.25 }]} accessibilityRole="button" accessibilityLabel="Previous week">
         <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
       </Pressable>
 
@@ -195,7 +195,7 @@ function WeekStepper({ weeksInBlock, selectedWeekInBlock, canGoPrev, canGoNext, 
         </View>
       </View>
 
-      <Pressable onPress={onNext} disabled={!canGoNext} style={[wsStyles.arrow, { opacity: canGoNext ? 1 : 0.25 }]}>
+      <Pressable onPress={onNext} disabled={!canGoNext} style={[wsStyles.arrow, { opacity: canGoNext ? 1 : 0.25 }]} accessibilityRole="button" accessibilityLabel="Next week">
         <Ionicons name="chevron-forward" size={20} color={theme.colors.text} />
       </Pressable>
     </View>
@@ -204,7 +204,7 @@ function WeekStepper({ weeksInBlock, selectedWeekInBlock, canGoPrev, canGoNext, 
 
 const wsStyles = StyleSheet.create({
   row:       { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-  arrow:     { padding: 6 },
+  arrow:     { padding: 12 },
   center:    { flex: 1, alignItems: "center" },
   weekLabel: { fontSize: 15, fontWeight: "700" },
   ofLabel:   { fontSize: 13, fontWeight: "400" },
@@ -367,19 +367,13 @@ const dcStyles = StyleSheet.create({
 
 // ── ProgressCard ──────────────────────────────────────────────────────────────
 
-function ProgressCard({ doneDays, totalDays, nextTarget, isStarting, onContinue }: {
+function ProgressCard({ doneDays, totalDays }: {
   doneDays: number;
   totalDays: number;
-  nextTarget: { weekGroup: WeekGroup; dayGroup: DayGroup } | null;
-  isStarting: boolean;
-  onContinue: () => void;
 }) {
   const { theme } = useAppTheme();
   const pct = totalDays > 0 ? doneDays / totalDays : 0;
   const pctStr = `${Math.round(pct * 100)}%` as `${number}%`;
-  const continueLabel = nextTarget
-    ? `Continue  ·  ${nextTarget.weekGroup.week} · ${nextTarget.dayGroup.day}`
-    : "All Done!";
 
   return (
     <View style={[pcStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
@@ -405,29 +399,12 @@ function ProgressCard({ doneDays, totalDays, nextTarget, isStarting, onContinue 
         ))}
       </View>
 
-      {doneDays < totalDays && nextTarget ? (
-        <Pressable
-          style={[pcStyles.continueBtn, { backgroundColor: theme.colors.primary, opacity: isStarting ? 0.5 : 1 }]}
-          disabled={isStarting}
-          onPress={onContinue}
-        >
-          {isStarting ? (
-            <ActivityIndicator size="small" color={theme.colors.primaryText} />
-          ) : (
-            <View style={pcStyles.continueBtnInner}>
-              <Ionicons name="play-circle-outline" size={18} color={theme.colors.primaryText} />
-              <Text style={[pcStyles.continueBtnText, { color: theme.colors.primaryText }]} numberOfLines={1}>
-                {continueLabel}
-              </Text>
-            </View>
-          )}
-        </Pressable>
-      ) : doneDays === totalDays ? (
+      {doneDays === totalDays && totalDays > 0 && (
         <View style={pcStyles.completeRow}>
           <Ionicons name="trophy" size={15} color={theme.colors.success} />
           <Text style={[pcStyles.completeText, { color: theme.colors.success }]}>Plan Complete!</Text>
         </View>
-      ) : null}
+      )}
     </View>
   );
 }
@@ -437,13 +414,10 @@ const pcStyles = StyleSheet.create({
   topRow:           { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   countText:        { fontSize: 12, fontWeight: "600" },
   pctText:          { fontSize: 12, fontWeight: "600" },
-  track:            { height: 8, borderRadius: 999, marginBottom: 12, overflow: "hidden" },
+  track:            { height: 8, borderRadius: 999, overflow: "hidden" },
   fill:             { height: "100%", borderRadius: 999, position: "absolute", left: 0, top: 0 },
   milestone:        { position: "absolute", width: 4, height: 4, borderRadius: 2, top: 2 },
-  continueBtn:      { borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16, alignItems: "center" },
-  continueBtnInner: { flexDirection: "row", alignItems: "center", gap: 8 },
-  continueBtnText:  { fontSize: 14, fontWeight: "700", flexShrink: 1 },
-  completeRow:      { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingVertical: 4 },
+  completeRow:      { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingTop: 10 },
   completeText:     { fontSize: 14, fontWeight: "700" },
 });
 
@@ -471,128 +445,9 @@ const banStyles = StyleSheet.create({
   desc:   { fontSize: 12, marginTop: 1 },
 });
 
-// ── ImportMethodSheet ─────────────────────────────────────────────────────────
+// ImportMethodSheet removed — replaced with native Alert to avoid BottomSheet
+// race conditions (closing one sheet while opening file picker / another sheet).
 
-function ImportMethodSheet({ visible, onClose, onFile, onUrl }: {
-  visible: boolean;
-  onClose: () => void;
-  onFile: () => void;
-  onUrl: () => void;
-}) {
-  const { theme } = useAppTheme();
-  const options = [
-    {
-      icon: "document-attach-outline" as IoniconName,
-      label: "File (CSV or Excel)",
-      desc: "Pick a .csv or .xlsx file from your device",
-      iconBg: theme.colors.accent + "22",
-      iconColor: theme.colors.accent,
-      onPress: () => { onClose(); setTimeout(onFile, 300); },
-    },
-    {
-      icon: "logo-google" as IoniconName,
-      label: "Google Sheets",
-      desc: "Paste a public Google Sheets share link",
-      iconBg: theme.colors.primary + "22",
-      iconColor: theme.colors.primary,
-      onPress: () => { onClose(); setTimeout(onUrl, 300); },
-    },
-  ];
-
-  return (
-    <AppBottomSheet visible={visible} onClose={onClose}>
-      <Text style={[imStyles.title, { color: theme.colors.text }]}>Import Workout Plan</Text>
-      <Text style={[imStyles.subtitle, { color: theme.colors.muted }]}>Choose a source to load your plan</Text>
-      {options.map((opt) => (
-        <Pressable
-          key={opt.label}
-          style={[imStyles.option, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]}
-          onPress={opt.onPress}
-        >
-          <View style={[imStyles.iconWrap, { backgroundColor: opt.iconBg }]}>
-            <Ionicons name={opt.icon} size={22} color={opt.iconColor} />
-          </View>
-          <View style={imStyles.optText}>
-            <Text style={[imStyles.optLabel, { color: theme.colors.text }]}>{opt.label}</Text>
-            <Text style={[imStyles.optDesc,  { color: theme.colors.muted }]}>{opt.desc}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={15} color={theme.colors.muted} />
-        </Pressable>
-      ))}
-    </AppBottomSheet>
-  );
-}
-
-const imStyles = StyleSheet.create({
-  title:    { fontSize: 20, fontWeight: "700", marginBottom: 4 },
-  subtitle: { fontSize: 13, marginBottom: 20 },
-  option:   { flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 10 },
-  iconWrap: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  optText:  { flex: 1, marginLeft: 14 },
-  optLabel: { fontSize: 15, fontWeight: "600" },
-  optDesc:  { fontSize: 12, marginTop: 2 },
-});
-
-// ── ImportPreviewSheet ────────────────────────────────────────────────────────
-
-function ImportPreviewSheet({ visible, planName, summary, warnings, onConfirm, onClose }: {
-  visible: boolean;
-  planName: string;
-  summary: ParsedPlanSummary;
-  warnings: string[];
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const { theme } = useAppTheme();
-  return (
-    <AppBottomSheet visible={visible} onClose={onClose}>
-      <Text style={[ipStyles.title, { color: theme.colors.text }]}>Plan Preview</Text>
-      <Text style={[ipStyles.planName, { color: theme.colors.muted }]} numberOfLines={1}>
-        {planName}
-      </Text>
-
-      {/* Summary stats */}
-      <View style={[ipStyles.statsRow, { backgroundColor: theme.colors.mutedBg }]}>
-        {[
-          { label: "Weeks",     value: summary.totalWeeks },
-          { label: "Days",      value: summary.totalDays },
-          { label: "Exercises", value: summary.totalExercises },
-        ].map((s) => (
-          <View key={s.label} style={ipStyles.statItem}>
-            <Text style={[ipStyles.statValue, { color: theme.colors.text }]}>{s.value}</Text>
-            <Text style={[ipStyles.statLabel, { color: theme.colors.muted }]}>{s.label}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Warnings */}
-      {warnings.map((w, i) => (
-        <View key={i} style={[ipStyles.warningRow, { backgroundColor: theme.colors.accent + "18" }]}>
-          <Ionicons name="warning-outline" size={14} color={theme.colors.accent} />
-          <Text style={[ipStyles.warningText, { color: theme.colors.accent }]}>{w}</Text>
-        </View>
-      ))}
-
-      <View style={ipStyles.actions}>
-        <Button label="Cancel" onPress={onClose} variant="secondary" />
-        <View style={{ width: 12 }} />
-        <Button label="Load Plan" onPress={onConfirm} />
-      </View>
-    </AppBottomSheet>
-  );
-}
-
-const ipStyles = StyleSheet.create({
-  title:       { fontSize: 20, fontWeight: "700", marginBottom: 4 },
-  planName:    { fontSize: 13, marginBottom: 16 },
-  statsRow:    { flexDirection: "row", borderRadius: 12, padding: 14, marginBottom: 14, gap: 8 },
-  statItem:    { flex: 1, alignItems: "center" },
-  statValue:   { fontSize: 22, fontWeight: "700" },
-  statLabel:   { fontSize: 11, fontWeight: "600", marginTop: 2 },
-  warningRow:  { flexDirection: "row", alignItems: "flex-start", gap: 8, borderRadius: 8, padding: 10, marginBottom: 8 },
-  warningText: { flex: 1, fontSize: 12, lineHeight: 18 },
-  actions:     { flexDirection: "row", marginTop: 6 },
-});
 
 // ── EmptyPlanState ────────────────────────────────────────────────────────────
 
@@ -657,20 +512,12 @@ export default function PlanScreen() {
   const { showToast } = useToast();
 
   const [selectedWeek, setSelectedWeek]           = useState(0);
-  const [importSheetVisible, setImportSheetVisible] = useState(false);
   const [urlModalVisible, setUrlModalVisible]     = useState(false);
   const [sheetUrl, setSheetUrl]                   = useState("");
   const [importing, setImporting]                 = useState(false);
   const [startingDay, setStartingDay]             = useState<string | null>(null);
   const [expandedDays, setExpandedDays]           = useState<Record<string, boolean>>({});
 
-  // Preview state — holds parsed result waiting for user confirmation
-  const [pendingPlan, setPendingPlan] = useState<{
-    name: string;
-    exercises: Exercise[];
-    summary: ParsedPlanSummary;
-    warnings: string[];
-  } | null>(null);
 
   const weeks = useMemo(() => groupByWeekDay(exercises), [exercises]);
 
@@ -740,7 +587,15 @@ export default function PlanScreen() {
     setExpandedDays((prev) => ({ ...prev, [dayKey]: !prev[dayKey] }));
   }
 
-  async function handleFileImport() {
+  function showImportPicker() {
+    Alert.alert("Import Workout Plan", "Choose a source to load your plan", [
+      { text: "File (CSV or Excel)", onPress: handleFileImport },
+      { text: "Google Sheets", onPress: () => setUrlModalVisible(true) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
+  const handleFileImport = useCallback(async () => {
     let result;
     try {
       result = await DocumentPicker.getDocumentAsync({
@@ -753,11 +608,11 @@ export default function PlanScreen() {
         ],
         copyToCacheDirectory: true,
       });
-    } catch {
-      showToast({ message: "Could not open file picker.", type: "error" });
+    } catch (e) {
+      Alert.alert("File Picker Error", e instanceof Error ? e.message : "Could not open file picker.");
       return;
     }
-    if (result.canceled) return;
+    if (result.canceled || !result.assets?.length) return;
     const file = result.assets[0];
 
     try {
@@ -772,29 +627,30 @@ export default function PlanScreen() {
         const text = await FileSystem.readAsStringAsync(file.uri, { encoding: "utf8" as const });
         rawRows = Papa.parse<string[]>(text, { header: false }).data;
       }
-      if (!rawRows.length) { showToast({ message: "No data rows found.", type: "error" }); return; }
+      if (!rawRows.length) {
+        Alert.alert("Import Error", "No data rows found in the file.");
+        return;
+      }
       const normalized = smartParse(rawRows);
       const validation = validateParsedPlan(normalized);
       if (!validation.valid) {
-        showToast({ message: validation.error, type: "error" });
+        Alert.alert("Import Error", validation.error);
         return;
       }
-      // Show preview before committing
+      // Load the plan directly
       const planDisplayName = file.name.replace(/\.(csv|xlsx?)$/i, "");
-      setPendingPlan({
-        name: planDisplayName,
-        exercises: normalized,
-        summary: validation.summary,
-        warnings: validation.warnings,
-      });
+      setPlan(planDisplayName, normalized);
+      setSelectedWeek(0);
+      setExpandedDays({});
+      showToast({ message: `Loaded "${planDisplayName}" — ${validation.summary.totalExercises} exercises across ${validation.summary.totalDays} days`, type: "success" });
     } catch (e) {
-      showToast({ message: `Failed to parse the file: ${e instanceof Error ? e.message : String(e)}`, type: "error" });
+      Alert.alert("Import Error", `Failed to parse the file: ${e instanceof Error ? e.message : String(e)}`);
     }
-  }
+  }, [setPlan, showToast]);
 
-  async function handleUrlImport() {
+  const handleUrlImport = useCallback(async () => {
     const parsed = parseGoogleSheetsUrl(sheetUrl.trim());
-    if (!parsed) { showToast({ message: "Invalid URL. Paste a Google Sheets share link.", type: "error" }); return; }
+    if (!parsed) { Alert.alert("Invalid URL", "Paste a Google Sheets share link."); return; }
 
     const exportUrl =
       `https://docs.google.com/spreadsheets/d/${parsed.id}/export?format=csv` +
@@ -817,28 +673,26 @@ export default function PlanScreen() {
       const normalized = smartParse(rawRows);
       const validation = validateParsedPlan(normalized);
       if (!validation.valid) {
-        showToast({ message: validation.error, type: "error" });
+        Alert.alert("Import Error", validation.error);
         return;
       }
-      // Show preview before committing
+      // Load the plan directly
       setUrlModalVisible(false);
       setSheetUrl("");
-      setPendingPlan({
-        name: "Google Sheet",
-        exercises: normalized,
-        summary: validation.summary,
-        warnings: validation.warnings,
-      });
+      setPlan("Google Sheet", normalized);
+      setSelectedWeek(0);
+      setExpandedDays({});
+      showToast({ message: `Loaded plan — ${validation.summary.totalExercises} exercises across ${validation.summary.totalDays} days`, type: "success" });
     } catch (e: unknown) {
       const msg = e instanceof Error && e.name === "AbortError"
         ? "Import timed out. Check your connection and try again."
         : `Import failed: ${e instanceof Error ? e.message : String(e)}`;
-      showToast({ message: msg, type: "error", duration: 5000 });
+      Alert.alert("Import Error", msg);
     } finally {
       clearTimeout(timeoutId);
       setImporting(false);
     }
-  }
+  }, [sheetUrl]);
 
   function handleClear() {
     Alert.alert("Clear plan?", "This will remove the imported workout.", [
@@ -865,8 +719,8 @@ export default function PlanScreen() {
     try {
       const id = await startSessionFromPlan(planName || "Workout", week, day, exs, profile);
       router.push(`/session/${id}`);
-    } catch {
-      Alert.alert("Couldn't start session", "Please try again.");
+    } catch (e) {
+      Alert.alert("Couldn't start session", e instanceof Error ? e.message : "Please try again.");
     } finally {
       setStartingDay(null);
     }
@@ -908,6 +762,8 @@ export default function PlanScreen() {
             <Pressable
               onPress={handleClear}
               style={[styles.iconBtn, { backgroundColor: theme.colors.mutedBg }]}
+              accessibilityRole="button"
+              accessibilityLabel="Clear plan"
             >
               <Ionicons name="trash-outline" size={16} color={theme.colors.muted} />
             </Pressable>
@@ -918,29 +774,13 @@ export default function PlanScreen() {
       {exercises.length === 0 ? (
         <EmptyPlanState
           onCatalog={() => router.push("/catalog")}
-          onImport={() => setImportSheetVisible(true)}
+          onImport={showImportPicker}
         />
       ) : (
         <>
           {/* Progress card */}
           {totalDays > 0 && (
-            <ProgressCard
-              doneDays={doneDays}
-              totalDays={totalDays}
-              nextTarget={nextIncompleteTarget}
-              isStarting={
-                startingDay ===
-                `${nextIncompleteTarget?.weekGroup.week}|${nextIncompleteTarget?.dayGroup.day}`
-              }
-              onContinue={async () => {
-                if (!nextIncompleteTarget) return;
-                await launchSession(
-                  nextIncompleteTarget.weekGroup.week,
-                  nextIncompleteTarget.dayGroup.day,
-                  nextIncompleteTarget.dayGroup.exercises
-                );
-              }}
-            />
+            <ProgressCard doneDays={doneDays} totalDays={totalDays} />
           )}
 
           {/* Block phase tabs — plans > 3 weeks only */}
@@ -1039,6 +879,7 @@ export default function PlanScreen() {
       <AppBottomSheet
         visible={urlModalVisible}
         onClose={() => { setUrlModalVisible(false); setSheetUrl(""); }}
+        snapPoints={["50%"]}
       >
         <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Google Sheets URL</Text>
         <Text style={[styles.modalHint,  { color: theme.colors.muted }]}>
@@ -1065,30 +906,6 @@ export default function PlanScreen() {
         </View>
       </AppBottomSheet>
 
-      {/* Import method selection sheet */}
-      <ImportMethodSheet
-        visible={importSheetVisible}
-        onClose={() => setImportSheetVisible(false)}
-        onFile={handleFileImport}
-        onUrl={() => setUrlModalVisible(true)}
-      />
-
-      {/* Import preview sheet — confirm before committing */}
-      {pendingPlan && (
-        <ImportPreviewSheet
-          visible={pendingPlan !== null}
-          planName={pendingPlan.name}
-          summary={pendingPlan.summary}
-          warnings={pendingPlan.warnings}
-          onClose={() => setPendingPlan(null)}
-          onConfirm={() => {
-            setPlan(pendingPlan.name, pendingPlan.exercises);
-            setSelectedWeek(0);
-            setExpandedDays({});
-            setPendingPlan(null);
-          }}
-        />
-      )}
     </View>
   );
 }
