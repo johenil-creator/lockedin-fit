@@ -730,3 +730,22 @@ export const EXERCISE_CUES: Record<string, string[]> = {
     "Use 15-25% less weight than regular back squat",
   ],
 };
+
+/**
+ * Look up coaching cues for an exercise by catalog ID or canonical name.
+ * Returns an empty array if no cues are found.
+ *
+ * @param catalogId — the exercise's catalog ID (e.g. "barbell_back_squat")
+ * @param canonicalName — fallback: exercise name normalized to underscore key
+ */
+export function getExerciseCues(catalogId: string | null | undefined, canonicalName?: string): string[] {
+  if (catalogId && EXERCISE_CUES[catalogId]) {
+    return EXERCISE_CUES[catalogId];
+  }
+  // Fallback: normalize the canonical name to a catalog ID style key
+  if (canonicalName) {
+    const fallbackKey = canonicalName.toLowerCase().replace(/[\s\-()]+/g, "_").replace(/_+/g, "_");
+    if (EXERCISE_CUES[fallbackKey]) return EXERCISE_CUES[fallbackKey];
+  }
+  return [];
+}

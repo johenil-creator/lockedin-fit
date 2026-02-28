@@ -1,6 +1,227 @@
 import type { CatalogPlan, Exercise, ExerciseSlot, ProgressionRule } from "./types";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Pattern Cues ─────────────────────────────────────────────────────────────
+// Short coaching cues keyed by movement pattern. Numbered variants (e.g.
+// "core-2") are looked up by their base name ("core"). Slot-level comments
+// always take priority over pattern cues.
+
+const PATTERN_CUES: Record<string, string> = {
+  // ── Squat patterns ──
+  squat:            "Brace hard, break at hips and knees together, drive through whole foot.",
+  "front-squat":    "Elbows high, upright torso, sit between your heels.",
+  "squat-variation": "Control the descent, pause briefly at the bottom.",
+  "quad-compound":  "Drive knees over toes, keep chest tall.",
+  "machine-squat":  "Controlled tempo, full range of motion.",
+  "unilateral-squat": "Keep front knee tracking over toes, torso upright.",
+  "quad-iso":       "Squeeze at the top, slow eccentric.",
+  "quad-acc":       "Push through the full range, controlled pace.",
+  "quad-finisher":  "Chase the burn — slow reps, full squeeze.",
+
+  // ── Hinge patterns ──
+  hinge:            "Push hips back, slight knee bend, feel the hamstring stretch.",
+  "hip-hinge":      "Hinge at hips, keep bar/weight close to legs.",
+  "hip-extension":  "Squeeze glutes hard at lockout, pause at the top.",
+  deadlift:         "Brace core, push the floor away, lock out with glutes.",
+  "main-deadlift":  "Set up tight, big breath, push the floor away.",
+  "deadlift-variation": "Same pull mechanics, adjust stance for the variation.",
+  "deficit-work":   "Slower off the floor — stay patient, keep back flat.",
+  "speed-dl":       "Explosive off the floor, reset each rep.",
+  "speed-squat":    "Sit back fast, explode up — speed is the goal.",
+  "paused-dl":      "Pause at knee height, hold position, then finish the pull.",
+  "snatch-grip":    "Wide grip, stay over the bar longer, upper back tight.",
+  sumo:             "Push knees out, hips close to bar, chest up.",
+  "block-pull":     "Lock in your upper back, drive hips through at the top.",
+  "good-morning":   "Hinge with the bar on your back, feel the hamstring load.",
+  "single-leg-hinge": "Balance on one leg, push hips back, keep hips square.",
+
+  // ── Bench / Press patterns ──
+  bench:            "Arch slightly, retract shoulder blades, press through the chest.",
+  "flat-press":     "Plant feet, retract scapulae, lower to mid-chest, drive up.",
+  "flat-db":        "Dumbbells to chest level, squeeze pecs at the top.",
+  "incline-press":  "30-45° angle, lower to upper chest, press straight up.",
+  incline:          "Upper chest focus, control the negative.",
+  "incline-compound": "Drive through the upper chest, keep shoulders pinned back.",
+  "incline-push":   "Slight incline, target the upper pecs.",
+  "machine-press":  "Controlled reps, full stretch at the bottom.",
+  "squeeze-press":  "Press dumbbells together throughout — max chest contraction.",
+  "upper-chest":    "Low incline or reverse grip for upper pec emphasis.",
+
+  // ── Overhead press patterns ──
+  press:            "Brace core, press straight overhead, lock out fully.",
+  ohp:              "Strict press — no leg drive, squeeze glutes for stability.",
+  "press-compound": "Big breath, brace, drive through the sticking point.",
+  "shoulder-press": "Elbows slightly forward, press to full lockout.",
+  "db-press":       "Neutral or pronated grip, control the descent.",
+  "compound-press": "Full range overhead, engage core throughout.",
+  "unilateral-press": "One arm at a time — resist rotation, brace hard.",
+
+  // ── Row / Pull patterns ──
+  row:              "Pull to lower chest/hip, squeeze shoulder blades together.",
+  "horizontal-pull": "Retract scapulae, pull elbows past torso.",
+  "heavy-row":      "Heavier load, slight body English is OK, still squeeze.",
+  "row-variation":  "Vary grip width and angle for complete back development.",
+  "cable-row":      "Sit tall, pull to belly button, squeeze the contraction.",
+  "inverted-row":   "Body straight like a plank, pull chest to bar.",
+  "pull-up":        "Dead hang start, pull until chin clears the bar.",
+  "vertical-pull":  "Lead with elbows, stretch lats fully at the bottom.",
+  pulldown:         "Lean back slightly, pull to upper chest, squeeze lats.",
+
+  // ── Chest fly patterns ──
+  fly:              "Slight elbow bend, stretch wide, squeeze chest at the top.",
+  "cable-fly":      "Constant tension, cross hands slightly at the peak.",
+  "machine-fly":    "Control the stretch, squeeze at the midline.",
+  "fly-variation":  "Full stretch, controlled squeeze, don't go too heavy.",
+
+  // ── Dip patterns ──
+  dip:              "Lean forward for chest, stay upright for triceps.",
+  "dip-compound":   "Controlled descent, drive up powerfully.",
+  "dip-heavy":      "Add weight gradually, full range of motion.",
+
+  // ── Lateral / Shoulder isolation ──
+  lateral:          "Slight forward lean, lead with elbows, control the descent.",
+  "lateral-raise":  "Raise to shoulder height, pinky slightly higher than thumb.",
+  "cable-lateral":  "Constant cable tension, slow negative.",
+  "lateral-variation": "Vary angle and grip for all three delt heads.",
+  "front-raise":    "Raise to eye level, don't swing.",
+  "rear-delt":      "Squeeze shoulder blades, hold the contraction briefly.",
+  "rear-delt-focus": "Heavier rear delt work, control the weight.",
+  "rear-delt-iso":  "Light weight, high reps, feel the rear delts working.",
+  "reverse-flye":   "Elbows slightly bent, squeeze behind the shoulders.",
+  "upright-row":    "Pull elbows high, keep bar close to body.",
+  trap:             "Shrug straight up, hold at the top, slow lower.",
+  "lu-complex":     "Lateral raise into front raise — continuous tension.",
+  "band-work":      "Light resistance, high reps, prehab and blood flow.",
+
+  // ── Bicep patterns ──
+  bicep:            "Full stretch at bottom, squeeze at top, no swinging.",
+  "bicep-compound": "Controlled curl, keep elbows pinned to sides.",
+  "bicep-iso":      "Isolate the bicep, slow eccentric.",
+  "bicep-stretch":  "Arms behind torso on incline — max stretch at the bottom.",
+  "bicep-peak":     "Supinate hard at the top, squeeze the peak.",
+  "drag-curl":      "Elbows drift back, bar stays close to body.",
+  "chin-up":        "Supinated grip, pull with biceps and lats.",
+
+  // ── Tricep patterns ──
+  tricep:           "Lock out fully, squeeze the tricep at extension.",
+  "tricep-push":    "Push down, lock elbows, squeeze at the bottom.",
+  "tricep-extension": "Keep elbows fixed, extend fully overhead.",
+  "tricep-compound": "Close grip compounds — elbows tucked, full lockout.",
+  "tricep-iso":     "Isolate the long head, control the stretch.",
+  "close-grip":     "Hands shoulder-width, elbows tucked, press to lockout.",
+  "arm-superset":   "Alternate bicep and tricep with minimal rest.",
+
+  // ── Superset patterns ──
+  "superset-bi":    "Superset — move quickly to the paired tricep exercise.",
+  "superset-tri":   "Superset — move quickly to the paired bicep exercise.",
+
+  // ── Forearm patterns ──
+  forearm:          "Controlled wrist movement, full range of motion.",
+
+  // ── Glute patterns ──
+  "glute-isolation": "Squeeze glutes at full extension, slow negative.",
+  "glute-activation": "Light load, focus on mind-muscle connection.",
+  "glute-finisher":  "High reps, chase the pump, finish strong.",
+  "glute-iso":       "Constant tension, squeeze and hold at the top.",
+  "hip-thrust":      "Drive through heels, full hip extension, glute squeeze.",
+  "unilateral-hip-ext": "One side at a time — match reps, squeeze at lockout.",
+  abduction:         "Push knees apart, hold at peak contraction.",
+  "abduction-finisher": "High reps, constant tension, burn it out.",
+
+  // ── Lunge patterns ──
+  lunge:            "Long stride, front knee over ankle, drive up through the heel.",
+  "lunge-pattern":  "Controlled step, keep torso upright.",
+  "unilateral-lunge": "Single-leg focus, balance and control.",
+  "step-up":        "Drive through the top foot, don't push off the bottom.",
+
+  // ── Hamstring patterns ──
+  hamstring:        "Slow eccentric, squeeze the curl at peak contraction.",
+  "hamstring-curl": "Control the negative, full contraction at the top.",
+
+  // ── Posterior chain ──
+  "posterior-chain": "Hinge movement, squeeze glutes and hamstrings.",
+  posterior:         "Strengthen the backside — glutes, hamstrings, erectors.",
+  "back-extension":  "Hinge at hips, squeeze glutes at the top, don't hyperextend.",
+  "reverse-hyper":   "Swing controlled, squeeze glutes hard at the top.",
+
+  // ── Calf patterns ──
+  calf:             "Full stretch at bottom, hard squeeze at top, pause briefly.",
+
+  // ── Leg press ──
+  "leg-press":      "Full depth, don't lock out knees, controlled tempo.",
+
+  // ── Core patterns ──
+  core:             "Brace like you're about to get punched, breathe behind the brace.",
+  "anti-extension":  "Resist arching — keep ribs down, core tight.",
+  "anti-rotation":   "Resist rotation, press out and hold steady.",
+  rotation:          "Rotate from the torso, not the arms.",
+  isometric:         "Hold position, breathe steadily, don't let form break.",
+  rollout:           "Extend as far as you can control, pull back with abs.",
+  "crunch-variation": "Exhale hard on the crunch, slow lower.",
+  "lateral-stability": "Stack hips, squeeze obliques, don't let hips sag.",
+  "reverse-crunch":  "Curl hips toward ribs, control the descent.",
+  "weighted-flexion": "Add load gradually, full contraction each rep.",
+  weighted:          "Weighted core — controlled reps, quality over speed.",
+  "weighted-compound": "Heavy core work — brace hard, full range.",
+  hanging:           "Dead hang, raise with control, don't swing.",
+  "knee-raise":      "Curl knees to chest, pause, slow lower.",
+  woodchop:          "Rotate through the torso, arms are just levers.",
+  dynamic:           "Move with purpose, keep core engaged throughout.",
+  carry:             "Stand tall, brace core, walk with control.",
+  "lateral-flexion":  "Side bend with control, feel the oblique stretch.",
+  "stability-finisher": "Unstable surface — fight for position, stay tight.",
+
+  // ── Paused / Tempo work ──
+  "paused-work":    "Hold the pause position, stay tight, then drive.",
+  tempo:            "Count the tempo strictly, own every inch of the rep.",
+  "top-single":     "Work up gradually, one clean heavy rep.",
+  "box-work":       "Sit back on the box, pause, explode up.",
+
+  // ── Mobility ──
+  "mobility-finisher": "Slow, controlled stretches — breathe into the position.",
+
+  // ── Conditioning / Cardio ──
+  "warm-up":         "Elevate heart rate, loosen joints, prepare to work.",
+  explosive:         "Max effort each rep, full recovery between sets.",
+  kettlebell:        "Hip snap, let the bell float, control the backswing.",
+  "kettlebell-compound": "Link movements smoothly, maintain grip and posture.",
+  plyo:              "Land soft, absorb through the legs, explode on the next rep.",
+  rowing:            "Drive with legs first, then pull with back, arms last.",
+  bike:              "All-out sprint, recover fully between intervals.",
+  "upper-conditioning": "Keep moving, maintain form even when fatigued.",
+  sled:              "Low body position, drive through the ground.",
+  "bodyweight-burnout": "Push to failure, maintain form as long as possible.",
+  sprint:            "Max effort burst, full recovery between reps.",
+  "lower-strength":  "Lighter load, higher reps, keep heart rate up.",
+  "full-body":       "Every rep hits everything — smooth, powerful transitions.",
+  crawl:             "Stay low, opposite hand and foot move together.",
+  "steady-state":    "Moderate pace, sustainable effort, steady breathing.",
+  "wall-ball":       "Full squat, launch the ball, catch and descend immediately.",
+  "kb-complex":      "Chain movements without putting the bell down.",
+  agility:           "Quick feet, stay on the balls of your feet.",
+  conditioning:      "Push the pace, recover on the rest, repeat.",
+
+  // ── Rehab / Prehab ──
+  "external-rotation": "Light weight, elbow pinned, rotate out slowly.",
+  "rehab-stability":   "Light load, perfect form, protect the joint.",
+  "rotator-finisher":  "Prehab work — slow, controlled, feel the small muscles.",
+
+  // ── Misc ──
+  cable:             "Constant cable tension, slow and controlled.",
+  unilateral:        "One side at a time — match reps, control the movement.",
+  "accessory-push":  "Lighter pressing to build volume without taxing recovery.",
+  "horizontal-push": "Push away from you, engage chest and triceps.",
+  "vertical-push":   "Press overhead with full lockout.",
+  "push-up-variation": "Chest to floor, elbows at 45°, full lockout.",
+  burnout:           "Go until you can't, rest briefly, go again.",
+  "pump-finisher":   "Light weight, high reps, max pump.",
+  finisher:          "Last exercise — leave nothing in the tank.",
+  isolation:         "Slow and controlled, feel every rep.",
+  bodyweight:        "Bodyweight to failure, quality reps.",
+  "grip-carry":      "Crush the handle, walk tall, brace everything.",
+  "shoulder-acc":    "Accessory shoulder work — lighter, controlled.",
+  "machine-push":    "Guided path, focus on the squeeze.",
+  "main-squat":      "Your main squat variation — brace, descend with control, drive up.",
+};
 
 function slot(
   movementPattern: string,
@@ -15,12 +236,229 @@ function slot(
   return { movementPattern, variations, sets, reps, day, warmUpSets, restTime, comments };
 }
 
-/** Determine which phase a given week falls into */
-function getPhase(week: number): { index: number; label: string } {
-  if (week <= 4) return { index: 0, label: "Base Volume Phase" };
-  if (week <= 8) return { index: 1, label: "Progressive Overload" };
-  if (week <= 11) return { index: 2, label: "Intensity Phase" };
-  return { index: 3, label: "Deload Week" };
+// ── Block Periodization System ────────────────────────────────────────────────
+//
+// 12-week programme divided into 3 blocks × 4 weeks each:
+//
+//   Block 1 – ACCUMULATION  (Weeks 1–4):  8–15 reps, higher volume, moderate loads
+//   Block 2 – INTENSIFICATION (Weeks 5–8): 4–8 reps, heavier loads, less volume
+//   Block 3 – REALIZATION   (Weeks 9–12): 1–5 reps, lowest volume, highest intensity
+//
+// Within every block the week roles are:
+//   Week 1: Introduce stimulus (moderate)
+//   Week 2: Build (volume or intensity increase)
+//   Week 3: Peak stress (hardest week of the block)
+//   Week 4: Deload / pivot (reduced volume and intensity)
+//
+// Week 4, 8, and 12 are always deload weeks.
+
+interface BlockWeekParams {
+  sets: string;
+  reps: string;
+  phaseLabel: string;
+  isDeload: boolean;
+}
+
+/**
+ * Return the per-week sets/reps prescription for a given week (1-12),
+ * exercise role (compound vs accessory), and progression type (linear vs percentage).
+ *
+ * Each of the 12 weeks produces a unique combination for both roles.
+ */
+function getBlockWeekParams(
+  week: number,
+  isCompound: boolean,
+  progressionType: "linear" | "percentage",
+  totalWeeks: number = 12
+): BlockWeekParams {
+
+  // ── 3-week programme (no deload) ────────────────────────────────────────────
+  // W1 = Accumulation, W2 = Intensification, W3 = Realization
+  if (totalWeeks === 3) {
+    const phaseLabel =
+      week === 1 ? "Accumulation" :
+      week === 2 ? "Intensification" : "Realization";
+
+    if (isCompound) {
+      if (progressionType === "linear") {
+        const TABLE: { sets: string; reps: string }[] = [
+          { sets: "4", reps: "8" },   // W1
+          { sets: "4", reps: "5" },   // W2
+          { sets: "5", reps: "3" },   // W3
+        ];
+        return { ...TABLE[week - 1], phaseLabel, isDeload: false };
+      }
+      // percentage
+      const TABLE: { sets: string; reps: string }[] = [
+        { sets: "4", reps: "10" },  // W1
+        { sets: "4", reps: "7" },   // W2
+        { sets: "5", reps: "5" },   // W3
+      ];
+      return { ...TABLE[week - 1], phaseLabel, isDeload: false };
+    }
+    // accessories
+    const TABLE: { sets: string; reps: string }[] = [
+      { sets: "3", reps: "15" },  // W1
+      { sets: "3", reps: "12" },  // W2
+      { sets: "3", reps: "10" },  // W3
+    ];
+    return { ...TABLE[week - 1], phaseLabel, isDeload: false };
+  }
+
+  // ── 6-week programme (deload week 6) ────────────────────────────────────────
+  // W1-2 = Accumulation, W3-4 = Intensification, W5 = Realization, W6 = Deload
+  if (totalWeeks === 6) {
+    const isDeload = week === 6;
+    const phaseLabel =
+      week <= 2 ? "Accumulation" :
+      week <= 4 ? "Intensification" :
+      week <= 6 ? "Realization" : "Realization";
+
+    if (isCompound) {
+      if (progressionType === "linear") {
+        const TABLE: { sets: string; reps: string }[] = [
+          { sets: "4", reps: "10" },  // W1
+          { sets: "5", reps: "8" },   // W2
+          { sets: "4", reps: "6" },   // W3
+          { sets: "5", reps: "4" },   // W4
+          { sets: "5", reps: "3" },   // W5
+          { sets: "3", reps: "8" },   // W6 deload
+        ];
+        return { ...TABLE[week - 1], phaseLabel, isDeload };
+      }
+      // percentage
+      const TABLE: { sets: string; reps: string }[] = [
+        { sets: "4", reps: "12" },  // W1
+        { sets: "4", reps: "10" },  // W2
+        { sets: "4", reps: "8" },   // W3
+        { sets: "5", reps: "6" },   // W4
+        { sets: "5", reps: "5" },   // W5
+        { sets: "3", reps: "10" },  // W6 deload
+      ];
+      return { ...TABLE[week - 1], phaseLabel, isDeload };
+    }
+    // accessories
+    const TABLE: { sets: string; reps: string }[] = [
+      { sets: "3", reps: "15" },  // W1
+      { sets: "4", reps: "12" },  // W2
+      { sets: "3", reps: "12" },  // W3
+      { sets: "4", reps: "10" },  // W4
+      { sets: "3", reps: "10" },  // W5
+      { sets: "2", reps: "12" },  // W6 deload
+    ];
+    return { ...TABLE[week - 1], phaseLabel, isDeload };
+  }
+
+  // ── 12-week programme (original) ────────────────────────────────────────────
+  // Deload flags — weeks 4, 8, 12 are always deloads
+  const deloadWeeks = new Set([4, 8, 12]);
+  const isDeload = deloadWeeks.has(week);
+
+  const phaseLabel =
+    week <= 4 ? "Accumulation" :
+    week <= 8 ? "Intensification" :
+    week <= 12 ? "Realization" : "Realization";
+
+  if (isCompound) {
+    if (progressionType === "linear") {
+      // Linear strength progression (powerlifting / strength plans)
+      // Block 1 – ACCUMULATION: heavier reps 8-10, building base
+      // Block 2 – INTENSIFICATION: strength focus 4-6 reps
+      // Block 3 – REALIZATION: 1-5 reps, peaking
+      const TABLE: { sets: string; reps: string }[] = [
+        // Wk 1  introduce
+        { sets: "4", reps: "10" },
+        // Wk 2  build
+        { sets: "4", reps: "9" },
+        // Wk 3  peak stress
+        { sets: "5", reps: "8" },
+        // Wk 4  deload
+        { sets: "3", reps: "10" },
+        // Wk 5  introduce B2
+        { sets: "4", reps: "6" },
+        // Wk 6  build
+        { sets: "5", reps: "5" },
+        // Wk 7  peak stress
+        { sets: "5", reps: "4" },
+        // Wk 8  deload
+        { sets: "3", reps: "8" },
+        // Wk 9  introduce B3
+        { sets: "4", reps: "4" },
+        // Wk 10 build
+        { sets: "5", reps: "3" },
+        // Wk 11 peak stress
+        { sets: "6", reps: "2" },
+        // Wk 12 deload / test
+        { sets: "3", reps: "5" },
+      ];
+      return { ...TABLE[week - 1], phaseLabel, isDeload };
+    }
+
+    // Percentage / hypertrophy progression
+    // Block 1 – ACCUMULATION: high reps 10-15
+    // Block 2 – INTENSIFICATION: moderate 6-10 reps
+    // Block 3 – REALIZATION: lower 4-8 reps, peak intensity
+    const TABLE: { sets: string; reps: string }[] = [
+      // Wk 1  introduce
+      { sets: "4", reps: "12" },
+      // Wk 2  build
+      { sets: "4", reps: "11" },
+      // Wk 3  peak stress
+      { sets: "5", reps: "10" },
+      // Wk 4  deload
+      { sets: "3", reps: "12" },
+      // Wk 5  introduce B2
+      { sets: "4", reps: "8" },
+      // Wk 6  build
+      { sets: "4", reps: "7" },
+      // Wk 7  peak stress
+      { sets: "5", reps: "6" },
+      // Wk 8  deload
+      { sets: "3", reps: "10" },
+      // Wk 9  introduce B3
+      { sets: "4", reps: "6" },
+      // Wk 10 build
+      { sets: "5", reps: "5" },
+      // Wk 11 peak stress
+      { sets: "5", reps: "4" },
+      // Wk 12 deload / unload
+      { sets: "3", reps: "8" },
+    ];
+    return { ...TABLE[week - 1], phaseLabel, isDeload };
+  }
+
+  // Accessories — higher reps throughout, taper down across blocks
+  // Block 1: 12-15 reps (hypertrophy emphasis)
+  // Block 2: 10-12 reps (moderate)
+  // Block 3: 8-10 reps (lower volume, higher effort)
+  // Deload weeks: 2 sets, higher reps (recovery)
+  const TABLE: { sets: string; reps: string }[] = [
+    // Wk 1
+    { sets: "3", reps: "15" },
+    // Wk 2
+    { sets: "3", reps: "14" },
+    // Wk 3
+    { sets: "4", reps: "12" },
+    // Wk 4  deload
+    { sets: "2", reps: "15" },
+    // Wk 5
+    { sets: "3", reps: "12" },
+    // Wk 6
+    { sets: "3", reps: "11" },
+    // Wk 7
+    { sets: "4", reps: "10" },
+    // Wk 8  deload
+    { sets: "2", reps: "12" },
+    // Wk 9
+    { sets: "3", reps: "10" },
+    // Wk 10
+    { sets: "3", reps: "9" },
+    // Wk 11
+    { sets: "3", reps: "8" },
+    // Wk 12 deload
+    { sets: "2", reps: "10" },
+  ];
+  return { ...TABLE[week - 1], phaseLabel, isDeload };
 }
 
 /** First 2 slots per day are compounds, rest are accessories */
@@ -36,82 +474,51 @@ function isCompoundBySlotPosition(
   return posInDay < 2;
 }
 
-/** Return sets/reps for the given phase, role, progression type, and week within phase.
- *  `weekInPhase` is 0-3 and ensures no two weeks within a phase share the same sets×reps. */
-function getPhaseParams(
-  phaseIndex: number,
-  isCompound: boolean,
-  progressionType: "linear" | "percentage",
-  weekInPhase: number
-): { sets: string; reps: string } {
-  // weekInPhase is clamped 0-3
-  const w = Math.min(Math.max(weekInPhase, 0), 3);
-
-  if (isCompound) {
-    if (progressionType === "linear") {
-      // Phase 0 – Base Volume:        wk1 4×10, wk2 4×9, wk3 5×8, wk4 3×10 (mini-deload)
-      // Phase 1 – Progressive Overload: wk1 4×8,  wk2 4×7, wk3 5×6, wk4 3×8
-      // Phase 2 – Intensity:           wk1 5×5,  wk2 5×4, wk3 6×3, wk4 3×5
-      // Phase 3 – Deload:              wk1 3×5 (only 1 week for phase 3)
-      const map: { sets: string; reps: string }[][] = [
-        [{ sets: "4", reps: "10" }, { sets: "4", reps: "9" }, { sets: "5", reps: "8" }, { sets: "3", reps: "10" }],
-        [{ sets: "4", reps: "8" },  { sets: "4", reps: "7" }, { sets: "5", reps: "6" }, { sets: "3", reps: "8" }],
-        [{ sets: "5", reps: "5" },  { sets: "5", reps: "4" }, { sets: "6", reps: "3" }, { sets: "3", reps: "5" }],
-        [{ sets: "3", reps: "5" },  { sets: "3", reps: "5" }, { sets: "3", reps: "5" }, { sets: "3", reps: "5" }],
-      ];
-      return map[phaseIndex][w];
-    }
-    // Percentage / hypertrophy — each week within a phase is unique,
-    // and boundary weeks across phases are also distinct.
-    // Phase 0 – Base Volume:         wk1 4×12, wk2 4×11, wk3 5×10, wk4 3×13 (mini-deload)
-    // Phase 1 – Progressive Overload: wk1 4×10, wk2 4×9,  wk3 5×7,  wk4 3×10
-    // Phase 2 – Intensity:           wk1 4×8,  wk2 5×7,  wk3 6×6,  wk4 (unused—only 3 weeks)
-    // Phase 3 – Deload:              wk1 3×8 (single week)
-    const map: { sets: string; reps: string }[][] = [
-      [{ sets: "4", reps: "12" }, { sets: "4", reps: "11" }, { sets: "5", reps: "10" }, { sets: "3", reps: "13" }],
-      [{ sets: "4", reps: "10" }, { sets: "4", reps: "9" },  { sets: "5", reps: "7" },  { sets: "3", reps: "10" }],
-      [{ sets: "4", reps: "8" },  { sets: "5", reps: "7" },  { sets: "6", reps: "6" },  { sets: "3", reps: "8" }],
-      [{ sets: "3", reps: "8" },  { sets: "3", reps: "8" },  { sets: "3", reps: "8" },  { sets: "3", reps: "8" }],
-    ];
-    return map[phaseIndex][w];
-  }
-
-  // Accessories — vary reps week-to-week within each phase; no duplicates across boundaries
-  // Phase 0: 3×15, 3×14, 4×12, 3×16 (mini-deload with higher reps, lower intensity)
-  // Phase 1: 3×13, 3×11, 4×10, 3×12
-  // Phase 2: 3×10, 3×9,  3×8,  (unused—only 3 weeks)
-  // Phase 3: 2×12 (single deload week)
-  const accessoryMap: { sets: string; reps: string }[][] = [
-    [{ sets: "3", reps: "15" }, { sets: "3", reps: "14" }, { sets: "4", reps: "12" }, { sets: "3", reps: "16" }],
-    [{ sets: "3", reps: "13" }, { sets: "3", reps: "11" }, { sets: "4", reps: "10" }, { sets: "3", reps: "12" }],
-    [{ sets: "3", reps: "10" }, { sets: "3", reps: "9" },  { sets: "3", reps: "8" },  { sets: "3", reps: "10" }],
-    [{ sets: "2", reps: "12" }, { sets: "2", reps: "12" }, { sets: "2", reps: "12" }, { sets: "2", reps: "12" }],
-  ];
-  return accessoryMap[phaseIndex][w];
-}
-
 /**
- * Pick the exercise name for a given slot and week, using the rotation algorithm:
+ * Pick the exercise variation for a given slot, week, and slot index.
  *
- *   - Deload (phase 3 / Week 12): always primary (index 0)
- *   - Intensity (phase 2 / Weeks 9-11): rotate among first 2 variations
- *   - Otherwise: rotate through all variations
+ * CRITICAL: No two weeks (1-12) may produce the same full-day routine.
+ *
+ * With only 4 variations per slot, a single rotation formula repeats every
+ * 4 weeks. To guarantee 12 unique day fingerprints we use two orthogonal
+ * sequences (a Graeco-Latin square construction): even-indexed slots use
+ * sequence A, odd-indexed slots use sequence B. Because (A[i], B[i]) is
+ * unique for all 12 weeks, the full day tuple is always unique.
+ *
+ * Each slot also gets an additive offset (slotIndex) so different exercises
+ * within the same day don't land on the same variation.
  */
-function pickVariation(s: ExerciseSlot, week: number, phaseIndex: number): string {
+// Orthogonal pair — (SEQ_A[w], SEQ_B[w]) is unique for all w ∈ 0..11
+const SEQ_A = [0, 1, 2, 3, 3, 0, 1, 2, 1, 2, 3, 0]; // blocks shifted by 0, 3, 1
+const SEQ_B = [0, 1, 2, 3, 2, 3, 0, 1, 3, 0, 1, 2]; // blocks shifted by 0, 2, 3
+
+function pickVariation(
+  s: ExerciseSlot,
+  week: number,
+  slotIndex: number,
+  _isCompound: boolean
+): string {
   if (s.variations.length <= 1) return s.variations[0];
 
-  if (phaseIndex === 3) return s.variations[0];
+  const pool = s.variations.length;
+  const w = week - 1; // 0-indexed
 
-  const poolSize =
-    phaseIndex === 2
-      ? Math.min(2, s.variations.length)
-      : s.variations.length;
+  // Even slots use sequence A, odd slots use sequence B
+  const baseIdx = (slotIndex % 2 === 0) ? SEQ_A[w] : SEQ_B[w];
 
-  return s.variations[(week - 1) % poolSize];
+  // Shift by slotIndex so different slots in the same day pick different variations
+  const idx = (baseIdx + slotIndex) % pool;
+  return s.variations[idx];
 }
 
 /**
- * Expand exercise slots into a full periodised programme with weekly variety.
+ * Expand exercise slots into a full 12-week block periodised programme.
+ *
+ * Block 1 – ACCUMULATION  (Weeks 1–4):  high volume, moderate intensity, 8-15 reps
+ * Block 2 – INTENSIFICATION (Weeks 5–8): moderate volume, higher intensity, 4-8 reps
+ * Block 3 – REALIZATION   (Weeks 9–12): low volume, peak intensity, 1-5 reps
+ *
+ * Weeks 4, 8, and 12 are always deload weeks with reduced sets and lighter loads.
  */
 function expandSlotsWithProgression(
   slots: ExerciseSlot[],
@@ -121,24 +528,22 @@ function expandSlotsWithProgression(
   const all: Exercise[] = [];
 
   for (let w = 1; w <= totalWeeks; w++) {
-    const phase = getPhase(w);
-
-    // Compute week-within-phase (0-indexed): weeks 1-4→0-3, 5-8→0-3, 9-11→0-2, 12→0
-    const phaseStartWeek = phase.index === 0 ? 1 : phase.index === 1 ? 5 : phase.index === 2 ? 9 : 12;
-    const weekInPhase = w - phaseStartWeek;
-
     for (let i = 0; i < slots.length; i++) {
       const s = slots[i];
       const isCompound = isCompoundBySlotPosition(i, slots);
-      const { sets, reps } = getPhaseParams(phase.index, isCompound, progressionType, weekInPhase);
-      const exerciseName = pickVariation(s, w, phase.index);
+      const { sets, reps } = getBlockWeekParams(w, isCompound, progressionType, totalWeeks);
+      const exerciseName = pickVariation(s, w, i, isCompound);
+
+      // Slot-specific comments take priority, then pattern cue lookup
+      const basePattern = s.movementPattern.replace(/-\d+$/, "");
+      const cue = s.comments || PATTERN_CUES[s.movementPattern] || PATTERN_CUES[basePattern] || "";
 
       all.push({
         exercise: exerciseName,
         sets,
         reps,
         weight: "",
-        comments: s.comments ?? "",
+        comments: cue,
         week: `Week ${w}`,
         day: s.day,
         warmUpSets: s.warmUpSets,
@@ -321,7 +726,7 @@ export const CATALOG_PLANS: CatalogPlan[] = [
     weeklyProgression: LINEAR_STRENGTH,
     exercises: expandSlotsWithProgression([
       // Day 1 (Heavy)
-      slot("main-squat", ["Back Squat"], "5", "3-5", "Day 1", "3", "180", "Heavy — RPE 8-9"),
+      slot("main-squat", ["Back Squat", "Low-Bar Back Squat", "High-Bar Back Squat", "Heeled Back Squat"], "5", "3-5", "Day 1", "3", "180", "Heavy — RPE 8-9"),
       slot("paused-work", ["Pause Squat", "Pin Squat", "Anderson Squat", "Tempo Squat"], "3", "3", "Day 1", "1", "150", "2-sec pause at bottom"),
       slot("leg-press", ["Leg Press", "Hack Squat", "Belt Squat", "Pendulum Squat"], "4", "8-10", "Day 1", "1", "120"),
       slot("lunge", ["Walking Lunge", "Reverse Lunge", "Front-Rack Lunge", "Deficit Reverse Lunge"], "3", "10 each", "Day 1", "0", "90"),
@@ -333,13 +738,13 @@ export const CATALOG_PLANS: CatalogPlan[] = [
       slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 2", "0", "60"),
       slot("calf", ["Calf Raise", "Seated Calf Raise", "Donkey Calf Raise", "Single-Leg Calf Raise"], "4", "12-15", "Day 2", "0", "60"),
       // Day 3 (Speed)
-      slot("speed-squat", ["Back Squat (Speed)"], "6", "2", "Day 3", "2", "120", "60% 1RM — explosive"),
+      slot("speed-squat", ["Back Squat (Speed)", "Banded Back Squat", "Box Squat (Speed)", "Chain Back Squat"], "6", "2", "Day 3", "2", "120", "60% 1RM — explosive"),
       slot("box-work", ["Box Squat", "Low Box Squat", "Pause Box Squat", "High Box Squat"], "3", "5", "Day 3", "1", "120"),
       slot("machine-squat", ["Hack Squat", "Leg Press", "Pendulum Squat", "Belt Squat"], "3", "10-12", "Day 3", "0", "90"),
       slot("posterior", ["Glute-Ham Raise", "Nordic Curl", "Reverse Hyper", "Good Morning"], "3", "8-10", "Day 3", "0", "90"),
       slot("core-2", ["Plank", "Suitcase Carry", "Farmer Walk", "Dead Bug (Weighted)"], "3", "45-60s", "Day 3", "0", "60"),
       // Day 4 (Max)
-      slot("top-single", ["Back Squat (Top Single)"], "1", "1", "Day 4", "4", "180", "Work to daily max"),
+      slot("top-single", ["Back Squat (Top Single)", "Pause Squat (Heavy)", "Pin Squat (Heavy)", "Walkout + Heavy Single"], "1", "1", "Day 4", "4", "180", "Work to daily max"),
       slot("tempo", ["Tempo Squat", "1.5 Rep Squat", "Eccentric-Only Squat", "Pause Squat (3-sec)"], "3", "5", "Day 4", "1", "120", "3-1-0 tempo"),
       slot("step-up", ["Step-Up", "Reverse Lunge", "Walking Lunge", "Front-Foot Elevated Lunge"], "3", "10 each", "Day 4", "0", "90"),
       slot("quad-finisher", ["Sissy Squat", "Leg Extension", "Wall Sit", "Spanish Squat"], "3", "12-15", "Day 4", "0", "60"),
@@ -403,19 +808,19 @@ export const CATALOG_PLANS: CatalogPlan[] = [
     weeklyProgression: LINEAR_STRENGTH,
     exercises: expandSlotsWithProgression([
       // Day 1 (A)
-      slot("squat", ["Barbell Squat"], "5", "5", "Day 1", "2", "180"),
-      slot("bench", ["Barbell Bench Press"], "5", "5", "Day 1", "2", "150"),
+      slot("squat", ["Barbell Back Squat", "Pause Squat", "Tempo Squat (3-1-0)", "Close-Stance Squat"], "5", "5", "Day 1", "2", "180"),
+      slot("bench", ["Barbell Bench Press", "Pause Bench Press", "Tempo Bench Press", "Feet-Up Bench Press"], "5", "5", "Day 1", "2", "150"),
       slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Dumbbell Row"], "5", "5", "Day 1", "1", "120"),
       // Day 2 (B)
-      slot("squat-2", ["Barbell Squat"], "5", "5", "Day 2", "2", "180"),
-      slot("press", ["Overhead Press"], "5", "5", "Day 2", "2", "150"),
-      slot("deadlift", ["Deadlift"], "1", "5", "Day 2", "3", "180"),
+      slot("squat-2", ["Barbell Back Squat", "Pause Squat", "Tempo Squat (3-1-0)", "Close-Stance Squat"], "5", "5", "Day 2", "2", "180"),
+      slot("press", ["Overhead Press", "Strict Press (Seated)", "Push Press", "Z Press"], "5", "5", "Day 2", "2", "150"),
+      slot("deadlift", ["Conventional Deadlift", "Pause Deadlift", "Deficit Deadlift", "Tempo Deadlift"], "1", "5", "Day 2", "3", "180"),
       // Day 3 (A alt)
-      slot("squat-3", ["Barbell Squat"], "5", "5", "Day 3", "2", "180"),
-      slot("bench-2", ["Barbell Bench Press"], "5", "5", "Day 3", "2", "150"),
+      slot("squat-3", ["Barbell Back Squat", "Pause Squat", "Tempo Squat (3-1-0)", "Close-Stance Squat"], "5", "5", "Day 3", "2", "180"),
+      slot("bench-2", ["Barbell Bench Press", "Pause Bench Press", "Tempo Bench Press", "Feet-Up Bench Press"], "5", "5", "Day 3", "2", "150"),
       slot("row-2", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Dumbbell Row"], "5", "5", "Day 3", "1", "120"),
       // Day 4 (Deadlift + Accessories)
-      slot("deadlift-2", ["Deadlift"], "3", "5", "Day 4", "3", "180"),
+      slot("deadlift-2", ["Conventional Deadlift", "Pause Deadlift", "Deficit Deadlift", "Tempo Deadlift"], "3", "5", "Day 4", "3", "180"),
       slot("front-squat", ["Front Squat", "Goblet Squat", "Safety Bar Squat", "Zercher Squat"], "3", "8-10", "Day 4", "1", "120"),
       slot("row-3", ["Dumbbell Row", "Chest-Supported Row", "Seated Cable Row", "T-Bar Row"], "3", "8-10", "Day 4", "0", "90"),
       slot("accessory-push", ["Dip", "Incline Dumbbell Press", "Close-Grip Bench Press", "Overhead Press (Light)"], "3", "8-10", "Day 4", "0", "90"),
@@ -511,7 +916,7 @@ export const CATALOG_PLANS: CatalogPlan[] = [
     weeklyProgression: LINEAR_STRENGTH,
     exercises: expandSlotsWithProgression([
       // Day 1 (Heavy)
-      slot("main-deadlift", ["Conventional Deadlift"], "5", "3-5", "Day 1", "3", "180", "Heavy — RPE 8-9"),
+      slot("main-deadlift", ["Conventional Deadlift", "Double-Overhand Deadlift", "Touch-and-Go Deadlift", "Stiff-Bar Deadlift"], "5", "3-5", "Day 1", "3", "180", "Heavy — RPE 8-9"),
       slot("deficit-work", ["Deficit Deadlift", "Paused Deadlift", "Snatch-Grip Deadlift", "Halting Deadlift"], "3", "5", "Day 1", "1", "150", "2-inch deficit"),
       slot("row", ["Barbell Row", "Pendlay Row", "Meadows Row", "T-Bar Row"], "4", "6-8", "Day 1", "1", "120"),
       slot("posterior-chain", ["Glute-Ham Raise", "Nordic Curl", "Back Extension", "Reverse Hyperextension"], "3", "8-10", "Day 1", "0", "90"),
@@ -529,7 +934,7 @@ export const CATALOG_PLANS: CatalogPlan[] = [
       slot("back-extension", ["Back Extension", "45-Degree Hyper", "Reverse Hyperextension", "Weighted Back Extension"], "3", "12-15", "Day 3", "0", "60"),
       slot("core-2", ["Plank (Weighted)", "Dead Bug", "Pallof Press", "Suitcase Carry"], "3", "45-60s", "Day 3", "0", "60"),
       // Day 4 (Speed)
-      slot("speed-dl", ["Deadlift (Speed)"], "6", "2", "Day 4", "2", "120", "60% 1RM — explosive"),
+      slot("speed-dl", ["Deadlift (Speed)", "Banded Deadlift", "Chain Deadlift", "Block Pull (Speed)"], "6", "2", "Day 4", "2", "120", "60% 1RM — explosive"),
       slot("snatch-grip", ["Snatch-Grip Deadlift", "Snatch-Grip RDL", "Clean Pull", "Clean Deadlift"], "3", "6-8", "Day 4", "1", "120"),
       slot("reverse-hyper", ["Reverse Hyperextension", "GHR", "Back Extension", "Nordic Curl"], "3", "12-15", "Day 4", "0", "60"),
       slot("row-variation", ["Dumbbell Row", "Chest-Supported Row", "Kroc Row", "Meadows Row"], "3", "10-12", "Day 4", "0", "90"),
@@ -617,5 +1022,195 @@ export const CATALOG_PLANS: CatalogPlan[] = [
       slot("agility", ["Lateral Shuffle", "Agility Ladder", "Cone Drill", "Shuttle Run"], "3", "30s", "Day 4", "0", "30"),
       slot("conditioning", ["Sprawl", "Burpee", "Man Maker", "Devil Press"], "3", "10", "Day 4", "0", "45"),
     ], 12, "percentage"),
+  },
+
+  // ─── 13. Quick Start (3 weeks) ──────────────────────────────────────────────
+  {
+    id: "quick-start",
+    name: "Quick Start",
+    goal: "Full Body",
+    description: "A beginner-friendly 3-week introduction with full-body sessions three days per week — perfect for building the habit.",
+    difficulty: "Beginner",
+    daysPerWeek: 3,
+    totalWeeks: 3,
+    weeklyProgression: LINEAR_STRENGTH,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Push & Squat
+      slot("squat", ["Goblet Squat", "Barbell Back Squat", "Leg Press", "Smith Machine Squat"], "3", "8-10", "Day 1", "2", "120"),
+      slot("flat-press", ["Flat Dumbbell Bench Press", "Barbell Bench Press", "Machine Chest Press", "Floor Press"], "3", "8-10", "Day 1", "1", "90"),
+      slot("shoulder-press", ["Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Landmine Press"], "3", "10-12", "Day 1", "0", "90"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 1", "0", "60"),
+      slot("core", ["Plank", "Dead Bug", "Bird Dog", "Pallof Press"], "3", "30-45s", "Day 1", "0", "45"),
+      // Day 2 — Pull & Hinge
+      slot("hinge", ["Romanian Deadlift", "Dumbbell RDL", "Good Morning", "Trap Bar RDL"], "3", "8-10", "Day 2", "2", "120"),
+      slot("row", ["Dumbbell Row", "Seated Cable Row", "T-Bar Row", "Chest-Supported Row"], "3", "8-10", "Day 2", "1", "90"),
+      slot("vertical-pull", ["Lat Pulldown", "Pull-Up (Assisted)", "Close-Grip Pulldown", "Cable Pullover"], "3", "10-12", "Day 2", "0", "90"),
+      slot("bicep", ["Dumbbell Curl", "EZ-Bar Curl", "Cable Curl", "Hammer Curl"], "3", "12-15", "Day 2", "0", "60"),
+      slot("core-2", ["Cable Crunch", "Hanging Knee Raise", "Ab Wheel Rollout", "Leg Raise"], "3", "12-15", "Day 2", "0", "45"),
+      // Day 3 — Full Body
+      slot("leg-press", ["Leg Press", "Hack Squat", "Belt Squat", "Smith Machine Squat"], "3", "10-12", "Day 3", "1", "90"),
+      slot("incline-push", ["Incline Dumbbell Press", "Incline Barbell Press", "Landmine Press", "Incline Machine Press"], "3", "10-12", "Day 3", "1", "90"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 3", "0", "90"),
+      slot("lunge-pattern", ["Reverse Lunge", "Walking Lunge", "Goblet Reverse Lunge", "Lateral Lunge"], "3", "10 each", "Day 3", "0", "60"),
+      slot("core-3", ["Russian Twist", "Mountain Climber", "Plank Shoulder Tap", "Bicycle Crunch"], "3", "20", "Day 3", "0", "45"),
+    ], 3, "linear"),
+  },
+
+  // ─── 14. Strength Blitz (3 weeks) ───────────────────────────────────────────
+  {
+    id: "strength-blitz",
+    name: "Strength Blitz",
+    goal: "Strength",
+    description: "An advanced 3-week peaking cycle with heavy compound lifts across four days — ideal as a taper or mini-block.",
+    difficulty: "Advanced",
+    daysPerWeek: 4,
+    totalWeeks: 3,
+    weeklyProgression: LINEAR_STRENGTH,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Squat Focus
+      slot("main-squat", ["Back Squat", "Low-Bar Back Squat", "High-Bar Back Squat", "Heeled Back Squat"], "4", "3-5", "Day 1", "3", "180"),
+      slot("paused-work", ["Pause Squat", "Pin Squat", "Tempo Squat", "Anderson Squat"], "3", "3", "Day 1", "1", "150"),
+      slot("quad-acc", ["Leg Press", "Hack Squat", "Belt Squat", "Front Squat"], "3", "8-10", "Day 1", "1", "90"),
+      slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 1", "0", "60"),
+      slot("core", ["Ab Wheel Rollout", "Hanging Leg Raise", "Pallof Press", "Weighted Plank"], "3", "10-12", "Day 1", "0", "60"),
+      // Day 2 — Bench Focus
+      slot("bench", ["Barbell Bench Press", "Pause Bench Press", "Close-Grip Bench Press", "Floor Press"], "4", "3-5", "Day 2", "3", "180"),
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Low-Incline Dumbbell Press", "Incline Smith Press"], "3", "6-8", "Day 2", "1", "120"),
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Seal Row"], "4", "6-8", "Day 2", "1", "120"),
+      slot("tricep", ["Tricep Rope Pushdown", "Overhead Tricep Extension", "V-Bar Pushdown", "Skull Crusher"], "3", "10-12", "Day 2", "0", "60"),
+      slot("rear-delt", ["Face Pull", "Band Pull-Apart", "Reverse Pec Deck", "Prone Y Raise"], "3", "15-20", "Day 2", "0", "60"),
+      // Day 3 — Deadlift Focus
+      slot("main-deadlift", ["Conventional Deadlift", "Sumo Deadlift", "Trap Bar Deadlift", "Stiff-Bar Deadlift"], "4", "3-5", "Day 3", "3", "180"),
+      slot("deficit-work", ["Deficit Deadlift", "Paused Deadlift", "Block Pull", "Rack Pull"], "3", "5", "Day 3", "1", "150"),
+      slot("heavy-row", ["Pendlay Row", "Barbell Row", "T-Bar Row", "Meadows Row"], "3", "5", "Day 3", "1", "120"),
+      slot("posterior-chain", ["Glute-Ham Raise", "Nordic Curl", "Reverse Hyperextension", "Back Extension"], "3", "8-10", "Day 3", "0", "90"),
+      slot("core-2", ["Suitcase Carry", "Farmer Walk", "Plank (Weighted)", "Dead Bug"], "3", "40m", "Day 3", "0", "60"),
+      // Day 4 — OHP + Volume
+      slot("press", ["Overhead Press", "Push Press", "Z Press", "Viking Press"], "4", "3-5", "Day 4", "2", "150"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Chin-Up"], "4", "6-8", "Day 4", "1", "120"),
+      slot("dip-compound", ["Weighted Dip", "Dip (Chest Emphasis)", "Ring Dip", "Close-Grip Bench Press"], "3", "6-8", "Day 4", "1", "90"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 4", "0", "60"),
+      slot("bicep", ["Barbell Curl", "EZ-Bar Curl", "Hammer Curl", "Cable Curl"], "3", "10-12", "Day 4", "0", "60"),
+    ], 3, "linear"),
+  },
+
+  // ─── 15. Hypertrophy Surge (6 weeks) ────────────────────────────────────────
+  {
+    id: "hypertrophy-surge",
+    name: "Hypertrophy Surge",
+    goal: "Hypertrophy",
+    description: "A 6-week muscle-building programme with upper/lower splits, progressive overload, and a deload in week 6.",
+    difficulty: "Intermediate",
+    daysPerWeek: 4,
+    totalWeeks: 6,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Upper A (Day 1)
+      slot("flat-press", ["Flat Barbell Bench Press", "Flat Dumbbell Bench Press", "Close-Grip Bench Press", "Floor Press"], "4", "6-8", "Day 1", "2", "150"),
+      slot("row", ["Barbell Row", "T-Bar Row", "Pendlay Row", "Seal Row"], "4", "6-8", "Day 1", "2", "120"),
+      slot("shoulder-press", ["Seated Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Push Press"], "3", "8-10", "Day 1", "1", "90"),
+      slot("pulldown", ["Lat Pulldown", "Pull-Up", "Close-Grip Pulldown", "Neutral-Grip Pulldown"], "3", "10-12", "Day 1", "0", "90"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 1", "0", "60"),
+      slot("bicep", ["Barbell Curl", "EZ-Bar Curl", "Dumbbell Curl", "Cable Curl"], "3", "10-12", "Day 1", "0", "60"),
+      slot("tricep", ["Tricep Pushdown", "Rope Pushdown", "V-Bar Pushdown", "Single-Arm Pushdown"], "3", "12-15", "Day 1", "0", "60"),
+      // Lower A (Day 2)
+      slot("squat", ["Barbell Squat", "Safety Bar Squat", "Belt Squat", "Hack Squat"], "4", "6-8", "Day 2", "3", "150"),
+      slot("hinge", ["Romanian Deadlift", "Good Morning", "Stiff-Leg Deadlift", "Trap Bar RDL"], "4", "8-10", "Day 2", "2", "120"),
+      slot("leg-press", ["Leg Press", "Hack Squat", "Pendulum Squat", "Belt Squat"], "3", "10-12", "Day 2", "1", "90"),
+      slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 2", "0", "60"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Donkey Calf Raise", "Single-Leg Calf Raise"], "4", "12-15", "Day 2", "0", "60"),
+      slot("core", ["Cable Crunch", "Hanging Leg Raise", "Ab Wheel Rollout", "Pallof Press"], "3", "15-20", "Day 2", "0", "60"),
+      // Upper B (Day 3)
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Low-Incline Smith Press", "Incline Machine Press"], "4", "8-10", "Day 3", "1", "120"),
+      slot("vertical-pull", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Chin-Up"], "4", "6-8", "Day 3", "1", "120"),
+      slot("fly", ["Cable Crossover", "Pec Deck", "Dumbbell Flye", "Machine Flye"], "3", "12-15", "Day 3", "0", "60"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 3", "0", "90"),
+      slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "3", "15-20", "Day 3", "0", "60"),
+      slot("bicep-2", ["Hammer Curl", "Incline Curl", "Concentration Curl", "Spider Curl"], "3", "10-12", "Day 3", "0", "60"),
+      slot("tricep-2", ["Overhead Tricep Extension", "Skull Crusher", "Tricep Kickback", "Cable Overhead Extension"], "3", "12-15", "Day 3", "0", "60"),
+      // Lower B (Day 4)
+      slot("front-squat", ["Front Squat", "Goblet Squat", "Zercher Squat", "Landmine Squat"], "4", "8-10", "Day 4", "2", "120"),
+      slot("hip-thrust", ["Hip Thrust", "Barbell Glute Bridge", "Smith Machine Hip Thrust", "Banded Hip Thrust"], "4", "10-12", "Day 4", "1", "90"),
+      slot("lunge", ["Walking Lunge", "Reverse Lunge", "Lateral Lunge", "Deficit Reverse Lunge"], "3", "12 each", "Day 4", "0", "90"),
+      slot("quad-iso", ["Leg Extension", "Sissy Squat", "Wall Sit (Weighted)", "Spanish Squat"], "3", "12-15", "Day 4", "0", "60"),
+      slot("calf-2", ["Seated Calf Raise", "Standing Calf Raise", "Single-Leg Calf Raise", "Donkey Calf Raise"], "4", "15-20", "Day 4", "0", "60"),
+      slot("core-2", ["Hanging Leg Raise", "Cable Crunch", "Pallof Press", "Suitcase Carry"], "3", "12-15", "Day 4", "0", "60"),
+    ], 6, "percentage"),
+  },
+
+  // ─── 16. Cut and Condition (6 weeks) ────────────────────────────────────────
+  {
+    id: "cut-and-condition",
+    name: "Cut and Condition",
+    goal: "Fat Loss / Conditioning",
+    description: "A 6-week fat-loss programme combining resistance training with metabolic circuits to preserve muscle while cutting.",
+    difficulty: "Intermediate",
+    daysPerWeek: 4,
+    totalWeeks: 6,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Upper Strength
+      slot("flat-press", ["Flat Barbell Bench Press", "Flat Dumbbell Bench Press", "Machine Chest Press", "Floor Press"], "4", "6-8", "Day 1", "2", "120"),
+      slot("row", ["Barbell Row", "T-Bar Row", "Pendlay Row", "Dumbbell Row"], "4", "6-8", "Day 1", "1", "120"),
+      slot("shoulder-press", ["Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Landmine Press"], "3", "8-10", "Day 1", "1", "90"),
+      slot("pulldown", ["Lat Pulldown", "Pull-Up", "Close-Grip Pulldown", "Neutral-Grip Pulldown"], "3", "10-12", "Day 1", "0", "90"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 1", "0", "60"),
+      // Day 2 — Lower Strength
+      slot("squat", ["Barbell Squat", "Safety Bar Squat", "Hack Squat", "Belt Squat"], "4", "6-8", "Day 2", "3", "150"),
+      slot("hinge", ["Romanian Deadlift", "Good Morning", "Stiff-Leg Deadlift", "Trap Bar RDL"], "4", "8-10", "Day 2", "2", "120"),
+      slot("leg-press", ["Leg Press", "Hack Squat", "Pendulum Squat", "Belt Squat"], "3", "10-12", "Day 2", "1", "90"),
+      slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 2", "0", "60"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Donkey Calf Raise", "Single-Leg Calf Raise"], "3", "12-15", "Day 2", "0", "60"),
+      // Day 3 — Upper Metabolic
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Incline Machine Press", "Landmine Press"], "3", "10-12", "Day 3", "1", "60"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 3", "0", "60"),
+      slot("fly", ["Cable Crossover", "Pec Deck", "Dumbbell Flye", "Machine Flye"], "3", "12-15", "Day 3", "0", "45"),
+      slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "3", "15-20", "Day 3", "0", "45"),
+      slot("conditioning", ["Burpee", "Battle Rope", "Kettlebell Swing", "Man Maker"], "3", "30s", "Day 3", "0", "45"),
+      // Day 4 — Lower Metabolic
+      slot("front-squat", ["Front Squat", "Goblet Squat", "Landmine Squat", "Zercher Squat"], "3", "10-12", "Day 4", "1", "60"),
+      slot("hip-thrust", ["Hip Thrust", "Barbell Glute Bridge", "Smith Machine Hip Thrust", "Banded Hip Thrust"], "3", "10-12", "Day 4", "1", "60"),
+      slot("lunge", ["Walking Lunge", "Reverse Lunge", "Lateral Lunge", "Jumping Lunge"], "3", "10 each", "Day 4", "0", "45"),
+      slot("kettlebell", ["Kettlebell Swing", "Kettlebell Snatch", "Kettlebell Clean", "Kettlebell High Pull"], "3", "15", "Day 4", "0", "45"),
+      slot("core", ["Mountain Climber", "Plank to Push-Up", "Bear Crawl", "Sprawl"], "3", "30s", "Day 4", "0", "30"),
+    ], 6, "percentage"),
+  },
+
+  // ─── 17. Powerbuilder (6 weeks) ─────────────────────────────────────────────
+  {
+    id: "powerbuilder-6wk",
+    name: "Powerbuilder",
+    goal: "Strength / Hypertrophy",
+    description: "A 6-week hybrid programme blending heavy compounds with hypertrophy accessories — build strength and size simultaneously.",
+    difficulty: "Intermediate",
+    daysPerWeek: 4,
+    totalWeeks: 6,
+    weeklyProgression: LINEAR_STRENGTH,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Squat + Accessories
+      slot("squat", ["Barbell Back Squat", "Pause Squat", "Tempo Squat (3-1-0)", "Close-Stance Squat"], "4", "5", "Day 1", "3", "180"),
+      slot("bench", ["Barbell Bench Press", "Pause Bench Press", "Close-Grip Bench Press", "Floor Press"], "4", "5", "Day 1", "2", "150"),
+      slot("leg-press", ["Leg Press", "Hack Squat", "Belt Squat", "Pendulum Squat"], "3", "10-12", "Day 1", "1", "90"),
+      slot("fly", ["Cable Crossover", "Dumbbell Flye", "Pec Deck", "Machine Flye"], "3", "12-15", "Day 1", "0", "60"),
+      slot("core", ["Hanging Leg Raise", "Ab Wheel Rollout", "Cable Crunch", "Pallof Press"], "3", "12-15", "Day 1", "0", "60"),
+      // Day 2 — Deadlift + Accessories
+      slot("deadlift", ["Conventional Deadlift", "Sumo Deadlift", "Trap Bar Deadlift", "Pause Deadlift"], "4", "5", "Day 2", "3", "180"),
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Seal Row"], "4", "6-8", "Day 2", "1", "120"),
+      slot("pulldown", ["Lat Pulldown", "Pull-Up", "Neutral-Grip Pulldown", "Close-Grip Pulldown"], "3", "10-12", "Day 2", "0", "90"),
+      slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 2", "0", "60"),
+      slot("bicep", ["Barbell Curl", "EZ-Bar Curl", "Hammer Curl", "Cable Curl"], "3", "10-12", "Day 2", "0", "60"),
+      // Day 3 — OHP + Upper Volume
+      slot("press", ["Overhead Press", "Push Press", "Z Press", "Viking Press"], "4", "5", "Day 3", "2", "150"),
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Incline Smith Press", "Low-Incline Dumbbell Press"], "3", "8-10", "Day 3", "1", "90"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 3", "0", "90"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 3", "0", "60"),
+      slot("tricep", ["Tricep Pushdown", "Skull Crusher", "Overhead Extension", "V-Bar Pushdown"], "3", "12-15", "Day 3", "0", "60"),
+      // Day 4 — Front Squat + Lower Volume
+      slot("front-squat", ["Front Squat", "Safety Bar Squat", "Goblet Squat", "Zercher Squat"], "4", "6-8", "Day 4", "2", "150"),
+      slot("hip-thrust", ["Hip Thrust", "Barbell Glute Bridge", "Smith Machine Hip Thrust", "Banded Hip Thrust"], "4", "8-10", "Day 4", "1", "90"),
+      slot("lunge", ["Walking Lunge", "Reverse Lunge", "Deficit Reverse Lunge", "Front-Rack Lunge"], "3", "10 each", "Day 4", "0", "90"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Donkey Calf Raise", "Single-Leg Calf Raise"], "4", "12-15", "Day 4", "0", "60"),
+      slot("core-2", ["Plank (Weighted)", "Farmer Walk", "Suitcase Carry", "Dead Bug (Weighted)"], "3", "45-60s", "Day 4", "0", "60"),
+    ], 6, "linear"),
   },
 ];
