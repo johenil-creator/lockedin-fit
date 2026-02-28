@@ -4,7 +4,7 @@
     "slug": "lockedinfit",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icons/icon_default.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.LockedInFit",
-      "icon": "./assets/icon.png",
+      "icon": "./assets/icons/icon_default.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSHealthShareUsageDescription": "LockedIn FIT reads your body weight from Apple Health to auto-fill your profile."
@@ -23,7 +23,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icons/icon_default.png",
         "backgroundColor": "#050D12"
       },
       "edgeToEdgeEnabled": true,
@@ -37,6 +37,7 @@
     "scheme": "lockedinfit",
     "plugins": [
       "expo-router",
+      "./plugins/withAlternateIcons",
       [
         "expo-custom-assets",
         {
@@ -50,7 +51,9 @@
         {
           "isClinicalDataEnabled": false
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-notifications"
     ],
     "extra": {
       "router": {},
