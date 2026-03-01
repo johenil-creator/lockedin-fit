@@ -60,10 +60,24 @@ if w > 900 or h > 900:
         canvas.paste(fg, ((1024-w)//2, (1024-h)//2), fg)
 else:
     canvas.paste(fg, ((1024-w)//2, (1024-h)//2), fg)
-canvas.save('${pngPath}', dpi=(72, 72))
+canvas.convert('RGB').save('${pngPath}', dpi=(72, 72))
 "`,
     { encoding: "utf8" }
   );
+}
+
+/**
+ * Strip alpha channel from a PNG — iOS rejects app icons with transparency.
+ */
+function stripAlpha(pngPath) {
+  if (!fs.existsSync(pngPath)) return;
+  const info = execSync(`file "${pngPath}"`, { encoding: "utf8" });
+  if (!info.includes("RGBA")) return; // already opaque
+  execSync(
+    `/usr/bin/python3 -c "from PIL import Image; Image.open('${pngPath}').convert('RGB').save('${pngPath}', dpi=(72,72))"`,
+    { encoding: "utf8" }
+  );
+  console.log(`  [withAlternateIcons] Stripped alpha from ${path.basename(pngPath)}`);
 }
 
 // 1. Add alternate icon image sets to xcassets
@@ -106,6 +120,8 @@ const withAlternateIconAssets = (config) => {
 
         fs.mkdirSync(setDir, { recursive: true });
         fs.copyFileSync(srcPng, path.join(setDir, `${mood}.png`));
+        // iOS requires app icons with no alpha channel — flatten to RGB
+        stripAlpha(path.join(setDir, `${mood}.png`));
         fs.writeFileSync(
           path.join(setDir, "Contents.json"),
           JSON.stringify(
