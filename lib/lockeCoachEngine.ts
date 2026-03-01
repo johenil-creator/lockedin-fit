@@ -131,17 +131,22 @@ function selectMood(inputs: CoachInputs): CoachMood {
 // ── Contextual tips ───────────────────────────────────────────────────────────
 
 const MUSCLE_TIPS: Partial<Record<MuscleGroup, string>> = {
-  chest:      "Give chest 48h before heavy pressing again.",
-  back:       "Back fatigue affects every pull — ease off rows.",
-  shoulders:  "Shoulders are in every push/pull — manage volume.",
-  quads:      "Quad fatigue hits CNS recovery globally.",
-  hamstrings: "Hamstring fatigue increases injury risk — don't rush.",
-  glutes:     "Glutes drive every compound lower body movement.",
-  biceps:     "Bicep fatigue carries into back training.",
-  triceps:    "Tricep fatigue limits every pressing movement.",
-  core:       "Core fatigue compromises form on every compound lift.",
-  lats:       "Lat fatigue impacts all pulling and overhead work.",
-  traps:      "Trap fatigue affects posture and upper back stability.",
+  chest:       "Give chest 48h before heavy pressing again.",
+  back:        "Back fatigue affects every pull — ease off rows.",
+  shoulders:   "Shoulders are in every push/pull — manage volume.",
+  quads:       "Quad fatigue hits CNS recovery globally.",
+  hamstrings:  "Hamstring fatigue increases injury risk — don't rush.",
+  glutes:      "Glutes drive every compound lower body movement.",
+  biceps:      "Bicep fatigue carries into back training.",
+  triceps:     "Tricep fatigue limits every pressing movement.",
+  core:        "Core fatigue compromises form on every compound lift.",
+  lats:        "Lat fatigue impacts all pulling and overhead work.",
+  traps:       "Trap fatigue affects posture and upper back stability.",
+  calves:      "Calves recover slowly — stretch and allow 48h before heavy calf work.",
+  forearms:    "Forearm fatigue limits grip on every pulling movement — rest and stretch.",
+  side_delts:  "Side delts accumulate volume fast via pressing and rows — watch total sets.",
+  front_delts: "Front delts are hit hard by all pressing — avoid isolating an already-taxed muscle.",
+  rear_delts:  "Rear delts are critical for posture — don't skip recovery or rehab work.",
 };
 
 const PLATEAU_TIPS: Record<PlateauClassification, string[]> = {

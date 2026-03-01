@@ -15,7 +15,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { fmtDate, wasCompletedToday } from "../../lib/helpers";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { useProfileContext } from "../../contexts/ProfileContext";
-import type { Exercise, LockeTrigger, LockeState } from "../../lib/types";
+import type { Exercise, LockeTrigger } from "../../lib/types";
 import { useXP } from "../../hooks/useXP";
 import { useStreak } from "../../hooks/useStreak";
 import { Card } from "../../components/Card";
@@ -31,7 +31,6 @@ import Logo from "../../components/Logo";
 import { usePlanContext } from "../../contexts/PlanContext";
 import { clearAllData } from "../../lib/storage";
 import { pickMessage, pickMessageWithMood } from "../../lib/lockeMessages";
-import { useIconMood } from "../../hooks/useIconMood";
 
 // ── Local sub-components ──────────────────────────────────────────────────────
 
@@ -94,7 +93,6 @@ type RankXPRowProps = {
   toNext: number;
   nextTier: ReturnType<typeof useXP>["nextTier"];
   streak: ReturnType<typeof useStreak>["streak"];
-  daysSinceActivity: number;
 };
 
 function RankXPRow({
@@ -105,7 +103,6 @@ function RankXPRow({
   toNext,
   nextTier,
   streak,
-  daysSinceActivity,
 }: RankXPRowProps) {
   const { theme } = useAppTheme();
 
@@ -163,11 +160,9 @@ function LockePanel({ mood, microcopy }: LockePanelProps) {
       ]}
     >
       <LockeMascot size={120} mood={mood} />
-      <View style={styles.lockeCopyWrap}>
-        <Text style={[styles.lockeMicrocopy, { color: theme.colors.text }]}>
-          {microcopy}
-        </Text>
-      </View>
+      <Text style={[styles.lockeMicrocopy, { color: theme.colors.text }]}>
+        {microcopy}
+      </Text>
     </View>
   );
 }
@@ -264,7 +259,7 @@ function TodayWorkoutCard({
         </View>
       )}
 
-      <View style={{ marginTop: 16 }}>
+      <View style={styles.workoutCardBtnWrap}>
         <Button
           label={ctaLabel}
           onPress={onStart}
@@ -304,11 +299,11 @@ function NoPlanCard({
       <Text style={[styles.workoutDayLabel, { color: theme.colors.muted, marginBottom: 16 }]}>
         Browse plans or start a quick workout
       </Text>
-      <Button label="Browse Plans" onPress={onBrowse} />
-      <View style={{ height: 8 }} />
-      <Button label="Quick Workout" onPress={onQuick} variant="secondary" />
-      <View style={{ height: 8 }} />
-      <Button label="Import Plan" onPress={onImport} variant="secondary" />
+      <View style={styles.noPlanBtns}>
+        <Button label="Browse Plans" onPress={onBrowse} />
+        <Button label="Quick Workout" onPress={onQuick} variant="secondary" />
+        <Button label="Import Plan" onPress={onImport} variant="secondary" />
+      </View>
     </View>
   );
 }
@@ -325,18 +320,14 @@ function BaselineCTA({ onTake }: { onTake: () => void }) {
         { backgroundColor: theme.colors.surface, borderColor: theme.colors.accent },
       ]}
     >
-      <View style={styles.baselineRow}>
-        <LockeMascot size={180} mood="encouraging" />
-        <View style={styles.baselineTextWrap}>
-          <Text style={[styles.baselineTitle, { color: theme.colors.text }]}>
-            Set your baseline
-          </Text>
-          <Text style={[styles.baselineSub, { color: theme.colors.muted }]}>
-            Take the 1RM test so I can track your progress and set smart targets.
-          </Text>
-        </View>
-      </View>
-      <View style={{ marginTop: -45, paddingHorizontal: 6, paddingBottom: 12 }}>
+      <LockeMascot size={140} mood="encouraging" />
+      <Text style={[styles.baselineTitle, { color: theme.colors.text }]}>
+        Set your baseline
+      </Text>
+      <Text style={[styles.baselineSub, { color: theme.colors.muted }]}>
+        Take the 1RM test so I can track your progress and set smart targets.
+      </Text>
+      <View style={styles.baselineBtnWrap}>
         <Button label="Take 1RM Test" onPress={onTake} />
       </View>
     </View>
@@ -540,7 +531,6 @@ export default function HomeScreen() {
     isPlanComplete,
     totalPlanDays,
   } = usePlanContext();
-  const { checkIconMood } = useIconMood();
   const didFireInactivity   = useRef(false);
   const onboardingCheckDone = useRef(false);
   const planCelebrationShown = useRef(false);
@@ -565,18 +555,18 @@ export default function HomeScreen() {
     : streak.current >= 3 ? "streak_milestone"
     : "session_complete";
 
-  const homeMood: LockeState =
-    daysSinceActivity >= 3 && daysSinceActivity !== Infinity ? "disappointed"
-    : streak.current >= 7 ? "celebrating"
-    : streak.current >= 3 ? "encouraging"
-    : "neutral";
+  const homeMood =
+    daysSinceActivity >= 3 && daysSinceActivity !== Infinity ? "disappointed" as const
+    : streak.current >= 7 ? "celebrating" as const
+    : streak.current >= 3 ? "encouraging" as const
+    : "neutral" as const;
 
   const [speechMsg, setSpeechMsg] = useState(() => pickMessage(homeTrigger, homeMood));
   const [tappedMood, setTappedMood] = useState<LockeMascotMood | null>(null);
   const cycleSpeech = useCallback(() => {
     const { message, mood } = pickMessageWithMood(homeTrigger);
     setSpeechMsg(message);
-    // Map LockeState to LockeMascotMood (they overlap except onboarding_guide → neutral)
+    // Map mood to LockeMascotMood (they overlap except onboarding_guide → neutral)
     const mascotMood: LockeMascotMood = mood === "onboarding_guide" ? "neutral" : mood as LockeMascotMood;
     setTappedMood(mascotMood);
   }, [homeTrigger]);
@@ -642,10 +632,12 @@ export default function HomeScreen() {
     profile.manual1RM?.ohp      ||
     profile.lastTestedAt
   );
-  const activeSession = workouts.find((w) => w.isActive);
-  const totalCount    = workouts.filter((w) => !!w.completedAt).length;
-  const lastWorkout   = workouts.find((w) => !!w.completedAt);
-  const lastDate      = lastWorkout?.date ? fmtDate(lastWorkout.date) : "—";
+  const activeSession = useMemo(() => workouts.find((w) => w.isActive), [workouts]);
+  const totalCount    = useMemo(() => workouts.filter((w) => !!w.completedAt).length, [workouts]);
+  const lastDate      = useMemo(() => {
+    const last = workouts.find((w) => !!w.completedAt);
+    return last?.date ? fmtDate(last.date) : "—";
+  }, [workouts]);
 
   const thisWeekCount = useMemo(() => {
     const now = new Date();
@@ -796,7 +788,6 @@ export default function HomeScreen() {
           toNext={toNext}
           nextTier={nextTier}
           streak={streak}
-          daysSinceActivity={daysSinceActivity}
         />
 
         {/* 2. ACTIVE SESSION BANNER — above primary CTA */}
@@ -928,13 +919,12 @@ const styles = StyleSheet.create({
 
   // Locke panel
   lockePanel: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 8,
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -942,12 +932,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  lockeCopyWrap: { flex: 1 },
   lockeMicrocopy: {
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 20,
-    marginBottom: 4,
+    textAlign: "center",
   },
   // Today's workout card
   workoutCard: {
@@ -980,24 +969,21 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   planProgressFill: { height: "100%", borderRadius: 999, minWidth: 4 },
+  workoutCardBtnWrap: { marginTop: 16 },
+  noPlanBtns: { gap: 8 },
 
   // Baseline CTA
   baselineCard: {
     borderWidth: 1.5,
     borderRadius: 16,
-    padding: 0,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     marginBottom: 16,
-    overflow: "hidden",
-  },
-  baselineRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 0,
-    marginTop: -20,
   },
-  baselineTextWrap: { flex: 1, paddingRight: 4, marginTop: -30, marginLeft: -15 },
-  baselineTitle: { fontSize: 17, fontWeight: "700", marginBottom: 0 },
-  baselineSub:   { fontSize: 13, lineHeight: 15 },
+  baselineTitle: { fontSize: 17, fontWeight: "700", marginTop: 8, marginBottom: 4 },
+  baselineSub:   { fontSize: 13, lineHeight: 18, textAlign: "center" },
+  baselineBtnWrap: { alignSelf: "stretch", marginTop: 16 },
 
   // Section label
   sectionLabel: {

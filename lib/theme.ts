@@ -104,6 +104,56 @@ export const workoutMetricColors = {
   ctrlResume:"#30D158",   // Green — Resume button
 } as const;
 
+// ── Shadow elevation presets ─────────────────────────────────────────────────
+export const shadowLight = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 8,
+  elevation: 4,
+} as const;
+
+export const shadowMedium = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.1,
+  shadowRadius: 12,
+  elevation: 6,
+} as const;
+
+export const shadowHeavy = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.14,
+  shadowRadius: 16,
+  elevation: 8,
+} as const;
+
+export type ShadowPreset = {
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  elevation: number;
+};
+export type ShadowElevation = 'light' | 'medium' | 'heavy';
+export const shadowPresets: Record<ShadowElevation, ShadowPreset> = {
+  light: shadowLight,
+  medium: shadowMedium,
+  heavy: shadowHeavy,
+};
+
+// ── Gradient color tokens ───────────────────────────────────────────────────
+export const darkGradients = {
+  primaryGradient: [lockdInColors.primary, lockdInColors.primary + '00'] as [string, string],
+  surfaceGradient: [lockdInColors.surface, lockdInColors.mutedBg] as [string, string],
+} as const;
+
+export const lightGradients = {
+  primaryGradient: [lightViridianColors.primary, lightViridianColors.primary + '00'] as [string, string],
+  surfaceGradient: [lightViridianColors.surface, lightViridianColors.mutedBg] as [string, string],
+} as const;
+
 // ── Active palette exports ────────────────────────────────────────────────────
 export const lightColors: AppThemeColors = lightViridianColors;
 export const darkColors:  AppThemeColors = lockdInColors;

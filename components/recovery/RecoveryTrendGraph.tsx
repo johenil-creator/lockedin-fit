@@ -14,7 +14,7 @@
  */
 import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -241,6 +241,14 @@ function RecoveryTrendGraphInner({
           shouldRasterizeIOS={false} // animated (fading in), so don't cache yet
           renderToHardwareTextureAndroid
         >
+          {/* Gradient definitions */}
+          <Defs>
+            <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={overallColor} stopOpacity={0.15} />
+              <Stop offset="1" stopColor={overallColor} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+
           {/* Y-axis gridlines + labels */}
           {chart.gridLines.map(({ y, label }) => (
             <G key={`grid-${label}`}>
@@ -251,6 +259,8 @@ function RecoveryTrendGraphInner({
                 y2={y}
                 stroke={gridColor}
                 strokeWidth={1}
+                strokeDasharray="4,4"
+                opacity={0.7}
               />
               <SvgText
                 x={PAD.left - 4}
@@ -283,8 +293,7 @@ function RecoveryTrendGraphInner({
           {chart.areaPath ? (
             <Path
               d={chart.areaPath}
-              fill={overallColor}
-              fillOpacity={0.08}
+              fill="url(#areaGradient)"
               stroke="none"
             />
           ) : null}
@@ -322,7 +331,10 @@ function RecoveryTrendGraphInner({
             return (
               <G key={`od-${i}`}>
                 {isLast && (
-                  <Circle cx={x} cy={y} r={6} fill={overallColor} fillOpacity={0.2} />
+                  <>
+                    <Circle cx={x} cy={y} r={8} fill={overallColor} fillOpacity={0.12} />
+                    <Circle cx={x} cy={y} r={6} fill={overallColor} fillOpacity={0.2} />
+                  </>
                 )}
                 <Circle cx={x} cy={y} r={isLast ? 4 : 3} fill={overallColor} />
               </G>
@@ -357,7 +369,10 @@ const LegendDot = React.memo(function LegendDot({
   const { theme } = useAppTheme();
   return (
     <View style={styles.legendItem}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
+      <View style={styles.dotContainer}>
+        <View style={[styles.dotShadow, { backgroundColor: color, opacity: 0.15 }]} />
+        <View style={[styles.dot, { backgroundColor: color }]} />
+      </View>
       <Text style={[styles.legendText, { color: theme.colors.muted }]}>{label}</Text>
     </View>
   );
@@ -386,6 +401,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+  },
+  dotContainer: {
+    width: 10,
+    height: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dotShadow: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    top: 1,
   },
   dot: {
     width: 8,

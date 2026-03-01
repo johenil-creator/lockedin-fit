@@ -136,7 +136,7 @@ function buildCacheKey(params: ForecastParams): string {
   const fatigueHash = (Object.values(params.currentFatigueMap) as number[])
     .map((v) => Math.round(v))
     .join(',');
-  const exerciseHash = params.nextExercises.map((e) => e.exercise).join('|');
+  const exerciseHash = params.nextExercises.map((e) => `${e.exercise}:${e.sets}`).join('|');
   const hours = params.hoursUntilSession ?? DEFAULT_HOURS_UNTIL_SESSION;
   const block = params.blockType ?? 'accumulation';
   return `${fatigueHash}::${exerciseHash}::${hours}::${block}`;

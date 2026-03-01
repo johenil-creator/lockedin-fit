@@ -28,6 +28,7 @@ import {
   loadStreak,
   loadTrainingLoad,
   loadWorkouts,
+  loadXP,
 } from '../lib/storage';
 import {
   getCurrentBlock,
@@ -39,9 +40,23 @@ import {
 } from '../lib/lockeCoachEngine';
 import { computeReadiness } from '../lib/readinessScore';
 import { detectPlateau } from '../lib/plateauDetection';
-import { checkDeloadTrigger, formatDeloadCard, type DeloadCard } from '../lib/smartDeload';
+import {
+  checkDeloadTrigger,
+  formatDeloadCard,
+  deloadTimingSuggestion as getDeloadTimingSuggestion,
+  type DeloadCard,
+} from '../lib/smartDeload';
 import { forecastNextSession, type ForecastResult } from '../lib/fatigueForecast';
 import { emptyFatigueMap } from '../lib/muscleMapping';
+import {
+  computeMuscleReadiness,
+  type MuscleReadinessResult,
+} from '../lib/muscleReadinessScore';
+import {
+  getRecoveryCommentary,
+  type RecoveryCommentary,
+} from '../lib/lockeRecoveryCommentary';
+import type { MuscleEnergyState } from '../lib/muscleEnergyStates';
 import type {
   BlockWeekPosition,
   DailySnapshot,
@@ -76,6 +91,16 @@ function toBlockWeekPosition(wp: string): BlockWeekPosition {
   return wp === 'deload' ? 'pivot_deload' : (wp as BlockWeekPosition);
 }
 
+// ── Dominant state classifier (mirrors muscleEnergyStates.classifyState) ──────
+function classifyDominantState(avgFatigue: number): MuscleEnergyState {
+  if (avgFatigue <= 0)  return 'dormant';
+  if (avgFatigue <= 20) return 'primed';
+  if (avgFatigue <= 45) return 'charged';
+  if (avgFatigue <= 65) return 'strained';
+  if (avgFatigue <= 84) return 'overloaded';
+  return 'peak';
+}
+
 // ── Public types ──────────────────────────────────────────────────────────────
 export type RecoveryData = {
   fatigueMap: MuscleFatigueMap;
@@ -96,35 +121,65 @@ export type RecoveryData = {
   forecast: ForecastWarning[];
   /** Full forecast result (projected map + suggestions). */
   forecastResult: ForecastResult | null;
+  /** Upper/lower/total region readiness scores derived from the fatigue map. */
+  muscleReadiness: MuscleReadinessResult;
+  /** Context-aware Locke commentary for the muscle energy grid. */
+  commentary: RecoveryCommentary;
+  /**
+   * When deload is triggered AND a scheduled deload is within 7 days, a suggestion
+   * to pull it forward instead of adding an extra one. Otherwise null.
+   */
+  deloadTimingSuggestion: string | null;
 };
 
 export type UseRecoveryReturn = {
   loading: boolean;
   data: RecoveryData | null;
   refresh: () => void;
+  /** Non-null when the last load/refresh failed. Cleared on next success. */
+  error: string | null;
+  /** True during a pull-to-refresh (not initial mount). */
+  isRefreshing: boolean;
+  /** Epoch ms of the last successful data load. */
+  lastUpdated: number | null;
+  /** True when the most recent workout session is older than 7 days. */
+  staleData: boolean;
 };
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export function useRecovery(): UseRecoveryReturn {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<RecoveryData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [staleData, setStaleData] = useState(false);
   // Prevent double-load on StrictMode double-invoke
   const loadingRef = useRef(false);
+  // Track whether the initial load has completed
+  const hasLoadedOnce = useRef(false);
 
   const load = useCallback(async () => {
     if (loadingRef.current) return;
     loadingRef.current = true;
-    setLoading(true);
+
+    // Distinguish initial mount from pull-to-refresh
+    if (hasLoadedOnce.current) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
     try {
       // Single Promise.all — all storage reads fire in parallel
-      const [bundle, streak, trainingLoad, plan, workouts, profile] = await Promise.all([
+      const [bundle, streak, trainingLoad, plan, workouts, profile, xp] = await Promise.all([
         loadRecoveryBundle(),
         loadStreak(),
         loadTrainingLoad(),
         loadPlan(),
         loadWorkouts(),
         loadProfile(),
+        loadXP(),
       ]);
 
       // ── 1. Apply fatigue decay → full MuscleFatigueMap ─────────────────────
@@ -197,6 +252,17 @@ export function useRecovery(): UseRecoveryReturn {
         ? formatDeloadCard(deloadTrigger, fatigueMap)
         : null;
 
+      // ── 8b. Deload timing suggestion ────────────────────────────────────────
+      // Compute days until next scheduled deload week from plan position.
+      // deloadTimingSuggestion returns non-null only if daysUntilDeload <= 7.
+      const blockLength = Math.ceil(totalWeeks / 3);
+      const blockNum    = Math.floor((planWeek - 1) / blockLength);
+      const deloadWeek  = (blockNum + 1) * blockLength;
+      const weeksUntilDeload = Math.max(0, deloadWeek - planWeek);
+      const deloadTimingSuggestionText = deloadTrigger.triggered
+        ? getDeloadTimingSuggestion(weekPosition, weeksUntilDeload * 7)
+        : null;
+
       // ── 9. Coach output ─────────────────────────────────────────────────────
       const fatiguedMuscles = (Object.entries(fatigueMap) as [MuscleGroup, number][])
         .filter(([, v]) => v >= 50)
@@ -215,6 +281,37 @@ export function useRecovery(): UseRecoveryReturn {
         weekPosition,
       });
 
+      // ── 10. Muscle readiness (upper / lower / total region scores) ──────────
+      const muscleReadiness = computeMuscleReadiness(fatigueMap);
+
+      // ── 11. Recovery commentary ─────────────────────────────────────────────
+      // Dominant state: classify average fatigue across all 16 muscles
+      const fatigueValues = Object.values(fatigueMap) as number[];
+      const avgFatigue    = fatigueValues.reduce((s, v) => s + v, 0) / fatigueValues.length;
+      const dominantState = classifyDominantState(avgFatigue);
+
+      // Counts for special-case commentary paths
+      const peakMuscleCount    = fatigueValues.filter((v) => v >= 85).length;
+      const chargedMuscleCount = fatigueValues.filter((v) => v >= 21 && v <= 45).length;
+
+      // Days since last session derived from most recent daily snapshot
+      const lastSnapshotMs      = bundle.dailySnapshots.length > 0
+        ? new Date(bundle.dailySnapshots[0].date).getTime()
+        : null;
+      const daysSinceLastSession = lastSnapshotMs !== null
+        ? Math.floor((Date.now() - lastSnapshotMs) / (24 * 3_600_000))
+        : 99;
+
+      const commentary = getRecoveryCommentary({
+        dominantState,
+        peakMuscleCount,
+        chargedMuscleCount,
+        rank:                xp?.rank ?? 'Scout',
+        daysSinceLastSession,
+        upperReadiness:      muscleReadiness.upper.score,
+        lowerReadiness:      muscleReadiness.lower.score,
+      });
+
       setData({
         fatigueMap,
         readiness,
@@ -227,15 +324,41 @@ export function useRecovery(): UseRecoveryReturn {
         trainingLoad,
         streak,
         plateau,
-        forecast:       forecastResult?.warnings ?? [],
-        forecastResult: forecastResult ?? null,
+        forecast:                 forecastResult?.warnings ?? [],
+        forecastResult:           forecastResult ?? null,
+        muscleReadiness,
+        commentary,
+        deloadTimingSuggestion:   deloadTimingSuggestionText,
       });
+
+      // ── Success: clear error, record timestamp, detect stale data ────────
+      setError(null);
+      setLastUpdated(Date.now());
+
+      // Stale if the most recent workout is older than 7 days (or no workouts)
+      const STALE_THRESHOLD_MS = 7 * 24 * 3_600_000;
+      if (workouts.length === 0) {
+        setStaleData(true);
+      } else {
+        const mostRecent = workouts.reduce((latest, w) => {
+          const t = new Date(w.date ?? w.completedAt ?? 0).getTime();
+          return t > latest ? t : latest;
+        }, 0);
+        setStaleData(Date.now() - mostRecent > STALE_THRESHOLD_MS);
+      }
     } catch (err) {
-      // Surface nothing — data stays null, screen shows empty state
-      console.warn('[useRecovery] load error', err);
+      const message = err instanceof Error ? err.message : 'Recovery data failed to load';
+      console.error('[useRecovery] load error', err);
+      setError(message);
+      if (__DEV__) {
+        // In dev, rethrow so the error overlay shows the root cause
+        throw err;
+      }
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
       loadingRef.current = false;
+      hasLoadedOnce.current = true;
     }
   }, []);
 
@@ -243,5 +366,5 @@ export function useRecovery(): UseRecoveryReturn {
     load();
   }, [load]);
 
-  return { loading, data, refresh: load };
+  return { loading, data, refresh: load, error, isRefreshing, lastUpdated, staleData };
 }

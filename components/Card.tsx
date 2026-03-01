@@ -5,15 +5,16 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useAppTheme } from "../contexts/ThemeContext";
-import { radius, spacing } from "../lib/theme";
+import { radius, spacing, shadowPresets, ShadowElevation } from "../lib/theme";
 
 type Props = {
   children: React.ReactNode;
   style?: ViewStyle;
   onPress?: () => void;
+  elevation?: ShadowElevation;
 };
 
-export function Card({ children, style, onPress }: Props) {
+export function Card({ children, style, onPress, elevation = 'light' }: Props) {
   const { theme } = useAppTheme();
   const scale = useSharedValue(1);
 
@@ -21,8 +22,11 @@ export function Card({ children, style, onPress }: Props) {
     transform: [{ scale: scale.value }],
   }));
 
+  const shadow = shadowPresets[elevation];
+
   const cardStyle = [
     styles.card,
+    shadow,
     {
       backgroundColor: theme.colors.surface,
       borderColor: theme.colors.border,
@@ -62,10 +66,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: spacing.md + 2,
     marginBottom: spacing.sm + 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
   },
 });

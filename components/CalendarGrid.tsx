@@ -80,11 +80,21 @@ export function CalendarGrid({ sessions, onDayPress }: Props) {
 
   const monthLabel = currentMonth.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
+  const now = new Date();
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth();
+  const isCurrentMonth = year === nowYear && month === nowMonth;
+  // true = viewing a future month, false = viewing a past month
+  const isFutureMonth = year > nowYear || (year === nowYear && month > nowMonth);
+
   function prevMonth() {
     setCurrentMonth(new Date(year, month - 1, 1));
   }
   function nextMonth() {
     setCurrentMonth(new Date(year, month + 1, 1));
+  }
+  function goToToday() {
+    setCurrentMonth(new Date(nowYear, nowMonth, 1));
   }
 
   const cells: (number | null)[] = [];
@@ -95,13 +105,25 @@ export function CalendarGrid({ sessions, onDayPress }: Props) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.headerRow}>
-        <Pressable onPress={prevMonth} style={styles.navBtn}>
-          <Text style={[styles.navText, { color: theme.colors.primary }]}>←</Text>
-        </Pressable>
+        {!isCurrentMonth && isFutureMonth ? (
+          <Pressable onPress={goToToday} style={[styles.navBtn, styles.navLeft]}>
+            <Text style={[styles.todayText, { color: theme.colors.primary }]}>Today</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={prevMonth} style={[styles.navBtn, styles.navLeft]}>
+            <Text style={[styles.navText, { color: theme.colors.primary }]}>←</Text>
+          </Pressable>
+        )}
         <Text style={[styles.monthLabel, { color: theme.colors.text }]}>{monthLabel}</Text>
-        <Pressable onPress={nextMonth} style={styles.navBtn}>
-          <Text style={[styles.navText, { color: theme.colors.primary }]}>→</Text>
-        </Pressable>
+        {!isCurrentMonth && !isFutureMonth ? (
+          <Pressable onPress={goToToday} style={[styles.navBtn, styles.navRight]}>
+            <Text style={[styles.todayText, { color: theme.colors.primary }]}>Today</Text>
+          </Pressable>
+        ) : (
+          <Pressable onPress={nextMonth} style={[styles.navBtn, styles.navRight]}>
+            <Text style={[styles.navText, { color: theme.colors.primary }]}>→</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Weekday labels */}
@@ -115,47 +137,48 @@ export function CalendarGrid({ sessions, onDayPress }: Props) {
 
       {/* Day cells */}
       <View style={styles.grid}>
-        {cells.map((day, i) => {
-          if (day === null) {
-            return <View key={`empty-${i}`} style={styles.dayCell} />;
-          }
-          const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const daySessions = sessionMap[dateKey] ?? [];
-          const isToday = dateKey === todayKey;
-          const hasCompleted = daySessions.some((s) => !!s.completedAt);
-          const hasActive = daySessions.some((s) => !!s.isActive);
-          const count = daySessions.length;
+          {cells.map((day, i) => {
+            if (day === null) {
+              return <View key={`empty-${i}`} style={styles.dayCell} />;
+            }
+            const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const daySessions = sessionMap[dateKey] ?? [];
+            const isToday = dateKey === todayKey;
+            const hasCompleted = daySessions.some((s) => !!s.completedAt);
+            const hasActive = daySessions.some((s) => !!s.isActive);
+            const count = daySessions.length;
 
-          return (
-            <Pressable
-              key={dateKey}
-              style={styles.dayCell}
-              onPress={() => onDayPress(dateKey, daySessions)}
-            >
-              <View
-                style={[
-                  styles.dayCircle,
-                  isToday && !hasCompleted && { borderWidth: 2, borderColor: theme.colors.primary },
-                  hasCompleted && { backgroundColor: theme.colors.primary },
-                ]}
+            return (
+              <Pressable
+                key={dateKey}
+                style={styles.dayCell}
+                onPress={() => onDayPress(dateKey, daySessions)}
               >
-                <Text
+                <View
                   style={[
-                    styles.dayText,
-                    { color: hasCompleted ? theme.colors.primaryText : theme.colors.text },
+                    styles.dayCircle,
+                    isToday && !hasCompleted && { borderWidth: 2, borderColor: theme.colors.primary },
+                    hasCompleted && { backgroundColor: theme.colors.primary },
                   ]}
                 >
-                  {day}
-                </Text>
-                {count > 1 && (
-                  <View style={[styles.countDot, { backgroundColor: theme.colors.accent }]} />
-                )}
-                {hasActive && <PulsingDot color={theme.colors.accent} />}
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+                  <Text
+                    style={[
+                      styles.dayText,
+                      { color: hasCompleted ? theme.colors.primaryText : theme.colors.text },
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                  {count > 1 && (
+                    <View style={[styles.countDot, { backgroundColor: theme.colors.accent }]} />
+                  )}
+                  {hasActive && <PulsingDot color={theme.colors.accent} />}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
     </View>
   );
 }
@@ -168,7 +191,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  navBtn: { padding: 8 },
+  navBtn: { width: 60, paddingVertical: 8 },
+  navLeft: { alignItems: "flex-start" },
+  navRight: { alignItems: "flex-end" },
   navText: { fontSize: 18, fontWeight: "600" },
   monthLabel: { fontSize: 16, fontWeight: "700" },
   weekRow: { flexDirection: "row", marginBottom: 4 },
@@ -195,4 +220,5 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  todayText: { fontSize: 15, fontWeight: "700" },
 });

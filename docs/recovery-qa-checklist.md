@@ -557,6 +557,209 @@
 
 ---
 
+---
+
+## S — Animation Performance (60 fps verification)
+
+> Added by body-map-redesign integration audit · 2026-02-28.
+> Covers the multi-layer animation system in MuscleHeatmap (Tasks #1, #2).
+
+### S1 — Frame rate under animation
+- [ ] Ambient breathing animation (scale 1.0 → 1.012 → 1.0, 4s loop) stays at 60 fps with no dropped frames
+- [ ] Primed overlay (opacity 0.45 → 0.55, 3s) does not cause compositing glitches
+- [ ] Shimmer overlay (charged muscles, 1.2s opacity loop) stays on UI thread — verify via Flipper Animated API inspector
+- [ ] Strained throb (scale 1.0 → 1.015, 1.5s) does not conflict with ambient scale at the container level
+- [ ] Overloaded glow pulse (opacity loop, 1.0s) composited correctly on top of shimmer layer
+- [ ] Peak jitter (translateX ±1.5px, 80ms, random delay) is imperceptibly subtle — not distracting
+
+### S2 — Animation layer count
+- [ ] At most 6 `Animated.View` overlay layers in the MuscleHeatmap at any one time (ambient + primed + shimmer + strained + overloaded + peak)
+- [ ] When no muscles are in a given state, its overlay layer is NOT rendered (short-circuits with `hasPrimed && ...` guards)
+- [ ] Cancellation: when `reducedMotion` changes from false → true, all overlay animations are cancelled immediately
+
+### S3 — Reduced motion
+- [ ] With `AccessibilityInfo.isReduceMotionEnabled = true` (or Reanimated `useReducedMotion()`), all overlay animations are skipped
+- [ ] Muscle fills still render at correct static colors with reduced motion on
+- [ ] Gauge spring animation is replaced with a direct value set when reduced motion is on
+- [ ] Coach card glow pulse is disabled with reduced motion on
+- [ ] Deload card glow pulse is disabled with reduced motion on
+- [ ] All muscle energy states remain visible and distinguishable without animation
+
+### S4 — Interaction feedback animations
+- [ ] Tapping a muscle: selected muscle scales up (1.0 → 1.06) and non-selected muscles dim (opacity → 0.35) within 1 frame
+- [ ] On tap: feedback ring (orange, borderWidth 2) appears for 180ms then fades — verify timing
+- [ ] Warning shake animation fires for overtrained muscles: 3-cycle translateX ±2px wiggle
+- [ ] On bottom sheet dismiss: selected state is cleared and dim/scale animations reset to neutral
+- [ ] Rapid tapping (5 taps < 500ms) does not cause animation value corruption
+
+---
+
+## T — Reduced Motion Behavior
+
+### T1 — Detection
+- [ ] `useReducedMotion()` from react-native-reanimated correctly reflects system accessibility setting on iOS
+- [ ] `useReducedMotion()` correctly reflects system setting on Android
+- [ ] Fallback: if Reanimated hook unavailable, `AccessibilityInfo.isReduceMotionEnabled()` is used
+- [ ] Changing accessibility setting at runtime (without app restart) is reflected within the current session
+
+### T2 — Static rendering
+- [ ] With reduced motion on, MuscleHeatmap renders in the same positions as animated mode (no layout shift)
+- [ ] Muscle fills are at their final visual state (full opacity/color) — not at animation start positions
+- [ ] Dashboard entry animations (FadeInDown) are replaced with instant visible renders
+
+### T3 — Content parity
+- [ ] All cards, sections, coach output, and gauge remain fully visible with reduced motion on
+- [ ] Legend items render correctly (no color values depend on animation state)
+- [ ] Accessibility labels are identical regardless of motion setting
+
+---
+
+## U — Dev Panel Edge Cases
+
+> Covers `components/recovery/DevFatiguePanel.tsx` (debug-only overlay).
+
+### U1 — Panel visibility
+- [ ] DevFatiguePanel only renders in `__DEV__` mode — not in production builds
+- [ ] Panel is toggleable via the dev button in the dashboard header (if present)
+- [ ] Panel does not block any interactive elements when visible (pointerEvents handled)
+
+### U2 — Override behavior
+- [ ] Setting devOverride fatigue values updates the heatmap immediately (no reload required)
+- [ ] Pull-to-refresh while devOverride is active keeps override values (does not reset to live data)
+- [ ] Clearing devOverride restores live data on the next pull-to-refresh
+- [ ] devOverride values are NOT persisted to AsyncStorage (session-only)
+
+### U3 — Edge inputs
+- [ ] Slider clamped to 0–100: dragging below 0 pins at 0; above 100 pins at 100
+- [ ] Setting all muscles to 0 renders heatmap in fully dormant state
+- [ ] Setting all muscles to 100 renders all muscles in Peak (red, pulsing) state
+- [ ] Setting exactly one muscle to 100 and all others to 0: only that muscle enters Peak state
+
+---
+
+## V — Recovery Commentary Integration
+
+> Covers `lib/lockeRecoveryCommentary.ts` and its integration in `hooks/useRecovery.ts`.
+
+### V1 — Commentary selection
+- [ ] `dominantState = 'dormant'` + `daysSinceLastSession > 3` → commentary acknowledges rest gap
+- [ ] `dominantState = 'peak'` + `peakMuscleCount >= 3` → commentary flags systemic overload
+- [ ] `dominantState = 'charged'` + `chargedMuscleCount >= 4` → supercompensation message
+- [ ] Commentary changes when readiness crosses a meaningful threshold (not identical across all states)
+
+### V2 — Data completeness
+- [ ] Commentary is non-null even when `daysSinceLastSession` is unknown (default 99 path)
+- [ ] Commentary uses `rank` for voice calibration — Apex vs Runt receive meaningfully different tone
+- [ ] `upperReadiness` and `lowerReadiness` are passed correctly from `muscleReadiness.upper.score` and `muscleReadiness.lower.score`
+
+### V3 — Integration
+- [ ] `commentary` field is present in `RecoveryData` returned by `useRecovery`
+- [ ] Dashboard displays commentary below the muscle energy grid (or in the coach section)
+- [ ] Commentary is not shown when `loading = true` or `data = null`
+
+---
+
+## W — Light Mode Visual Correctness
+
+> Covers `lib/muscleEnergyStates.ts` light mode fills (added in Task #2).
+
+### W1 — Color correctness in light mode
+- [ ] Dormant muscle: fill `#D8DDE5` is visible against light background (not invisible)
+- [ ] Primed muscle: `#4CAF50` (same as dark mode) is visible against light background
+- [ ] Charged muscle: `#00E85C` → `#58A6FF` gradient is readable in light mode
+- [ ] Strained muscle: `#FFEB3B` yellow is visible against light background (sufficient contrast)
+- [ ] Overloaded muscle: `#FF9800` orange is clearly visible in light mode
+- [ ] Peak muscle: `#F44336` red is clearly visible in light mode
+
+### W2 — Legend correctness
+- [ ] `getEnergyStatesForTheme(isDark = false)` returns `LIGHT_FILLS.dormant` (#D8DDE5) for dormant
+- [ ] `getEnergyStatesForTheme(isDark = true)` returns `DARK_FILLS.dormant` (#2A3340) for dormant
+- [ ] All 6 legend entries display correct colors in both modes
+- [ ] Legend is updated reactively when system theme changes (no stale colors after switch)
+
+### W3 — No hardcoded theme colors in heatmap
+- [ ] `MuscleHeatmap` passes `isDark` from `useAppTheme()` — no hardcoded `'#2A3340'` in component render
+- [ ] Body silhouette skin fill switches between `#252D38` (dark) and `#EDE8E2` (light)
+
+---
+
+## X — Muscle Readiness Score
+
+> Covers `lib/muscleReadinessScore.ts` (added Task #3) and its integration in `useRecovery.ts`.
+
+### X1 — Score ranges
+- [ ] `computeMuscleReadiness` with all muscles at fatigue 0 → all region scores = 100, label = "Fresh"
+- [ ] `computeMuscleReadiness` with all muscles at fatigue 100 → all region scores = 0, label = "Exhausted"
+- [ ] Upper region covers exactly 11 muscles (chest, back, shoulders, biceps, triceps, forearms, traps, lats, rear_delts, front_delts, side_delts)
+- [ ] Lower region covers exactly 5 muscles (quads, hamstrings, glutes, calves, core)
+
+### X2 — Partial fatigue maps
+- [ ] When `MuscleFatigueMap` has been spread over `emptyFatigueMap()`, all 16 keys are present (no undefined access)
+- [ ] `computeRegion` with all muscles at 0 returns `avgFatigue = 0`, `score = 100`
+- [ ] Region scores are independent: a highly fatigued upper body does not affect lower region score
+
+### X3 — Integration
+- [ ] `muscleReadiness` is present in `RecoveryData` from `useRecovery`
+- [ ] `muscleReadiness.upper.score` and `muscleReadiness.lower.score` are passed to `getRecoveryCommentary`
+- [ ] Dashboard renders upper/lower readiness bars using `muscleReadiness.upper.color` / `.lower.color`
+
+---
+
+---
+
+## Y — Bodymap-v2 Visual System Integration
+
+> Added by qa-integrator · 2026-02-28. Covers Tasks #1–#4 integration (anatomical SVG, gradient colors, layout, animations).
+
+### Y1 — Body Silhouette Coverage
+- [ ] Body outline (`OUTLINE.body`) covers full torso from neck down to hips at y≈190 (no gap between arms and legs)
+- [ ] Core muscle overlay (y=108–186) sits visibly inside the body silhouette (not floating in empty space)
+- [ ] Glutes/lower-back overlays (y≈186–230) align with the hip/pelvis base of the torso path
+- [ ] Left and right leg paths (`OUTLINE.leftLeg`, `OUTLINE.rightLeg`) connect cleanly to the torso bottom at x≈54–108, y≈190
+- [ ] Skin fill color (#252D38 dark / #EDE8E2 light) shows correctly through the full torso + leg shapes
+
+### Y2 — Anatomical SVG Path Quality
+- [ ] All 16 muscle group paths use cubic bezier curves (C commands) — no rectangular L-line approximations
+- [ ] Left/right symmetry: left muscle paths are mirrored across x=80 from right paths (visual check)
+- [ ] No muscle path extends outside the body silhouette boundary at any viewBox position
+- [ ] Chest paths (FRONT_PATHS.chest) do not visibly overlap with front_delts or side_delts at low fillOpacity
+- [ ] Core path (FRONT_PATHS.core) is fully enclosed by the torso outline
+
+### Y3 — Gradient Color System
+- [ ] Dormant muscles (fatigue=0): fillOpacity ≤ 0.15 — near-invisible, body shape defined by outline only
+- [ ] Primed (1–20): soft green tint, fillOpacity 0.25–0.40, no glow
+- [ ] Charged (21–45): green→blue gradient, fillOpacity 0.40–0.55, soft blue stroke glow
+- [ ] Strained (46–65): warm yellow, fillOpacity 0.45–0.60, amber glow
+- [ ] Overloaded (66–84): deep orange, fillOpacity 0.55–0.70, orange glow
+- [ ] Peak (85–100): vivid red, fillOpacity capped at 0.85 (body outline always shows through)
+- [ ] Gradient legend bar in HeatmapLegend: 6 SVG gradient stops aligned to state thresholds
+
+### Y4 — Toggle & Layout
+- [ ] Narrow layout (< 340px available): segmented pill toggle shows, tap switches front/back view with 200ms crossfade
+- [ ] Wide layout (≥ 340px): static "Front" / "Back" labels shown above columns — toggle NOT rendered (was non-functional)
+- [ ] Toggle in narrow layout: accessibilityRole="tab" + accessibilityState={{ selected }} on each segment
+- [ ] Heatmap card has elevated shadow (shadowOpacity 0.18, elevation 6) — visually prominent above surrounding cards
+
+### Y5 — Animation Correctness
+- [ ] Ambient breathing (5s cycle, scale 1.0→1.012) wraps the entire Animated.View container, not per-muscle
+- [ ] Peak heartbeat (0.75→1.0 opacity, 600ms, smooth sin curve) — not abrupt flicker
+- [ ] Charged shimmer (0.90→0.70 opacity, 1.8s) is subtle enough not to distract from peak muscles
+- [ ] Strained throb (scale 1.0→1.015, 2s) is gentle — does not compete with overloaded heartbeat rhythm
+- [ ] Haptic feedback fires once per tap (Light impact) — no repeated haptics on long-press
+- [ ] reducedMotion: ALL animations (ambient, pulse, shimmer, throb, plan border) are disabled; static fills preserved
+- [ ] Plan border pulse (0.4→0.8 opacity) respects reducedMotion — shows at static 0.8 when motion disabled
+
+### Y6 — Edge Cases
+- [ ] New user (all muscles dormant): body shows clean outline with skin fill; all muscle paths near-invisible (fillOpacity=0.15)
+- [ ] All muscles at Peak (fatigue=100): red overlays capped at 0.85 opacity — outline still perceptible through fills
+- [ ] Mixed state: one peak (red pulsing), one charged (blue shimmer), rest dormant — each state visually distinct
+- [ ] DevFatiguePanel presets (Dormant/Primed/Charged/Strained/Overloaded/Peak/Mixed) all produce correct heatmap states
+- [ ] iPhone SE (375px width - 32px padding = 343px > 340px): side-by-side layout renders with static labels, both views visible
+
+---
+
 *Checklist generated by perf-engineer agent · 2026-02-28*
-*Last updated: 2026-02-28 — Tasks #13, #15 resolved. Task #16 (polish) in progress.*
-*Remaining ⏳: G3, H3, M6 (deload dismiss persistence), P3 (accessibility). Re-test when #16 merges.*
+*Last updated: 2026-02-28 — Body-map-redesign tasks (#1–#4) landed. Sections S–X added by systems-integrator.*
+*Section Y added by qa-integrator (bodymap-v2 team) · 2026-02-28.*
+*Fixes applied: (1) OUTLINE.body extended to cover full torso y=66–190; (2) SegmentedToggle removed from side-by-side layout (replaced with static labels); (3) planBorderOpacity animation now respects useReducedMotion.*
+*Remaining ⏳: G3, H3, M6 (deload dismiss persistence). Re-test all S–Y sections after Tasks #1–#5 fully merge.*

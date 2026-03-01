@@ -195,6 +195,8 @@ export function computeAdaptationScore(
   trainingAgeWeeks: number,
   acwr: number,
   readiness: number,
+  acuteLoad = 0,
+  chronicLoad = 0,
 ): number {
   // ── ACWR score ───────────────────────────────────────────────────────────
   let acwrScore: number;
@@ -214,12 +216,23 @@ export function computeAdaptationScore(
   // ── Chronic trend score ──────────────────────────────────────────────────
   // TARGET: ~120 load units per week ≈ 4 sessions with 30 effective set-equivalents
   const TARGET_CHRONIC_LOAD = 120;
-  const chronicTrend = Math.min(1.0, readiness / 100) * 100; // Placeholder until chronicLoad is passed
-  // NOTE: chronicLoad is baked into ACWR; separate trend passed as readiness bonus here.
-  // A richer version would accept the full history.
-  void chronicTrend; // suppress unused — kept for documentation
-
-  const chronicScore = Math.min(acwrScore * 0.8, 100); // proxy from acwr for now
+  let chronicScore: number;
+  if (chronicLoad <= 0) {
+    // New user — no baseline established yet
+    chronicScore = 0;
+  } else {
+    // Base score: how close chronic load is to the target training volume
+    const baseScore = Math.min(1.0, chronicLoad / TARGET_CHRONIC_LOAD) * 100;
+    // Positive adaptation: acute > chronic AND ACWR in safe zone → training load is increasing
+    const isPositiveAdaptation = acuteLoad > chronicLoad && acwr < ACWR_SWEET_MAX;
+    // Detraining risk: acute is significantly below chronic baseline
+    const isDetrainingRisk = acuteLoad < chronicLoad * 0.8;
+    chronicScore = isPositiveAdaptation
+      ? Math.min(100, baseScore * 1.15)  // 15% bonus for progressive overload in safe zone
+      : isDetrainingRisk
+        ? baseScore * 0.70               // 30% penalty for detraining signal
+        : baseScore;
+  }
 
   // ── Age bonus ────────────────────────────────────────────────────────────
   // Cap at 52 weeks: beyond 1 year there's no further baseline bonus
@@ -227,7 +240,7 @@ export function computeAdaptationScore(
 
   // ── Weighted composite ───────────────────────────────────────────────────
   const score =
-    acwrScore  * 0.40 +
+    acwrScore    * 0.40 +
     chronicScore * 0.30 +
     ageBonus     * 0.20 +
     readiness    * 0.10;
@@ -300,7 +313,7 @@ export function updateTrainingLoad(
   const chronicLoad = chronicLoadSum / 4; // normalise to weekly average (28d / 7d = 4)
   const acwr        = computeACWR(acuteLoad, chronicLoad);
   const trainingAgeWeeks = deriveTrainingAgeWeeks(sessions);
-  const adaptationScore  = computeAdaptationScore(trainingAgeWeeks, acwr, readiness);
+  const adaptationScore  = computeAdaptationScore(trainingAgeWeeks, acwr, readiness, acuteLoad, chronicLoad);
 
   return {
     trainingAgeWeeks,

@@ -16,7 +16,7 @@
  *   - No inline style objects (StyleSheet.create for all)
  *   - Skeleton loading state during data fetch
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   Pressable,
@@ -26,11 +26,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { useFocusEffect } from 'expo-router';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeIn,
   FadeInDown,
   useAnimatedProps,
   useAnimatedStyle,
@@ -39,7 +41,12 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
+
+// Gentle section entrance — short fade + subtle 8px slide, no spring bounce
+const sectionEnter = (delay: number) =>
+  FadeInDown.delay(delay).duration(350).damping(20).stiffness(150).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] });
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../contexts/ThemeContext';
@@ -52,9 +59,13 @@ import { Card } from '../../components/Card';
 import { Skeleton } from '../../components/Skeleton';
 import { AppBottomSheet } from '../../components/AppBottomSheet';
 import type { MuscleGroup, MuscleFatigueMap, ReadinessScore, PlateauInsight } from '../../lib/types';
-import type { BlockContext } from '../../lib/blockPeriodization';
 import type { CoachOutput } from '../../lib/lockeCoachEngine';
 import type { DeloadCard as DeloadCardData } from '../../lib/smartDeload';
+import { getEnergyStatesForTheme, getEnergyState, getStateLabel, type MuscleEnergyState } from '../../lib/muscleEnergyStates';
+import { computeMuscleReadiness, type MuscleReadinessResult } from '../../lib/muscleReadinessScore';
+import { getRecoveryCommentary, type RecoveryCommentary, type RecoveryCommentaryTone } from '../../lib/lockeRecoveryCommentary';
+import { useXP } from '../../hooks/useXP';
+import { DevFatiguePanel } from '../../components/recovery/DevFatiguePanel';
 
 // ── Readiness gauge helpers ───────────────────────────────────────────────────
 const GAUGE_START_DEG = 135;
@@ -83,18 +94,6 @@ function arcPoint(deg: number): { x: number; y: number } {
   };
 }
 
-function gaugeArcPath(sweepDeg: number): string {
-  if (sweepDeg <= 0) return '';
-  const clampedSweep = Math.min(sweepDeg, GAUGE_SWEEP_DEG - 0.5);
-  const start = arcPoint(GAUGE_START_DEG);
-  const end = arcPoint(GAUGE_START_DEG + clampedSweep);
-  const largeArc = clampedSweep > 180 ? 1 : 0;
-  return (
-    `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} ` +
-    `A ${GAUGE_R} ${GAUGE_R} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`
-  );
-}
-
 const GAUGE_BG_PATH = (() => {
   const start = arcPoint(GAUGE_START_DEG);
   const end = arcPoint(GAUGE_START_DEG + GAUGE_SWEEP_DEG - 0.5);
@@ -110,6 +109,44 @@ function readinessColor(score: number): string {
   if (score >= 40) return '#FF9800';
   return '#F44336';
 }
+
+// ── Commentary tone color map ─────────────────────────────────────────────────
+const TONE_COLOR: Record<RecoveryCommentaryTone, string> = {
+  nurturing:  '#00E85C',
+  coaching:   '#58A6FF',
+  intense:    '#FF9800',
+  savage:     '#F44336',
+  welcoming:  '#00E85C',
+};
+
+// ── Mini gauge constants (score explanation sheet) ────────────────────────────
+const MINI_R  = 32;
+const MINI_CX = 40;
+const MINI_CY = 42;
+const MINI_GAUGE_STROKE = 5;
+const MINI_ARC_LENGTH = 2 * Math.PI * MINI_R * (GAUGE_SWEEP_DEG / 360);
+const MINI_GAUGE_BG_PATH = (() => {
+  const sRad = degToRad(GAUGE_START_DEG);
+  const eRad = degToRad(GAUGE_START_DEG + GAUGE_SWEEP_DEG - 0.5);
+  return (
+    `M ${(MINI_CX + MINI_R * Math.cos(sRad)).toFixed(2)} ${(MINI_CY + MINI_R * Math.sin(sRad)).toFixed(2)} ` +
+    `A ${MINI_R} ${MINI_R} 0 1 1 ${(MINI_CX + MINI_R * Math.cos(eRad)).toFixed(2)} ${(MINI_CY + MINI_R * Math.sin(eRad)).toFixed(2)}`
+  );
+})();
+
+// ── Empty state gauge constants (0% hint ring) ────────────────────────────────
+const EMPTY_R  = 38;
+const EMPTY_CX = 50;
+const EMPTY_CY = 52;
+const EMPTY_ARC_LENGTH = 2 * Math.PI * EMPTY_R * (GAUGE_SWEEP_DEG / 360);
+const EMPTY_GAUGE_PATH = (() => {
+  const sRad = degToRad(GAUGE_START_DEG);
+  const eRad = degToRad(GAUGE_START_DEG + GAUGE_SWEEP_DEG - 0.5);
+  return (
+    `M ${(EMPTY_CX + EMPTY_R * Math.cos(sRad)).toFixed(2)} ${(EMPTY_CY + EMPTY_R * Math.sin(sRad)).toFixed(2)} ` +
+    `A ${EMPTY_R} ${EMPTY_R} 0 1 1 ${(EMPTY_CX + EMPTY_R * Math.cos(eRad)).toFixed(2)} ${(EMPTY_CY + EMPTY_R * Math.sin(eRad)).toFixed(2)}`
+  );
+})();
 
 // ── Muscle label ──────────────────────────────────────────────────────────────
 function muscleLabel(muscle: MuscleGroup): string {
@@ -149,7 +186,42 @@ const PILL_EXPLANATIONS: Record<PillKey, { title: string; description: string; t
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-/** Circular readiness gauge with animated fill + score + component breakdown. */
+/** Pressable card wrapper with animated scale/opacity feedback. */
+const PressableCardWrap = React.memo(function PressableCardWrap({
+  children,
+  onPress,
+}: {
+  children: React.ReactNode;
+  onPress?: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
+    opacity.value = withTiming(0.95, { duration: 100 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    opacity.value = withTiming(1, { duration: 150 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+      <Animated.View style={pressStyle}>{children}</Animated.View>
+    </Pressable>
+  );
+});
+
+/** Circular readiness gauge with animated fill + score + level-up celebration. */
 const ReadinessHero = React.memo(function ReadinessHero({
   readiness,
   onPillPress,
@@ -162,16 +234,99 @@ const ReadinessHero = React.memo(function ReadinessHero({
   const { theme } = useAppTheme();
   const arcColor = readinessColor(readiness.score);
 
-  // Animate gauge fill: 0 → score on mount / score change (UI-thread via useAnimatedProps)
-  const progress = useSharedValue(0);
+  // Animated score counter — counts up from 0 to target over ~800ms
+  const [displayScore, setDisplayScore] = useState(0);
+  const scoreTarget = useRef(readiness.score);
+
   useEffect(() => {
-    progress.value = withSpring(readiness.score, { damping: 18, stiffness: 80, mass: 1 });
-    // progress is a stable shared value ref — intentionally omitted from deps
+    scoreTarget.current = readiness.score;
+    const startTime = Date.now();
+    const startVal = 0;
+    const endVal = readiness.score;
+    const duration = 800;
+    let raf: number;
+
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      const val = Math.round(startVal + (endVal - startVal) * eased);
+      setDisplayScore(val);
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [readiness.score]);
+
+  // Threshold crossing detection
+  const prevScoreRef = useRef(readiness.score);
+  const [milestoneText, setMilestoneText] = useState('');
+
+  // Animations: gauge fill, score scale, arc flash, milestone badge
+  const progress = useSharedValue(0);
+  const scoreScale = useSharedValue(1);
+  const flashOpacity = useSharedValue(0);
+  const milestoneBadgeOpacity = useSharedValue(0);
+  const milestoneBadgeY = useSharedValue(10);
+
+  useEffect(() => {
+    const prev = prevScoreRef.current;
+    const curr = readiness.score;
+    prevScoreRef.current = curr;
+
+    // Animate gauge fill
+    progress.value = withSpring(curr, { damping: 18, stiffness: 80, mass: 1 });
+
+    // Detect threshold crossings (40→60 or 60→80)
+    const crossed60 = prev < 60 && curr >= 60;
+    const crossed80 = prev < 80 && curr >= 80;
+    if (crossed60 || crossed80) {
+      const text = crossed80 ? 'Recovery Milestone!' : 'Level Up!';
+      setMilestoneText(text);
+      setTimeout(() => setMilestoneText(''), 2600);
+
+      // Scale score text: 1 → 1.15 → 1
+      scoreScale.value = withSequence(
+        withSpring(1.15, { damping: 12, stiffness: 400 }),
+        withSpring(1, { damping: 15, stiffness: 300 }),
+      );
+      // Flash arc overlay
+      flashOpacity.value = withSequence(
+        withTiming(0.55, { duration: 180 }),
+        withTiming(0, { duration: 700 }),
+      );
+      // Badge: slide up + fade in, hold 1.4s, fade out
+      milestoneBadgeY.value = 10;
+      milestoneBadgeOpacity.value = 0;
+      milestoneBadgeY.value = withSpring(0, { damping: 14, stiffness: 200 });
+      milestoneBadgeOpacity.value = withSequence(
+        withTiming(1, { duration: 280 }),
+        withTiming(1, { duration: 1400 }),
+        withTiming(0, { duration: 320 }),
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readiness.score]);
 
   const animatedGaugeProps = useAnimatedProps(() => ({
     strokeDashoffset: ARC_LENGTH * (1 - Math.max(0, Math.min(100, progress.value)) / 100),
+  }));
+
+  const flashArcProps = useAnimatedProps(() => ({
+    strokeDashoffset: ARC_LENGTH * (1 - Math.max(0, Math.min(100, progress.value)) / 100),
+    strokeOpacity: flashOpacity.value,
+  }));
+
+  const scoreScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scoreScale.value }],
+  }));
+
+  const milestoneBadgeStyle = useAnimatedStyle(() => ({
+    opacity: milestoneBadgeOpacity.value,
+    transform: [{ translateY: milestoneBadgeY.value }],
   }));
 
   return (
@@ -206,14 +361,40 @@ const ReadinessHero = React.memo(function ReadinessHero({
           strokeDasharray={[ARC_LENGTH, ARC_LENGTH]}
           animatedProps={animatedGaugeProps}
         />
+        {/* Level-up flash arc — brighter, wider, briefly visible on threshold cross */}
+        <AnimatedPath
+          d={GAUGE_BG_PATH}
+          stroke={arcColor}
+          strokeWidth={GAUGE_STROKE + 5}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={[ARC_LENGTH, ARC_LENGTH]}
+          animatedProps={flashArcProps}
+        />
       </Svg>
+
+      {/* Level-up milestone badge — floats above gauge */}
+      {milestoneText ? (
+        <Animated.View
+          style={[
+            styles.milestoneBadge,
+            { borderColor: arcColor + '80', backgroundColor: arcColor + '18' },
+            milestoneBadgeStyle,
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={[styles.milestoneBadgeText, { color: arcColor }]}>{milestoneText}</Text>
+        </Animated.View>
+      ) : null}
 
       {/* Centered overlay text — tappable for explanation */}
       <Pressable
         onPress={onScorePress}
         style={({ pressed }) => [styles.gaugeTextOverlay, { opacity: pressed ? 0.7 : 1 }]}
       >
-        <Text style={[styles.gaugeScore, { color: arcColor }]}>{readiness.score}</Text>
+        <Animated.View style={scoreScaleStyle}>
+          <Text style={[styles.gaugeScore, { color: arcColor }]}>{displayScore}</Text>
+        </Animated.View>
         <View style={[styles.gaugeLabelPill, { backgroundColor: arcColor + '15' }]}>
           <Text style={[styles.gaugeLabel, { color: arcColor }]}>{readiness.label}</Text>
         </View>
@@ -226,18 +407,21 @@ const ReadinessHero = React.memo(function ReadinessHero({
           value={Math.round(readiness.components.muscleFreshness)}
           color="#00E85C"
           onPress={() => onPillPress('Freshness')}
+          enterDelay={0}
         />
         <BreakdownPill
           label="Block Fit"
           value={Math.round(readiness.components.blockContext)}
           color="#58A6FF"
           onPress={() => onPillPress('Block Fit')}
+          enterDelay={80}
         />
         <BreakdownPill
           label="Workload"
           value={Math.round(readiness.components.acwrScore)}
           color="#FF9800"
           onPress={() => onPillPress('Workload')}
+          enterDelay={160}
         />
       </View>
       <Text style={[styles.pillHint, { color: theme.colors.muted + 'AA' }]}>
@@ -252,11 +436,13 @@ const BreakdownPill = React.memo(function BreakdownPill({
   value,
   color,
   onPress,
+  enterDelay,
 }: {
   label: string;
   value: number;
   color: string;
   onPress: () => void;
+  enterDelay?: number;
 }) {
   const { theme } = useAppTheme();
   const scale = useSharedValue(1);
@@ -271,7 +457,10 @@ const BreakdownPill = React.memo(function BreakdownPill({
   }, [scale]);
 
   return (
-    <Animated.View style={[styles.pill, animStyle]}>
+    <Animated.View
+      entering={sectionEnter(enterDelay ?? 0)}
+      style={[styles.pill, animStyle]}
+    >
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -299,46 +488,120 @@ const MOOD_GLOW: Record<string, string> = {
   neutral: '#9DA5B0',
 };
 
-/** Locke mascot + coach headline/subtext + optional tips. */
-const CoachCard = React.memo(function CoachCard({ coach }: { coach: CoachOutput }) {
+/** Locke mascot + coach headline/subtext + optional tips + commentary phrase. */
+const CoachCard = React.memo(function CoachCard({
+  coach,
+  commentary,
+}: {
+  coach: CoachOutput;
+  commentary?: RecoveryCommentary;
+}) {
   const { theme } = useAppTheme();
   const [expanded, setExpanded] = useState(false);
-  const hasTips = (coach.tips?.length ?? 0) > 0;
+  const tipCount = coach.tips?.length ?? 0;
+  const hasTips = tipCount > 0;
   const mascotGlow = MOOD_GLOW[coach.mascotMood] ?? '#9DA5B0';
 
+  // Commentary tone color + savage border tint
+  const commentaryColor = commentary ? (TONE_COLOR[commentary.tone] ?? theme.colors.muted) : theme.colors.muted;
+  const isSavage = commentary?.tone === 'savage';
+  const cardBorderStyle = isSavage
+    ? { borderColor: '#F44336' + '50', borderWidth: 1.5 }
+    : undefined;
+
+  // Chevron rotation animation for tip toggle
+  const chevronRot = useSharedValue(0);
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${chevronRot.value}deg` }],
+  }));
+
+  const toggleTips = useCallback(() => {
+    setExpanded((v) => {
+      chevronRot.value = withSpring(!v ? 180 : 0, { damping: 15, stiffness: 200 });
+      return !v;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mascot floating animation — intensity driven by coach output
+  const mascotFloat = useSharedValue(0);
+  const intensity = coach.animationIntensity ?? 'medium';
+  useEffect(() => {
+    const amplitudeMap = { low: -3, medium: -6, high: -10 };
+    const durationMap = { low: 3000, medium: 2200, high: 1400 };
+    mascotFloat.value = withRepeat(
+      withTiming(amplitudeMap[intensity], {
+        duration: durationMap[intensity],
+        easing: Easing.inOut(Easing.sin),
+      }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(mascotFloat);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intensity]);
+  const mascotFloatStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotFloat.value }],
+  }));
+
   return (
-    <Card onPress={hasTips ? () => setExpanded((v) => !v) : undefined}>
+    <Card style={cardBorderStyle} onPress={hasTips ? toggleTips : undefined}>
       <View style={styles.coachColumn}>
-        <View style={styles.coachMascotWrap}>
+        <Animated.View style={[styles.coachMascotWrap, mascotFloatStyle]}>
           <View style={[styles.coachMascotGlow, { backgroundColor: mascotGlow }]} />
           <LockeMascot size={96} mood={coach.mascotMood} />
-        </View>
+        </Animated.View>
         <Text style={[styles.coachHeadline, { color: theme.colors.text }]} numberOfLines={2}>
           {coach.headline}
         </Text>
         <Text style={[styles.coachSubtext, { color: theme.colors.muted }]} numberOfLines={3}>
           {coach.subtext}
         </Text>
-        {hasTips && !expanded && (
+        {/* Commentary phrase — always visible, even collapsed */}
+        {commentary && (
+          <Text style={[styles.commentaryPhrase, { color: commentaryColor }]} numberOfLines={2}>
+            {commentary.subtext}
+          </Text>
+        )}
+        {hasTips && (
           <Pressable
-            onPress={() => setExpanded(true)}
+            onPress={toggleTips}
             style={[
               styles.tipsPillBtn,
               { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '30' },
             ]}
           >
-            <Text style={[styles.tipsPillText, { color: theme.colors.primary }]}>View Tips</Text>
+            <View style={styles.tipsPillRow}>
+              <Text style={[styles.tipsPillText, { color: theme.colors.primary }]}>
+                {expanded ? 'Hide Tips' : `View ${tipCount} Tip${tipCount > 1 ? 's' : ''}`}
+              </Text>
+              <Animated.View style={chevronStyle}>
+                <Ionicons name="chevron-down" size={14} color={theme.colors.primary} />
+              </Animated.View>
+            </View>
           </Pressable>
         )}
       </View>
       {expanded && coach.tips && (
         <View style={[styles.tipsContainer, { borderTopColor: theme.colors.border }]}>
           {coach.tips.map((tip, i) => (
-            <Animated.View key={i} entering={FadeInDown.delay(i * 60).springify().damping(18)} style={styles.tipRow}>
+            <Animated.View key={i} entering={sectionEnter(i * 40)} style={styles.tipRow}>
               <Text style={[styles.tipBullet, { color: theme.colors.primary }]}>•</Text>
               <Text style={[styles.tipText, { color: theme.colors.text }]}>{tip}</Text>
             </Animated.View>
           ))}
+          {/* Commentary detail — featured insight shown in expanded section */}
+          {commentary && (
+            <Animated.View
+              entering={sectionEnter((coach.tips?.length ?? 0) * 40 + 20)}
+              style={[styles.commentaryDetailWrap, { borderTopColor: commentaryColor + '30', backgroundColor: commentaryColor + '0C' }]}
+            >
+              <Text style={[styles.tipBullet, { color: commentaryColor }]}>★</Text>
+              <Text style={[styles.commentaryDetailText, { color: commentaryColor }]}>
+                {commentary.headline}
+              </Text>
+            </Animated.View>
+          )}
         </View>
       )}
     </Card>
@@ -591,17 +854,9 @@ const MuscleDetailContent = React.memo(function MuscleDetailContent({
   muscle: MuscleGroup;
   fatigue: number;
 }) {
-  const { theme } = useAppTheme();
-  const status =
-    fatigue >= 80 ? 'Overtrained' :
-    fatigue >= 51 ? 'Fatigued' :
-    fatigue >= 26 ? 'Warming Up' :
-    'Fresh';
-  const statusColor =
-    fatigue >= 80 ? '#F44336' :
-    fatigue >= 51 ? '#FF9800' :
-    fatigue >= 26 ? '#FFEB3B' :
-    '#00E85C';
+  const { theme, isDark } = useAppTheme();
+  const energyState = getEnergyState(fatigue, isDark);
+  const statusColor = energyState.fill;
 
   const barFillWidth = useSharedValue(0);
 
@@ -618,13 +873,24 @@ const MuscleDetailContent = React.memo(function MuscleDetailContent({
 
   const animBarStyle = useAnimatedStyle(() => ({ width: barFillWidth.value }));
 
+  const tipText = (() => {
+    switch (energyState.state) {
+      case 'dormant': return 'No recent activity. Ready for a full session.';
+      case 'primed': return 'Fully fresh. Ready for full training stimulus.';
+      case 'charged': return 'Supercompensation window — ideal time to train hard.';
+      case 'strained': return 'Moderate fatigue. Consider reducing volume today.';
+      case 'overloaded': return 'High fatigue. Reduce intensity or target other muscles.';
+      case 'peak': return 'Avoid direct work. Substitute lighter variations or rest.';
+    }
+  })();
+
   return (
     <View style={styles.sheetContent}>
       <Text style={[styles.sheetMuscle, { color: theme.colors.text }]}>
         {muscleLabel(muscle)}
       </Text>
       <View style={[styles.sheetStatusBadge, { backgroundColor: statusColor + '22', borderColor: statusColor + '55' }]}>
-        <Text style={[styles.sheetStatusText, { color: statusColor }]}>{status}</Text>
+        <Text style={[styles.sheetStatusText, { color: statusColor }]}>{energyState.label}</Text>
       </View>
       <View style={[styles.sheetFatigueRow, { marginTop: spacing.md }]}>
         <Text style={[styles.sheetFatigueLabel, { color: theme.colors.muted }]}>Fatigue Level</Text>
@@ -637,13 +903,7 @@ const MuscleDetailContent = React.memo(function MuscleDetailContent({
         <Animated.View style={[styles.sheetBarFill, { backgroundColor: statusColor }, animBarStyle]} />
       </View>
       <Text style={[styles.sheetTip, { color: theme.colors.muted }]}>
-        {fatigue >= 80
-          ? 'Avoid direct work. Substitute lighter variations or rest.'
-          : fatigue >= 51
-          ? 'Reduce volume or intensity. Monitor during training.'
-          : fatigue >= 26
-          ? 'Light to moderate work is fine. Building back up.'
-          : 'Fully fresh. Ready for full training stimulus.'}
+        {tipText}
       </Text>
     </View>
   );
@@ -714,24 +974,321 @@ const SectionHeader = React.memo(function SectionHeader({
   );
 });
 
-/** Heatmap color legend. */
-const LEGEND_ITEMS = [
-  { label: 'Fresh', color: '#4CAF50' },
-  { label: 'Moderate', color: '#FFEB3B' },
-  { label: 'Fatigued', color: '#FF9800' },
-  { label: 'Overtrained', color: '#F44336' },
-] as const;
-
+/** Heatmap gradient legend — horizontal bar spanning the full fatigue spectrum. */
 const HeatmapLegend = React.memo(function HeatmapLegend() {
+  const { theme, isDark } = useAppTheme();
+  const energyStates = useMemo(() => getEnergyStatesForTheme(isDark), [isDark]);
+  const [barWidth, setBarWidth] = useState(0);
+
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    setBarWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  return (
+    <View style={styles.gradientLegend} onLayout={handleLayout}>
+      {barWidth > 0 && (
+        <Svg width={barWidth} height={12}>
+          <Defs>
+            <SvgLinearGradient id="fatigueGrad" x1="0" y1="0" x2="1" y2="0">
+              {/* Stops mapped to fatigue thresholds: dormant→primed→charged→strained→overloaded→peak */}
+              <Stop offset="0"    stopColor={energyStates[0].color} stopOpacity="1" />
+              <Stop offset="0.15" stopColor={energyStates[1].color} stopOpacity="1" />
+              <Stop offset="0.38" stopColor={energyStates[2].color} stopOpacity="1" />
+              <Stop offset="0.58" stopColor={energyStates[3].color} stopOpacity="1" />
+              <Stop offset="0.78" stopColor={energyStates[4].color} stopOpacity="1" />
+              <Stop offset="1"    stopColor={energyStates[5].color} stopOpacity="1" />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x={0} y={0} width={barWidth} height={12} rx={6} fill="url(#fatigueGrad)" />
+        </Svg>
+      )}
+      <View style={styles.gradientLegendLabels}>
+        <Text style={[styles.gradientLegendLabel, { color: theme.colors.muted }]}>Fresh</Text>
+        <Text style={[styles.gradientLegendLabel, { color: theme.colors.muted }]}>Peaked</Text>
+      </View>
+    </View>
+  );
+});
+
+/** Single readiness row — label | animated bar fill | score + status chip. */
+const ReadinessRow = React.memo(function ReadinessRow({
+  label,
+  score,
+  bold,
+}: {
+  label: string;
+  score: { score: number; color: string; label?: string };
+  bold?: boolean;
+}) {
+  const { theme } = useAppTheme();
+  const barFillWidth = useSharedValue(0);
+
+  const handleTrackLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      barFillWidth.value = withSpring(e.nativeEvent.layout.width * (score.score / 100), {
+        damping: 18,
+        stiffness: 80,
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [score.score],
+  );
+
+  const animBarStyle = useAnimatedStyle(() => ({ width: barFillWidth.value }));
+
+  return (
+    <View style={styles.readinessRow}>
+      <Text style={[styles.readinessRowLabel, { color: theme.colors.muted }]}>{label}</Text>
+      <View
+        style={[styles.readinessRowTrack, { backgroundColor: theme.colors.mutedBg }]}
+        onLayout={handleTrackLayout}
+      >
+        <Animated.View style={[styles.readinessRowFill, { backgroundColor: score.color }, animBarStyle]} />
+      </View>
+      <View style={styles.readinessRowScoreBlock}>
+        <Text
+          style={[
+            bold ? styles.readinessRowScoreBold : styles.readinessRowScore,
+            { color: score.color },
+          ]}
+        >
+          {Math.round(score.score)}
+        </Text>
+        {score.label && (
+          <Text style={[styles.readinessRowStatusText, { color: score.color }]}>
+            {score.label}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+});
+
+/** Muscle readiness bars — upper / lower / total. */
+const MuscleReadinessBar = React.memo(function MuscleReadinessBar({
+  readiness,
+}: {
+  readiness: MuscleReadinessResult;
+}) {
+  return (
+    <View style={styles.readinessBarSection}>
+      <ReadinessRow label="Upper Body" score={readiness.upper} />
+      <ReadinessRow label="Lower Body" score={readiness.lower} />
+      <ReadinessRow label="Total" score={readiness.total} bold />
+    </View>
+  );
+});
+
+// ── Orbiting dot for empty state ──────────────────────────────────────────────
+const OrbitingDot = React.memo(function OrbitingDot({
+  rotation,
+  phase,
+  color,
+}: {
+  rotation: SharedValue<number>;
+  phase: number;
+  color: string;
+}) {
+  const dotStyle = useAnimatedStyle(() => {
+    const angleRad = ((rotation.value + phase) * Math.PI) / 180;
+    return {
+      transform: [
+        { translateX: 65 * Math.cos(angleRad) },
+        { translateY: 65 * Math.sin(angleRad) },
+      ],
+    };
+  });
+  return <Animated.View style={[styles.orbitDot, { backgroundColor: color }, dotStyle]} />;
+});
+
+/** Mini 0% gauge ring — hints at what the readiness gauge will look like. */
+const EmptyGaugeRing = React.memo(function EmptyGaugeRing() {
   const { theme } = useAppTheme();
   return (
-    <View style={styles.heatmapLegend}>
-      {LEGEND_ITEMS.map(({ label, color }) => (
-        <View key={label} style={styles.heatmapLegendItem}>
-          <View style={[styles.heatmapLegendDot, { backgroundColor: color }]} />
-          <Text style={[styles.heatmapLegendText, { color: theme.colors.muted }]}>{label}</Text>
+    <View style={styles.emptyGaugeWrap}>
+      <Svg width={100} height={104} viewBox="0 0 100 104">
+        <Path
+          d={EMPTY_GAUGE_PATH}
+          stroke={theme.colors.mutedBg}
+          strokeWidth={6}
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* 3% fill — shows the gauge will have color */}
+        <Path
+          d={EMPTY_GAUGE_PATH}
+          stroke={theme.colors.primary}
+          strokeWidth={6}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={[EMPTY_ARC_LENGTH, EMPTY_ARC_LENGTH]}
+          strokeDashoffset={EMPTY_ARC_LENGTH * 0.97}
+          strokeOpacity={0.35}
+        />
+      </Svg>
+      <View style={styles.emptyGaugeOverlay}>
+        <Text style={[styles.emptyGaugeZero, { color: theme.colors.mutedBg }]}>0</Text>
+        <Text style={[styles.emptyGaugeScoreLabel, { color: theme.colors.muted }]}>score</Text>
+      </View>
+    </View>
+  );
+});
+
+/** Enhanced empty state — animated orbiting dots, 0% gauge hint, CTA button. */
+const EmptyState = React.memo(function EmptyState() {
+  const { theme } = useAppTheme();
+  const orbitRotation = useSharedValue(0);
+
+  useEffect(() => {
+    orbitRotation.value = withRepeat(
+      withTiming(360, { duration: 9000, easing: Easing.linear }),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(orbitRotation);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyMascotWrap}>
+        <View style={[styles.emptyMascotGlow, { backgroundColor: theme.colors.primary }]} />
+        <LockeMascot size={120} mood="encouraging" />
+        {/* Orbiting dots at 0°, 120°, 240° phase offsets */}
+        <OrbitingDot rotation={orbitRotation} phase={0}   color={theme.colors.primary + 'AA'} />
+        <OrbitingDot rotation={orbitRotation} phase={120} color={theme.colors.primary + '70'} />
+        <OrbitingDot rotation={orbitRotation} phase={240} color={theme.colors.primary + '40'} />
+      </View>
+
+      <EmptyGaugeRing />
+
+      <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+        No recovery data yet
+      </Text>
+      <Text style={[styles.emptySub, { color: theme.colors.muted }]}>
+        Complete your first session to start tracking muscle fatigue and recovery.
+      </Text>
+
+      {/* CTA button */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.emptyCtaBtn,
+          { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 },
+        ]}
+        onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+      >
+        <Text style={[styles.emptyCtaBtnText, { color: theme.colors.primaryText }]}>
+          Start your first workout
+        </Text>
+      </Pressable>
+    </View>
+  );
+});
+
+/** Mini animated readiness gauge for the score explanation sheet. */
+const MiniReadinessGauge = React.memo(function MiniReadinessGauge({ score }: { score: number }) {
+  const { theme } = useAppTheme();
+  const arcColor = readinessColor(score);
+  const miniProgress = useSharedValue(0);
+
+  useEffect(() => {
+    miniProgress.value = withSpring(score, { damping: 18, stiffness: 80 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [score]);
+
+  const miniGaugeProps = useAnimatedProps(() => ({
+    strokeDashoffset: MINI_ARC_LENGTH * (1 - Math.max(0, Math.min(100, miniProgress.value)) / 100),
+  }));
+
+  return (
+    <View style={styles.miniGaugeWrapper}>
+      <Svg width={82} height={86} viewBox="0 0 80 84">
+        <Path
+          d={MINI_GAUGE_BG_PATH}
+          stroke={theme.colors.mutedBg}
+          strokeWidth={MINI_GAUGE_STROKE}
+          fill="none"
+          strokeLinecap="round"
+        />
+        <AnimatedPath
+          d={MINI_GAUGE_BG_PATH}
+          stroke={arcColor}
+          strokeWidth={MINI_GAUGE_STROKE}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={[MINI_ARC_LENGTH, MINI_ARC_LENGTH]}
+          animatedProps={miniGaugeProps}
+        />
+      </Svg>
+      <View style={styles.miniGaugeOverlay}>
+        <Text style={[styles.miniGaugeScore, { color: arcColor }]}>{score}</Text>
+      </View>
+    </View>
+  );
+});
+
+/** Score explanation bottom sheet — mini gauge + contextual advice + compare hint. */
+const ScoreDetailSheet = React.memo(function ScoreDetailSheet({
+  readiness,
+  snapshotCount,
+}: {
+  readiness: ReadinessScore;
+  snapshotCount: number;
+}) {
+  const { theme } = useAppTheme();
+  const scoreColor = readinessColor(readiness.score);
+
+  const advice = useMemo(() => {
+    if (readiness.score >= 80) return "You're peaking! Ideal day for high-intensity compound work and setting PRs.";
+    if (readiness.score >= 60) return "Good readiness. Push hard on compound movements — your body is prepared.";
+    if (readiness.score >= 40) return "Moderate readiness. Focus on quality over volume. Keep technique sharp.";
+    return "Recovery priority. A light session or full rest day will set you up better tomorrow.";
+  }, [readiness.score]);
+
+  return (
+    <View style={styles.explainSheet}>
+      <View style={[styles.explainAccent, { backgroundColor: scoreColor }]} />
+
+      {/* Mini gauge + title row */}
+      <View style={styles.scoreSheetHeroRow}>
+        <MiniReadinessGauge score={readiness.score} />
+        <View style={styles.explainHeroText}>
+          <Text style={[styles.explainTitle, { color: theme.colors.text }]}>
+            {READINESS_EXPLANATION.title}
+          </Text>
+          <Text style={[styles.explainWeight, { color: scoreColor }]}>
+            {readiness.label}
+          </Text>
         </View>
-      ))}
+      </View>
+
+      <Text style={[styles.explainDesc, { color: theme.colors.text }]}>
+        {READINESS_EXPLANATION.description}
+      </Text>
+
+      {/* What this means today — contextual advice */}
+      <View style={[styles.scoreAdviceCard, { backgroundColor: scoreColor + '12', borderColor: scoreColor + '35' }]}>
+        <Text style={[styles.explainTipLabel, { color: theme.colors.muted }]}>WHAT THIS MEANS TODAY</Text>
+        <Text style={[styles.explainTipText, { color: theme.colors.text }]}>{advice}</Text>
+      </View>
+
+      {/* Quick guide */}
+      <View style={[styles.explainTipCard, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]}>
+        <Text style={[styles.explainTipLabel, { color: theme.colors.muted }]}>QUICK GUIDE</Text>
+        <Text style={[styles.explainTipText, { color: theme.colors.text }]}>
+          {READINESS_EXPLANATION.tip}
+        </Text>
+      </View>
+
+      {/* Compare to last week — shown when enough history */}
+      {snapshotCount >= 14 && (
+        <View style={[styles.explainTipCard, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]}>
+          <Text style={[styles.explainTipLabel, { color: theme.colors.muted }]}>COMPARE TO LAST WEEK</Text>
+          <Text style={[styles.explainTipText, { color: theme.colors.muted }]}>
+            Historical trend data is available in the 7-Day Fatigue chart below.
+          </Text>
+        </View>
+      )}
     </View>
   );
 });
@@ -742,11 +1299,52 @@ export default function RecoveryScreen() {
   const insets = useSafeAreaInsets();
   const { loading, data, refresh } = useRecovery();
 
+  // DEV-only fatigue override
+  const [devOpen, setDevOpen] = useState(false);
+  const [devOverride, setDevOverride] = useState<MuscleFatigueMap | null>(null);
+
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedPill, setSelectedPill] = useState<PillKey | null>(null);
   const [pillSheetOpen, setPillSheetOpen] = useState(false);
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
+
+  // Re-key animated content on each tab focus so entering animations replay
+  const [focusKey, setFocusKey] = useState(0);
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      setFocusKey((k) => k + 1);
+    }, [])
+  );
+
+  // Haptic feedback on readiness threshold — fires once when score first loads
+  const hapticFiredRef = useRef(false);
+  useEffect(() => {
+    if (!data || hapticFiredRef.current) return;
+    hapticFiredRef.current = true;
+    const score = data.readiness.score;
+    if (score >= 80) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else if (score >= 40) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [data]);
+
+  // Track previous loading state to detect refresh completion
+  const wasLoadingRef = useRef(false);
+  useEffect(() => {
+    if (wasLoadingRef.current && !loading && data) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    wasLoadingRef.current = loading;
+  }, [loading, data]);
 
   const handleMusclePress = useCallback((muscle: MuscleGroup) => {
     Haptics.selectionAsync();
@@ -782,9 +1380,12 @@ export default function RecoveryScreen() {
     setPillSheetOpen(false);
   }, []);
 
+  // Override fatigue map with dev values when active
+  const effectiveFatigueMap = devOverride ?? data?.fatigueMap;
+
   const selectedFatigue = useMemo(
-    () => (selectedMuscle && data ? (data.fatigueMap[selectedMuscle] ?? 0) : 0),
-    [selectedMuscle, data],
+    () => (selectedMuscle && effectiveFatigueMap ? (effectiveFatigueMap[selectedMuscle] ?? 0) : 0),
+    [selectedMuscle, effectiveFatigueMap],
   );
 
   const selectedPillInfo = useMemo(() => {
@@ -797,6 +1398,29 @@ export default function RecoveryScreen() {
     };
     return { value: valueMap[selectedPill], color: colorMap[selectedPill] };
   }, [selectedPill, data]);
+
+  const muscleReadiness = useMemo(
+    () => effectiveFatigueMap ? computeMuscleReadiness(effectiveFatigueMap) : null,
+    [effectiveFatigueMap],
+  );
+
+  // Gracefully read commentary if the recovery systems agent has wired it
+  const commentary = data ? (data as any).commentary as RecoveryCommentary | undefined : undefined;
+
+  // Derive plan muscles: muscles targeted by the next planned session
+  // (any muscle whose projected fatigue exceeds current fatigue)
+  const planMuscles = useMemo<MuscleGroup[] | undefined>(() => {
+    if (!data?.forecastResult || !effectiveFatigueMap) return undefined;
+    const projected = data.forecastResult.projectedFatigueMap;
+    const current = effectiveFatigueMap;
+    const targeted: MuscleGroup[] = [];
+    for (const muscle of Object.keys(current) as MuscleGroup[]) {
+      if (projected[muscle] > current[muscle] + 1) {
+        targeted.push(muscle);
+      }
+    }
+    return targeted.length > 0 ? targeted : undefined;
+  }, [data, effectiveFatigueMap]);
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.bg }]}>
@@ -816,7 +1440,19 @@ export default function RecoveryScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.screenTitle, { color: theme.colors.text }]}>Recovery</Text>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.screenTitle, { color: theme.colors.text }]}>Recovery</Text>
+            {__DEV__ && (
+              <Pressable onPress={() => setDevOpen((v) => !v)}>
+                <Text style={styles.devToggle}>DEV</Text>
+              </Pressable>
+            )}
+            {devOverride !== null && (
+              <View style={styles.simulatedBadge}>
+                <Text style={styles.simulatedText}>SIMULATED</Text>
+              </View>
+            )}
+          </View>
           {data?.blockContext && (
             <View style={[styles.blockBadge, { backgroundColor: theme.colors.mutedBg }]}>
               <Text style={[styles.blockBadgeText, { color: theme.colors.muted }]}>
@@ -828,53 +1464,103 @@ export default function RecoveryScreen() {
           )}
         </View>
 
+        {/* DEV fatigue panel */}
+        {__DEV__ && devOpen && data && (
+          <View style={{ marginBottom: spacing.sm }}>
+            <DevFatiguePanel
+              fatigueMap={devOverride ?? data.fatigueMap}
+              onUpdate={setDevOverride}
+              onReset={() => setDevOverride(null)}
+            />
+          </View>
+        )}
+
+        {/* Error banner */}
+        {(data as any)?.error && (
+          <Animated.View entering={FadeIn.duration(300)} style={[styles.dataBanner, styles.errorBanner]}>
+            <Ionicons name="alert-circle" size={16} color="#F44336" />
+            <Text style={styles.errorBannerText}>
+              Couldn't load recovery data. Pull to refresh.
+            </Text>
+          </Animated.View>
+        )}
+
+        {/* Stale data warning */}
+        {(data as any)?.staleData && (
+          <Animated.View entering={FadeIn.duration(300)} style={[styles.dataBanner, styles.staleBanner]}>
+            <Ionicons name="time-outline" size={16} color="#FF9800" />
+            <Text style={styles.staleBannerText}>
+              No recent training data. Log a session for live metrics.
+            </Text>
+          </Animated.View>
+        )}
+
         {loading && !data ? (
           <RecoveryLoadingSkeleton />
         ) : data ? (
-          <>
+          <React.Fragment key={focusKey}>
             {/* 1. Readiness Hero */}
-            <Animated.View entering={FadeInDown.delay(0).springify().damping(18)} style={{ marginBottom: 24 }}>
-              <Card>
-                <ReadinessHero readiness={data.readiness} onPillPress={handlePillPress} onScorePress={handleScorePress} />
-              </Card>
+            <Animated.View entering={sectionEnter(0)} style={styles.heroSection}>
+              <PressableCardWrap onPress={handleScorePress}>
+                <Card>
+                  <ReadinessHero readiness={data.readiness} onPillPress={handlePillPress} onScorePress={handleScorePress} />
+                </Card>
+              </PressableCardWrap>
             </Animated.View>
 
             {/* 2. Coach Card */}
-            <Animated.View entering={FadeInDown.delay(100).springify().damping(18)} style={{ marginBottom: 16 }}>
-              <CoachCard coach={data.coach} />
+            <Animated.View entering={sectionEnter(50)} style={styles.coachSection}>
+              <CoachCard coach={data.coach} commentary={commentary} />
             </Animated.View>
 
             {/* 3. Smart Deload (conditional) */}
             {data.deloadTriggered && data.deloadCard && (
-              <Animated.View entering={FadeInDown.delay(200).springify().damping(18)} style={{ marginBottom: 16 }}>
+              <Animated.View entering={sectionEnter(100)} style={{ marginBottom: spacing.lg }}>
                 <DeloadCard card={data.deloadCard} />
               </Animated.View>
             )}
 
             {/* 4. Plateau (conditional) */}
             {data.plateau && (
-              <Animated.View entering={FadeInDown.delay(200).springify().damping(18)} style={{ marginBottom: 16 }}>
+              <Animated.View entering={sectionEnter(100)} style={{ marginBottom: spacing.lg }}>
                 <PlateauCard plateau={data.plateau} />
               </Animated.View>
             )}
 
             {/* 5. Muscle Heatmap */}
-            <Animated.View entering={FadeInDown.delay(300).springify().damping(18)} style={{ marginBottom: 28 }}>
-              <Card>
-                <SectionHeader eyebrow="BODY MAP" title="Muscle Fatigue" subtitle="Tap a muscle for details" />
-                <View style={styles.heatmapWrapper}>
-                  <MuscleHeatmapDual
-                    fatigueMap={data.fatigueMap}
-                    onMusclePress={handleMusclePress}
-                  />
-                </View>
-                <HeatmapLegend />
-              </Card>
+            <Animated.View
+              entering={sectionEnter(150)}
+              style={[styles.heatmapCardWrapper, { marginBottom: spacing.lg }]}
+            >
+              <PressableCardWrap>
+                <Card>
+                  <SectionHeader eyebrow="BODY MAP" title="Muscle Fatigue" subtitle="Tap a muscle for details" />
+                  <View style={styles.heatmapWrapper}>
+                    <MuscleHeatmapDual
+                      fatigueMap={effectiveFatigueMap ?? data.fatigueMap}
+                      onMusclePress={handleMusclePress}
+                      planMuscles={planMuscles}
+                      containerPadding={spacing.md * 2 + (spacing.md + 2) * 2}
+                    />
+                  </View>
+                  <HeatmapLegend />
+                </Card>
+              </PressableCardWrap>
             </Animated.View>
+
+            {/* 5.5 Muscle Readiness Scores */}
+            {muscleReadiness && (
+              <Animated.View entering={sectionEnter(200)} style={{ marginBottom: spacing.lg }}>
+                <Card>
+                  <SectionHeader eyebrow="READINESS" title="Muscle Energy" />
+                  <MuscleReadinessBar readiness={muscleReadiness} />
+                </Card>
+              </Animated.View>
+            )}
 
             {/* 6. 7-Day Trend Graph */}
             {data.snapshots.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(420).springify().damping(18)} style={{ marginBottom: 24 }}>
+              <Animated.View entering={sectionEnter(250)} style={{ marginBottom: 24 }}>
                 <Card>
                   <SectionHeader eyebrow="TREND" title="7-Day Fatigue" />
                   <RecoveryTrendGraph data={data.snapshots} days={7} />
@@ -884,7 +1570,7 @@ export default function RecoveryScreen() {
 
             {/* 7. Training Load */}
             {data.trainingLoad && data.trainingLoad.chronicLoad > 0 && (
-              <Animated.View entering={FadeInDown.delay(540).springify().damping(18)}>
+              <Animated.View entering={sectionEnter(300)}>
                 <Card>
                   <SectionHeader eyebrow="WORKLOAD" title="Training Load" />
                   <AcwrBar acwr={data.trainingLoad.acwr} />
@@ -914,21 +1600,10 @@ export default function RecoveryScreen() {
                 </Card>
               </Animated.View>
             )}
-          </>
+          </React.Fragment>
         ) : (
           /* Empty state — first time, no sessions logged yet */
-          <View style={styles.emptyState}>
-            <View style={styles.emptyMascotWrap}>
-              <View style={[styles.emptyMascotGlow, { backgroundColor: theme.colors.primary }]} />
-              <LockeMascot size={120} mood="encouraging" />
-            </View>
-            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-              No recovery data yet
-            </Text>
-            <Text style={[styles.emptySub, { color: theme.colors.muted }]}>
-              Complete your first session to start tracking muscle fatigue and recovery.
-            </Text>
-          </View>
+          <EmptyState />
         )}
       </ScrollView>
 
@@ -952,34 +1627,12 @@ export default function RecoveryScreen() {
 
       {/* Readiness score explanation bottom sheet */}
       <AppBottomSheet visible={scoreSheetOpen} onClose={handleScoreSheetClose}>
-        {data && (() => {
-          const scoreColor = readinessColor(data.readiness.score);
-          return (
-            <View style={styles.explainSheet}>
-              <View style={[styles.explainAccent, { backgroundColor: scoreColor }]} />
-              <View style={styles.explainHeroRow}>
-                <Text style={[styles.explainScore, { color: scoreColor }]}>{data.readiness.score}</Text>
-                <View style={styles.explainHeroText}>
-                  <Text style={[styles.explainTitle, { color: theme.colors.text }]}>
-                    {READINESS_EXPLANATION.title}
-                  </Text>
-                  <Text style={[styles.explainWeight, { color: scoreColor }]}>
-                    {data.readiness.label}
-                  </Text>
-                </View>
-              </View>
-              <Text style={[styles.explainDesc, { color: theme.colors.text }]}>
-                {READINESS_EXPLANATION.description}
-              </Text>
-              <View style={[styles.explainTipCard, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]}>
-                <Text style={[styles.explainTipLabel, { color: theme.colors.muted }]}>QUICK GUIDE</Text>
-                <Text style={[styles.explainTipText, { color: theme.colors.text }]}>
-                  {READINESS_EXPLANATION.tip}
-                </Text>
-              </View>
-            </View>
-          );
-        })()}
+        {data && (
+          <ScoreDetailSheet
+            readiness={data.readiness}
+            snapshotCount={data.snapshots?.length ?? 0}
+          />
+        )}
       </AppBottomSheet>
     </View>
   );
@@ -999,8 +1652,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs + 2,
+  },
   screenTitle: {
     ...typography.heading,
+  },
+  devToggle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#7D8590',
+    opacity: 0.6,
+  },
+  simulatedBadge: {
+    backgroundColor: '#FF9800' + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  simulatedText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FF9800',
+    letterSpacing: 0.5,
   },
   blockBadge: {
     paddingHorizontal: spacing.sm,
@@ -1049,8 +1725,8 @@ const styles = StyleSheet.create({
   },
   pillInner: {
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    paddingVertical: 10,
+    borderRadius: radius.lg,
     borderWidth: 1,
     gap: 2,
   },
@@ -1106,6 +1782,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     borderWidth: 1,
     marginTop: spacing.xs,
+  },
+  tipsPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   tipsPillText: {
     fontSize: 13,
@@ -1218,8 +1899,8 @@ const styles = StyleSheet.create({
   },
   sectionEyebrow: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.5,
+    fontWeight: '800',
+    letterSpacing: 2.0,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
@@ -1232,37 +1913,55 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   // ── Heatmap ───────────────────────────────────────────────────────────────
-  sectionTitle: {
-    ...typography.subheading,
-    marginBottom: 2,
+  heroSection: {
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
-  sectionSub: {
-    ...typography.caption,
-    marginBottom: spacing.sm,
+  coachSection: {
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  heatmapCardWrapper: {
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   heatmapWrapper: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    paddingVertical: spacing.xs,
   },
-  heatmapLegend: {
+  // ── Gradient legend ───────────────────────────────────────────────────────
+  gradientLegend: {
+    marginTop: spacing.md,
+    gap: 6,
+  },
+  gradientLegendLabels: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
-    marginTop: spacing.sm + 4,
+    justifyContent: 'space-between',
   },
-  heatmapLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  heatmapLegendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  heatmapLegendText: {
-    fontSize: 10,
+  gradientLegendLabel: {
+    fontSize: typography.caption.fontSize,
     fontWeight: '500',
   },
+  // ── Readiness bars ──────────────────────────────────────────────────────
+  readinessBarSection: { gap: spacing.sm },
+  readinessRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  readinessRowLabel: { width: 80, fontSize: 12, fontWeight: '600' },
+  readinessRowTrack: { flex: 1, height: 8, borderRadius: radius.full, overflow: 'hidden' },
+  readinessRowFill: { height: '100%', borderRadius: radius.full },
+  readinessRowScore: { width: 32, fontSize: 14, fontWeight: '700', textAlign: 'right' },
+  readinessRowScoreBold: { width: 32, fontSize: 16, fontWeight: '800', textAlign: 'right' },
   // ── Training load ─────────────────────────────────────────────────────────
   acwrTrack: {
     height: 8,
@@ -1502,5 +2201,181 @@ const styles = StyleSheet.create({
   explainTipText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  // ── Commentary phrase + expanded detail ───────────────────────────────────
+  commentaryPhrase: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: -spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  commentaryDetailWrap: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    alignItems: 'flex-start',
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs + 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.sm,
+    padding: spacing.xs + 2,
+  },
+  commentaryDetailText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  // ── Readiness row score block ──────────────────────────────────────────────
+  readinessRowScoreBlock: {
+    width: 58,
+    alignItems: 'flex-end',
+    gap: 1,
+  },
+  readinessRowStatusText: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  // ── Level-up milestone badge ───────────────────────────────────────────────
+  milestoneBadge: {
+    position: 'absolute',
+    top: 8,
+    alignSelf: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    zIndex: 10,
+  },
+  milestoneBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  // ── Orbiting dots (empty state) ───────────────────────────────────────────
+  orbitDot: {
+    position: 'absolute',
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    left: 65,
+    top: 65,
+  },
+  // ── Empty state gauge hint ────────────────────────────────────────────────
+  emptyGaugeWrap: {
+    width: 100,
+    height: 104,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: spacing.xs,
+  },
+  emptyGaugeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 8,
+  },
+  emptyGaugeZero: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  emptyGaugeScoreLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  // ── Empty state CTA button ────────────────────────────────────────────────
+  emptyCtaBtn: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm + 4,
+    borderRadius: radius.full,
+    marginTop: spacing.sm,
+    shadowColor: '#00E85C',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyCtaBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  // ── Mini readiness gauge (score sheet) ────────────────────────────────────
+  miniGaugeWrapper: {
+    width: 82,
+    height: 86,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniGaugeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 6,
+  },
+  miniGaugeScore: {
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 24,
+  },
+  // ── Score explanation sheet hero row ─────────────────────────────────────
+  scoreSheetHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  // ── Score advice card ─────────────────────────────────────────────────────
+  scoreAdviceCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  // ── Data state banners ──────────────────────────────────────────────────
+  dataBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+  },
+  errorBanner: {
+    backgroundColor: '#F44336' + '12',
+    borderWidth: 1,
+    borderColor: '#F44336' + '30',
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#F44336',
+    lineHeight: 16,
+  },
+  staleBanner: {
+    backgroundColor: '#FF9800' + '12',
+    borderWidth: 1,
+    borderColor: '#FF9800' + '30',
+  },
+  staleBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF9800',
+    lineHeight: 16,
   },
 });
