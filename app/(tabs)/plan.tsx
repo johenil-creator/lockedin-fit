@@ -10,8 +10,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
-import RNAnimated, { FadeInDown } from "react-native-reanimated";
+import RNAnimated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LockeMascot } from "../../components/Locke/LockeMascot";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import Papa from "papaparse";
@@ -248,15 +249,18 @@ function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart }:
       style={[
         dcStyles.container,
         {
-          backgroundColor: theme.colors.surface,
+          backgroundColor: isCompleted
+            ? theme.colors.success + "0A"
+            : theme.colors.surface,
           borderColor: isNextUp
             ? theme.colors.primary
             : isCompleted
-            ? theme.colors.success + "44"
+            ? theme.colors.success + "55"
             : theme.colors.border,
-          borderWidth: isNextUp ? 1.5 : 1,
-          opacity: isLocked ? 0.45 : 1,
+          borderWidth: isNextUp ? 2 : 1,
+          opacity: isLocked ? 0.4 : 1,
         },
+        isNextUp && dcStyles.nextUpShadow,
       ]}
     >
       {/* Left accent bar for completed + next-up */}
@@ -349,6 +353,7 @@ function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart }:
 
 const dcStyles = StyleSheet.create({
   container:    { flexDirection: "row", borderRadius: 14, overflow: "hidden" },
+  nextUpShadow: { shadowColor: "#00E85C", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
   accentBar:    { width: 3 },
   inner:        { flex: 1, padding: 12 },
   header:       { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -365,6 +370,17 @@ const dcStyles = StyleSheet.create({
   startBtnText: { fontSize: 14, fontWeight: "700" },
 });
 
+// ── Coach encouragement based on progress ────────────────────────────────────
+
+function getCoachLine(pct: number): { text: string; mood: "encouraging" | "celebrating" | "intense" | "neutral" } {
+  if (pct >= 1)    return { text: "You crushed this plan. Absolute alpha.", mood: "celebrating" };
+  if (pct >= 0.75) return { text: "Almost there — finish what you started.", mood: "intense" };
+  if (pct >= 0.5)  return { text: "Halfway through. No slowing down.", mood: "encouraging" };
+  if (pct >= 0.25) return { text: "Building momentum. Keep showing up.", mood: "encouraging" };
+  if (pct > 0)     return { text: "Good start. Consistency is everything.", mood: "encouraging" };
+  return { text: "Let's get this plan moving.", mood: "neutral" };
+}
+
 // ── ProgressCard ──────────────────────────────────────────────────────────────
 
 function ProgressCard({ doneDays, totalDays }: {
@@ -374,12 +390,22 @@ function ProgressCard({ doneDays, totalDays }: {
   const { theme } = useAppTheme();
   const pct = totalDays > 0 ? doneDays / totalDays : 0;
   const pctStr = `${Math.round(pct * 100)}%` as `${number}%`;
+  const coach = getCoachLine(pct);
 
   return (
     <View style={[pcStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+      {/* Coach row — mini Locke + speech bubble */}
+      <View style={pcStyles.coachRow}>
+        <LockeMascot size={52} mood={coach.mood} />
+        <View style={[pcStyles.coachBubble, { backgroundColor: theme.colors.mutedBg }]}>
+          <View style={[pcStyles.coachTail, { backgroundColor: theme.colors.mutedBg }]} />
+          <Text style={[pcStyles.coachText, { color: theme.colors.text }]}>{coach.text}</Text>
+        </View>
+      </View>
+
       <View style={pcStyles.topRow}>
         <Text style={[pcStyles.countText, { color: theme.colors.muted }]}>{doneDays}/{totalDays} days</Text>
-        <Text style={[pcStyles.pctText, { color: theme.colors.muted }]}>{pctStr}</Text>
+        <Text style={[pcStyles.pctText, { color: theme.colors.primary }]}>{pctStr}</Text>
       </View>
 
       {/* 8px progress bar with milestone dots at 25 / 50 / 75 % */}
@@ -411,9 +437,13 @@ function ProgressCard({ doneDays, totalDays }: {
 
 const pcStyles = StyleSheet.create({
   card:             { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 14 },
+  coachRow:         { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  coachBubble:      { flex: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
+  coachTail:        { position: "absolute", left: -4, top: 12, width: 8, height: 8, borderRadius: 2, transform: [{ rotate: "45deg" }] },
+  coachText:        { fontSize: 13, fontWeight: "600", lineHeight: 18 },
   topRow:           { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   countText:        { fontSize: 12, fontWeight: "600" },
-  pctText:          { fontSize: 12, fontWeight: "600" },
+  pctText:          { fontSize: 14, fontWeight: "700" },
   track:            { height: 8, borderRadius: 999, overflow: "hidden" },
   fill:             { height: "100%", borderRadius: 999, position: "absolute", left: 0, top: 0 },
   milestone:        { position: "absolute", width: 4, height: 4, borderRadius: 2, top: 2 },
@@ -456,48 +486,80 @@ function EmptyPlanState({ onCatalog, onImport }: {
   onImport: () => void;
 }) {
   const { theme } = useAppTheme();
-  const cards = [
-    { emoji: "📚", label: "Browse Catalog", hint: "16 ready-to-use plans", onPress: onCatalog },
-    { emoji: "📊", label: "Import Plan",    hint: "CSV, Excel or Sheets",  onPress: onImport },
-  ];
   return (
     <View style={epStyles.container}>
-      <Text style={epStyles.hero}>📋</Text>
-      <Text style={[epStyles.title, { color: theme.colors.text }]}>No plan loaded</Text>
-      <Text style={[epStyles.subtitle, { color: theme.colors.muted }]}>
-        Pick a structured plan or import your own spreadsheet
-      </Text>
-      <View style={epStyles.cards}>
-        {cards.map((c) => (
-          <Pressable
-            key={c.label}
-            style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-            onPress={c.onPress}
-          >
-            <Text style={epStyles.cardEmoji}>{c.emoji}</Text>
-            <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>{c.label}</Text>
-            <Text style={[epStyles.cardHint,  { color: theme.colors.muted }]}>{c.hint}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <Text style={[epStyles.hint, { color: theme.colors.muted }]}>
-        Expected columns: Week · Day · Exercise · Sets · Reps
-      </Text>
+      <RNAnimated.View entering={FadeIn.duration(400)}>
+        <LockeMascot size={180} mood="encouraging" />
+      </RNAnimated.View>
+
+      {/* Speech bubble */}
+      <RNAnimated.View
+        entering={FadeInDown.delay(200).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
+        style={[epStyles.bubble, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+      >
+        <View style={[epStyles.bubbleTail, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} />
+        <Text style={[epStyles.bubbleText, { color: theme.colors.text }]}>
+          Ready to get locked in?
+        </Text>
+        <Text style={[epStyles.bubbleSub, { color: theme.colors.muted }]}>
+          Load a plan and I'll guide you through every session.
+        </Text>
+      </RNAnimated.View>
+
+      <RNAnimated.View
+        entering={FadeInDown.delay(350).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
+        style={epStyles.cards}
+      >
+        <Pressable
+          style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + "55" }]}
+          onPress={onCatalog}
+        >
+          <Ionicons name="library-outline" size={26} color={theme.colors.primary} style={{ marginBottom: 8 }} />
+          <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Browse Catalog</Text>
+          <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Ready-to-use plans</Text>
+        </Pressable>
+        <Pressable
+          style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+          onPress={onImport}
+        >
+          <Ionicons name="cloud-upload-outline" size={26} color={theme.colors.muted} style={{ marginBottom: 8 }} />
+          <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Import Plan</Text>
+          <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>CSV, Excel or Sheets</Text>
+        </Pressable>
+      </RNAnimated.View>
     </View>
   );
 }
 
 const epStyles = StyleSheet.create({
   container: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 64 },
-  hero:      { fontSize: 56, marginBottom: 16 },
-  title:     { fontSize: 22, fontWeight: "700", marginBottom: 8, textAlign: "center" },
-  subtitle:  { fontSize: 14, textAlign: "center", marginBottom: 24, lineHeight: 20 },
-  cards:     { flexDirection: "row", gap: 12, marginBottom: 20 },
-  card:      { flex: 1, borderRadius: 14, borderWidth: 1, padding: 16, alignItems: "center" },
-  cardEmoji: { fontSize: 30, marginBottom: 8 },
-  cardLabel: { fontSize: 14, fontWeight: "700", textAlign: "center" },
-  cardHint:  { fontSize: 11, textAlign: "center", marginTop: 4 },
-  hint:      { fontSize: 12, textAlign: "center", lineHeight: 18 },
+  bubble: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 24,
+    alignItems: "center",
+    maxWidth: 280,
+  },
+  bubbleTail: {
+    position: "absolute",
+    top: -6,
+    width: 12,
+    height: 12,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 2,
+    transform: [{ rotate: "45deg" }],
+  },
+  bubbleText: { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 4 },
+  bubbleSub:  { fontSize: 13, textAlign: "center", lineHeight: 18 },
+  cards:      { flexDirection: "row", gap: 12 },
+  card:       { flex: 1, borderRadius: 14, borderWidth: 1, padding: 16, alignItems: "center" },
+  cardLabel:  { fontSize: 14, fontWeight: "700", textAlign: "center" },
+  cardHint:   { fontSize: 11, textAlign: "center", marginTop: 4 },
 });
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -780,49 +842,59 @@ export default function PlanScreen() {
         <>
           {/* Progress card */}
           {totalDays > 0 && (
-            <ProgressCard doneDays={doneDays} totalDays={totalDays} />
+            <RNAnimated.View entering={FadeInDown.duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}>
+              <ProgressCard doneDays={doneDays} totalDays={totalDays} />
+            </RNAnimated.View>
           )}
 
           {/* Block phase tabs — plans > 3 weeks only */}
           {showBlockTabs && (
-            <BlockTabs
-              weeks={weeks}
-              blockSize={blockSize}
-              selectedBlock={selectedBlock}
-              onSelect={(blockIdx) => {
-                const firstWeek = blockIdx * blockSize;
-                if (!isWeekUnlocked(firstWeek)) {
-                  showToast({ message: "Complete previous weeks to unlock this phase.", type: "info" });
-                  return;
-                }
-                setSelectedWeek(firstWeek);
-              }}
-            />
+            <RNAnimated.View entering={FadeInDown.delay(80).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}>
+              <BlockTabs
+                weeks={weeks}
+                blockSize={blockSize}
+                selectedBlock={selectedBlock}
+                onSelect={(blockIdx) => {
+                  const firstWeek = blockIdx * blockSize;
+                  if (!isWeekUnlocked(firstWeek)) {
+                    showToast({ message: "Complete previous weeks to unlock this phase.", type: "info" });
+                    return;
+                  }
+                  setSelectedWeek(firstWeek);
+                }}
+              />
+            </RNAnimated.View>
           )}
 
           {/* Week stepper */}
           {showStepper && (
-            <WeekStepper
-              weeksInBlock={weeksInBlock}
-              selectedWeekInBlock={selectedWeekInBlock}
-              canGoPrev={selectedWeek > 0}
-              canGoNext={selectedWeek < weeks.length - 1}
-              onPrev={() => setSelectedWeek((w) => Math.max(0, w - 1))}
-              onNext={() => {
-                const next = selectedWeek + 1;
-                if (next >= weeks.length) return;
-                if (!isWeekUnlocked(next)) {
-                  showToast({ message: `Complete all days in ${activeWeek?.week} first.`, type: "info" });
-                  return;
-                }
-                setSelectedWeek(next);
-              }}
-              isDayCompleted={isDayCompleted}
-            />
+            <RNAnimated.View entering={FadeInDown.delay(160).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}>
+              <WeekStepper
+                weeksInBlock={weeksInBlock}
+                selectedWeekInBlock={selectedWeekInBlock}
+                canGoPrev={selectedWeek > 0}
+                canGoNext={selectedWeek < weeks.length - 1}
+                onPrev={() => setSelectedWeek((w) => Math.max(0, w - 1))}
+                onNext={() => {
+                  const next = selectedWeek + 1;
+                  if (next >= weeks.length) return;
+                  if (!isWeekUnlocked(next)) {
+                    showToast({ message: `Complete all days in ${activeWeek?.week} first.`, type: "info" });
+                    return;
+                  }
+                  setSelectedWeek(next);
+                }}
+                isDayCompleted={isDayCompleted}
+              />
+            </RNAnimated.View>
           )}
 
           {/* Phase context banner */}
-          {currentBlockName && <BlockBanner blockName={currentBlockName} />}
+          {currentBlockName && (
+            <RNAnimated.View entering={FadeInDown.delay(220).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}>
+              <BlockBanner blockName={currentBlockName} />
+            </RNAnimated.View>
+          )}
 
           {/* Day cards */}
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -849,7 +921,7 @@ export default function PlanScreen() {
               return (
                 <RNAnimated.View
                   key={dayGroup.day}
-                  entering={FadeInDown.delay(dayIdx * 60).duration(300)}
+                  entering={FadeInDown.delay(280 + dayIdx * 50).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
                   style={{ marginBottom: 10 }}
                 >
                   <DayCard
