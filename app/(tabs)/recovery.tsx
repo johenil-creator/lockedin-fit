@@ -1960,7 +1960,7 @@ const styles = StyleSheet.create({
   readinessRowTrack: { flex: 1, height: 8, borderRadius: radius.full, overflow: 'hidden' },
   readinessRowFill: { height: '100%', borderRadius: radius.full },
   readinessRowScore: { width: 32, fontSize: 14, fontWeight: '700', textAlign: 'right' },
-  readinessRowScoreBold: { width: 32, fontSize: 16, fontWeight: '800', textAlign: 'right' },
+  readinessRowScoreBold: { width: 32, fontSize: 14, fontWeight: '700', textAlign: 'right' },
   // ── Training load ─────────────────────────────────────────────────────────
   acwrTrack: {
     height: 8,

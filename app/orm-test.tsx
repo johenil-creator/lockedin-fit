@@ -17,9 +17,12 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useProfileContext } from "../contexts/ProfileContext";
+import { usePlanContext } from "../contexts/PlanContext";
+import { useWorkouts } from "../hooks/useWorkouts";
 import { useOrmTest } from "../hooks/useOrmTest";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useLocke } from "../contexts/LockeContext";
+import { useToast } from "../contexts/ToastContext";
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
@@ -78,6 +81,9 @@ export default function OrmTestScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
   const { profile, updateProfile } = useProfileContext();
+  const { exercises, recalculateWeights } = usePlanContext();
+  const { workouts } = useWorkouts();
+  const { showToast } = useToast();
   const ormTest = useOrmTest(updateProfile);
   const { fire } = useLocke();
 
@@ -222,7 +228,26 @@ export default function OrmTestScreen() {
     setIsSaving(true);
     try {
       await ormTest.finishTest();
-      navigateOut();
+
+      if (exercises.length > 0) {
+        Alert.alert(
+          "Update Plan Weights",
+          "Update your plan weights with your new 1RM data?",
+          [
+            { text: "Skip", style: "cancel", onPress: () => navigateOut() },
+            {
+              text: "Update",
+              onPress: async () => {
+                const count = await recalculateWeights(profile, workouts);
+                if (count > 0) showToast({ message: `Updated weights for ${count} exercise${count !== 1 ? "s" : ""}`, type: "success" });
+                navigateOut();
+              },
+            },
+          ]
+        );
+      } else {
+        navigateOut();
+      }
     } catch (e) {
       setIsSaving(false);
       Alert.alert("Save Failed", e instanceof Error ? e.message : "Could not save results. Please try again.");

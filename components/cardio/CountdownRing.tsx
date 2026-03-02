@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { Text, Pressable, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedProps,
@@ -12,7 +12,6 @@ import Animated, {
 import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { useAppTheme } from "../../contexts/ThemeContext";
-import { LockeMascot } from "../Locke/LockeMascot";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -144,11 +143,6 @@ export function CountdownRing({ visible, onComplete }: Props) {
         </Text>
       </Animated.View>
 
-      {/* Locke mascot below ring */}
-      <View style={styles.mascotWrap}>
-        <LockeMascot size={56} mood="encouraging" />
-      </View>
-
       {/* Skip */}
       <Pressable onPress={onComplete} style={styles.skipBtn}>
         <Text style={[styles.skipText, { color: theme.colors.muted }]}>Skip</Text>
@@ -176,9 +170,6 @@ const styles = StyleSheet.create({
     fontSize: 96,
     fontWeight: "700",
     letterSpacing: -2,
-  },
-  mascotWrap: {
-    marginTop: 24,
   },
   skipBtn: {
     position: "absolute",

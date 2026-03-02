@@ -28,7 +28,7 @@ import type { DailySnapshot, MuscleGroup } from '../../lib/types';
 const MAX_WEEKS = 12;
 const MAX_DAYS = MAX_WEEKS * 7;
 
-const PAD = { top: 12, right: 12, bottom: 32, left: 36 } as const;
+const PAD = { top: 12, right: 16, bottom: 32, left: 36 } as const;
 
 const Y_TICKS = [0, 25, 50, 75, 100] as const;
 
@@ -127,7 +127,7 @@ function RecoveryTrendGraphInner({
 }: RecoveryTrendGraphProps) {
   const { theme, isDark } = useAppTheme();
   const { width: screenWidth } = useWindowDimensions();
-  const width = widthProp ?? screenWidth - 32;
+  const width = widthProp ?? screenWidth - 68;
 
   // Fade-in on mount — one animated node
   const fadeOpacity = useSharedValue(0);

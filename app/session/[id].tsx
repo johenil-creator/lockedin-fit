@@ -27,6 +27,7 @@ import { usePerformance } from "../../hooks/usePerformance";
 import { buildPerformanceWeek, upsertPerformanceWeek, isoWeekKey } from "../../lib/performanceScore";
 import { useIconMood } from "../../hooks/useIconMood";
 import { awardSessionXP, buildWorkoutCompleteParams } from "../../lib/xpService";
+import { checkBadges } from "../../lib/badgeService";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
@@ -61,6 +62,7 @@ import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { useRestTimers } from "../../hooks/useRestTimers";
 import { useProfileContext } from "../../contexts/ProfileContext";
+import { useToast } from "../../contexts/ToastContext";
 import { makeId } from "../../lib/helpers";
 import type {
   WorkoutSession,
@@ -239,7 +241,8 @@ export default function SessionScreen() {
   const { recordActivity } = useStreak();
   const { performance, savePerformanceRecord } = usePerformance();
   const { checkIconMood } = useIconMood();
-  const { profile } = useProfileContext();
+  const { profile, updateProfile } = useProfileContext();
+  const { showToast } = useToast();
   const sessionUnit = profile.weightUnit === "lbs" ? "lbs" : "kg";
   const [pickerVisible, setPickerVisible] = useState(false);
   const [manualName, setManualName] = useState("");
@@ -321,6 +324,79 @@ export default function SessionScreen() {
       entries.forEach((e: ExerciseCatalogEntry) => addCustomEntry(e));
     });
   }, []);
+
+  // ── Auto-recalculate weights when 1RM data becomes available ──────────────
+  const ormRecalcDone = useRef(false);
+  useEffect(() => {
+    if (!session?.isActive || ormRecalcDone.current) return;
+    const m = profile.manual1RM;
+    const has1RM = !!(m?.deadlift || m?.squat || m?.bench || m?.ohp);
+    if (!has1RM) return;
+
+    // Find exercises that could upgrade to ORM-based weights
+    const upgradeable = session.exercises.filter((ex) => ex.loadSource !== 'orm');
+    if (upgradeable.length === 0) return;
+
+    const weekMatch = session.name.match(/Week\s*(\d+)/i);
+    const weekStr = weekMatch ? `Week ${weekMatch[1]}` : "Week 1";
+
+    let updatedCount = 0;
+    const updatedExercises = session.exercises.map((ex) => {
+      if (ex.loadSource === 'orm') return ex;
+
+      const load = resolveExerciseLoad({
+        exerciseName: ex.name,
+        weekStr,
+        profile,
+        workouts,
+        workingSetCount: ex.sets.filter((s) => !s.isWarmUp).length || 3,
+        targetReps: ex.sets.find((s) => !s.isWarmUp)?.reps || "5",
+        plannedWarmUpCount: ex.warmUpSets ?? 0,
+      });
+
+      if (load.source !== 'orm') return ex;
+
+      // Rebuild warm-up sets from the load engine (replace incomplete ones)
+      const oldWarmUps = ex.sets.filter((s) => s.isWarmUp);
+      let newWarmUps: SetEntry[];
+      if (load.warmUps.length > 0) {
+        newWarmUps = load.warmUps.map((wu, i) => {
+          const old = oldWarmUps[i];
+          // Keep completed warm-ups as-is
+          if (old?.completed) return old;
+          return { reps: wu.reps, weight: wu.weight, completed: false, isWarmUp: true as const };
+        });
+      } else {
+        newWarmUps = oldWarmUps; // no engine warm-ups — keep existing
+      }
+
+      // Update working set weights (skip already-completed sets)
+      const oldWorkingSets = ex.sets.filter((s) => !s.isWarmUp);
+      const newWorkingSets = oldWorkingSets.map((set, i) => {
+        if (set.completed) return set;
+        const newWeight = load.workingSets[i]?.weight;
+        return newWeight ? { ...set, weight: newWeight } : set;
+      });
+
+      updatedCount++;
+      return {
+        ...ex,
+        sets: [...newWarmUps, ...newWorkingSets],
+        warmUpSets: newWarmUps.length,
+        loadSource: 'orm' as const,
+        targetRPE: load.targetRPE,
+      };
+    });
+
+    if (updatedCount > 0) {
+      ormRecalcDone.current = true;
+      updateWorkout({ ...session, exercises: updatedExercises });
+      showToast({
+        message: `Updated weights for ${updatedCount} exercise${updatedCount !== 1 ? "s" : ""} with your 1RM data`,
+        type: "success",
+      });
+    }
+  }, [session?.isActive, profile.manual1RM]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // If the active exercise was removed, reset to list view
   useEffect(() => {
@@ -1091,6 +1167,19 @@ export default function SessionScreen() {
                             );
                             await setXPRecord(xpResult.updatedRecord);
 
+                            // ── Badges ─────────────────────────────────────
+                            const newBadges = checkBadges({
+                              session: completed,
+                              allWorkouts: [...workouts.filter((w) => w.id !== completed.id), completed],
+                              profile,
+                              streakDays: newStreak.current,
+                            });
+                            if (newBadges.length > 0) {
+                              await updateProfile({
+                                badges: [...(profile.badges ?? []), ...newBadges],
+                              });
+                            }
+
                             // ── Performance week ────────────────────────────────
                             const weekRecord = buildPerformanceWeek(
                               isoWeekKey(new Date()),
@@ -1125,6 +1214,9 @@ export default function SessionScreen() {
                               isPR,
                               newStreak.current
                             );
+                            if (newBadges.length > 0) {
+                              params.newBadges = newBadges;
+                            }
                             router.replace({
                               pathname: "/workout-complete",
                               params: {

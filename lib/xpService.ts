@@ -5,7 +5,8 @@ import { rankForXP, didRankUp, rankProgress, xpToNextRank, nextRank } from "./ra
 
 export const XP_AWARDS = {
   PER_SET_COMPLETED:  2,
-  SESSION_COMPLETE:  15,
+  SESSION_BASE:       5,   // minimum session bonus (requires ≥1 completed set)
+  SESSION_MAX:       15,   // maximum session bonus (full workout)
   PR_HIT:            10,
   STREAK_3_DAYS:      5,
   STREAK_7_DAYS:     10,
@@ -15,6 +16,13 @@ export const XP_AWARDS = {
   STREAK_100_DAYS:  300,
   RANK_UP:           20,
 } as const;
+
+/** Duration bonus tiers — reward longer sessions */
+const DURATION_TIERS: [number, number][] = [
+  [45 * 60, 5],  // 45+ min → +5 XP
+  [30 * 60, 3],  // 30+ min → +3 XP
+  [15 * 60, 1],  // 15+ min → +1 XP
+];
 
 /** Streak milestones: [days, xp, label] */
 const STREAK_MILESTONES: [number, number, string][] = [
@@ -93,9 +101,9 @@ export function awardSessionXP(
   let current = record;
 
   // 1. XP per completed set
-  const completedSets = session.exercises
-    .flatMap((e) => e.sets)
-    .filter((s) => s.completed).length;
+  const allSets = session.exercises.flatMap((e) => e.sets);
+  const completedSets = allSets.filter((s) => s.completed).length;
+  const totalSets = allSets.length;
 
   if (completedSets > 0) {
     const setXP = completedSets * XP_AWARDS.PER_SET_COMPLETED;
@@ -103,17 +111,38 @@ export function awardSessionXP(
     breakdown.push({ reason: `${completedSets} sets`, amount: setXP });
   }
 
-  // 2. Session completion bonus
-  current = applyXP(current, XP_AWARDS.SESSION_COMPLETE, "Session complete");
-  breakdown.push({ reason: "Session complete", amount: XP_AWARDS.SESSION_COMPLETE });
+  // 2. Session completion bonus — scaled by completion % (0 sets = 0 XP)
+  if (completedSets > 0) {
+    const completionPct = totalSets > 0 ? completedSets / totalSets : 0;
+    const sessionXP = Math.round(
+      XP_AWARDS.SESSION_BASE + (XP_AWARDS.SESSION_MAX - XP_AWARDS.SESSION_BASE) * completionPct
+    );
+    current = applyXP(current, sessionXP, "Session complete");
+    breakdown.push({ reason: "Session complete", amount: sessionXP });
+  }
 
-  // 3. PR bonus
+  // 3. Duration bonus — reward time invested
+  const startMs = session.startedAt ? new Date(session.startedAt).getTime() : 0;
+  const endMs = session.completedAt ? new Date(session.completedAt).getTime() : Date.now();
+  const durationSec = startMs > 0 ? Math.floor((endMs - startMs) / 1000) : 0;
+
+  if (completedSets > 0 && durationSec > 0) {
+    for (const [threshold, xp] of DURATION_TIERS) {
+      if (durationSec >= threshold) {
+        current = applyXP(current, xp, `${Math.floor(threshold / 60)}+ min session`);
+        breakdown.push({ reason: `${Math.floor(threshold / 60)}+ min`, amount: xp });
+        break; // only award the highest tier
+      }
+    }
+  }
+
+  // 4. PR bonus
   if (isPR) {
     current = applyXP(current, XP_AWARDS.PR_HIT, "Personal record");
     breakdown.push({ reason: "Personal record", amount: XP_AWARDS.PR_HIT });
   }
 
-  // 4. Streak milestones — award any milestone crossed that hasn't been awarded yet.
+  // 5. Streak milestones — award any milestone crossed that hasn't been awarded yet.
   // Uses persistent awardedMilestones array (not history, which is truncated to 200).
   const awardedMilestones = new Set(current.awardedMilestones ?? []);
   for (const [days, xp, label] of STREAK_MILESTONES) {
@@ -124,7 +153,7 @@ export function awardSessionXP(
     }
   }
 
-  // 5. Rank-up bonus (applied after all other XP so threshold can be crossed)
+  // 6. Rank-up bonus (applied after all other XP so threshold can be crossed)
   const rankedUp = didRankUp(oldTotal, current.total);
   if (rankedUp) {
     current = applyXP(current, XP_AWARDS.RANK_UP, `Ranked up to ${current.rank}`);

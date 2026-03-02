@@ -568,8 +568,8 @@ export default function PlanScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { planName, exercises, loading, clearPlan, isDayCompleted, completedDays, setPlan } = usePlanContext();
-  const { startSessionFromPlan, getActiveSession } = useWorkouts();
+  const { planName, exercises, loading, clearPlan, isDayCompleted, completedDays, setPlan, recalculateWeights } = usePlanContext();
+  const { workouts, startSessionFromPlan, getActiveSession } = useWorkouts();
   const { profile } = useProfileContext();
   const { showToast } = useToast();
 
@@ -579,6 +579,8 @@ export default function PlanScreen() {
   const [importing, setImporting]                 = useState(false);
   const [startingDay, setStartingDay]             = useState<string | null>(null);
   const [expandedDays, setExpandedDays]           = useState<Record<string, boolean>>({});
+  const [recalculating, setRecalculating]         = useState(false);
+  const [ormPromptData, setOrmPromptData]         = useState<{ week: string; day: string; exs: Exercise[] } | null>(null);
 
 
   const weeks = useMemo(() => groupByWeekDay(exercises), [exercises]);
@@ -759,6 +761,18 @@ export default function PlanScreen() {
     ]);
   }
 
+  async function doStartSession(week: string, day: string, exs: Exercise[]) {
+    setStartingDay(`${week}|${day}`);
+    try {
+      const id = await startSessionFromPlan(planName || "Workout", week, day, exs, profile);
+      router.push(`/session/${id}`);
+    } catch (e) {
+      Alert.alert("Couldn't start session", e instanceof Error ? e.message : "Please try again.");
+    } finally {
+      setStartingDay(null);
+    }
+  }
+
   async function launchSession(week: string, day: string, exs: Exercise[]) {
     if (exs.length === 0) { showToast({ message: "This day has no exercises.", type: "error" }); return; }
     const active = getActiveSession();
@@ -773,14 +787,33 @@ export default function PlanScreen() {
       );
       return;
     }
-    setStartingDay(`${week}|${day}`);
+
+    if (!has1RM) {
+      setOrmPromptData({ week, day, exs });
+      return;
+    }
+
+    doStartSession(week, day, exs);
+  }
+
+  const has1RM = useMemo(() => {
+    const m = profile.manual1RM;
+    return !!(m?.deadlift || m?.squat || m?.bench || m?.ohp);
+  }, [profile.manual1RM]);
+
+  async function handleRecalculate() {
+    setRecalculating(true);
     try {
-      const id = await startSessionFromPlan(planName || "Workout", week, day, exs, profile);
-      router.push(`/session/${id}`);
-    } catch (e) {
-      Alert.alert("Couldn't start session", e instanceof Error ? e.message : "Please try again.");
+      const count = await recalculateWeights(profile, workouts);
+      if (count > 0) {
+        showToast({ message: `Updated weights for ${count} exercise${count !== 1 ? "s" : ""}`, type: "success" });
+      } else {
+        showToast({ message: "All weights are already up to date", type: "info" });
+      }
+    } catch {
+      showToast({ message: "Failed to recalculate weights", type: "error" });
     } finally {
-      setStartingDay(null);
+      setRecalculating(false);
     }
   }
 
@@ -816,6 +849,17 @@ export default function PlanScreen() {
           )}
         </View>
         <View style={styles.headerActions}>
+          {exercises.length > 0 && has1RM && (
+            <Pressable
+              onPress={handleRecalculate}
+              disabled={recalculating}
+              style={[styles.iconBtn, { backgroundColor: theme.colors.mutedBg, opacity: recalculating ? 0.5 : 1 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Recalculate weights"
+            >
+              <Ionicons name="refresh-outline" size={16} color={theme.colors.muted} />
+            </Pressable>
+          )}
           {exercises.length > 0 && (
             <Pressable
               onPress={handleClear}
@@ -974,6 +1018,55 @@ export default function PlanScreen() {
         </View>
       </AppBottomSheet>
 
+      {/* 1RM setup prompt bottom sheet */}
+      <AppBottomSheet
+        visible={!!ormPromptData}
+        onClose={() => setOrmPromptData(null)}
+        snapPoints={["58%"]}
+      >
+        <View style={ormStyles.container}>
+          <LockeMascot size={100} mood="savage" />
+          <Text style={[ormStyles.title, { color: theme.colors.text }]}>
+            Set Up Your Lifts First
+          </Text>
+          <Text style={[ormStyles.subtitle, { color: theme.colors.muted }]}>
+            Your big 4 lifts aren't configured yet. Adding your 1RM data lets me calculate accurate weights for every exercise.
+          </Text>
+          <View style={ormStyles.buttons}>
+            <Pressable
+              style={[ormStyles.optionCard, { backgroundColor: theme.colors.primary + "15", borderColor: theme.colors.primary }]}
+              onPress={() => { setOrmPromptData(null); router.push("/orm-test?source=retake"); }}
+            >
+              <Ionicons name="barbell-outline" size={22} color={theme.colors.primary} />
+              <View style={ormStyles.optionText}>
+                <Text style={[ormStyles.optionLabel, { color: theme.colors.primary }]}>Take 1RM Test</Text>
+                <Text style={[ormStyles.optionHint, { color: theme.colors.muted }]}>Guided protocol, most accurate</Text>
+              </View>
+            </Pressable>
+            <Pressable
+              style={[ormStyles.optionCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+              onPress={() => { setOrmPromptData(null); router.push("/onboarding?retake=1&step=manual"); }}
+            >
+              <Ionicons name="create-outline" size={22} color={theme.colors.text} />
+              <View style={ormStyles.optionText}>
+                <Text style={[ormStyles.optionLabel, { color: theme.colors.text }]}>Enter Manually</Text>
+                <Text style={[ormStyles.optionHint, { color: theme.colors.muted }]}>Quick if you know your numbers</Text>
+              </View>
+            </Pressable>
+          </View>
+          <Pressable
+            style={ormStyles.skipBtn}
+            onPress={() => {
+              const data = ormPromptData;
+              setOrmPromptData(null);
+              if (data) doStartSession(data.week, data.day, data.exs);
+            }}
+          >
+            <Text style={[ormStyles.skipText, { color: theme.colors.muted }]}>Skip for now</Text>
+          </Pressable>
+        </View>
+      </AppBottomSheet>
+
     </View>
   );
 }
@@ -1008,4 +1101,17 @@ const styles = StyleSheet.create({
   modalHint:    { fontSize: 13, marginBottom: spacing.md },
   input:        { borderRadius: radius.md, padding: 14, fontSize: 14, marginBottom: spacing.md },
   modalActions: { flexDirection: "row" },
+});
+
+const ormStyles = StyleSheet.create({
+  container:   { alignItems: "center", paddingHorizontal: spacing.lg },
+  title:       { fontSize: 20, fontWeight: "700", marginTop: 12, textAlign: "center" },
+  subtitle:    { fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 6, marginBottom: 20, paddingHorizontal: 8 },
+  buttons:     { width: "100%", gap: 10 },
+  optionCard:  { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1.5, paddingVertical: 14, paddingHorizontal: 16 },
+  optionText:  { flex: 1 },
+  optionLabel: { fontSize: 15, fontWeight: "700" },
+  optionHint:  { fontSize: 12, marginTop: 2 },
+  skipBtn:     { marginTop: 14, paddingVertical: 8 },
+  skipText:    { fontSize: 14, fontWeight: "600" },
 });

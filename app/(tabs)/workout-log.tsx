@@ -8,7 +8,8 @@ import {
   RefreshControl,
   FlatList,
 } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 import { Swipeable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,6 +20,7 @@ import { getExerciseProgress, getUniqueExerciseNames } from "../../lib/progress"
 import { ProgressChart } from "../../components/ProgressChart";
 import { Card } from "../../components/Card";
 import { EmptyState } from "../../components/EmptyState";
+import { LockeMascot } from "../../components/Locke/LockeMascot";
 import { CalendarGrid } from "../../components/CalendarGrid";
 import { Skeleton } from "../../components/Skeleton";
 import { useAppTheme } from "../../contexts/ThemeContext";
@@ -148,11 +150,35 @@ export default function WorkoutLogScreen() {
               </View>
 
               {displayedWorkouts.length === 0 ? (
-                <EmptyState
-                  icon="📋"
-                  title={selectedDate ? "No sessions on this day" : "No workouts yet"}
-                  subtitle={selectedDate ? "Tap another day or clear the filter." : "Start a workout from your plan to see it here."}
-                />
+                selectedDate ? (
+                  <EmptyState
+                    icon="📅"
+                    title="No sessions on this day"
+                    subtitle="Tap another day or clear the filter."
+                  />
+                ) : (
+                  <Animated.View entering={FadeIn.duration(400)} style={emptyStyles.wrap}>
+                    <LockeMascot size={140} mood="encouraging" />
+                    <View style={[emptyStyles.bubble, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                      <View style={[emptyStyles.bubbleTail, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} />
+                      <Text style={[emptyStyles.bubbleTitle, { color: theme.colors.text }]}>
+                        Your log is empty
+                      </Text>
+                      <Text style={[emptyStyles.bubbleSub, { color: theme.colors.muted }]}>
+                        Every session you complete will show up here. Let's get started.
+                      </Text>
+                    </View>
+                    <Animated.View entering={FadeInDown.delay(200).duration(350)} style={emptyStyles.actions}>
+                      <Pressable
+                        style={[emptyStyles.actionCard, { backgroundColor: theme.colors.primary + "15", borderColor: theme.colors.primary }]}
+                        onPress={() => router.push("/(tabs)/plan")}
+                      >
+                        <Ionicons name="calendar-outline" size={22} color={theme.colors.primary} />
+                        <Text style={[emptyStyles.actionLabel, { color: theme.colors.primary }]}>Go to My Plan</Text>
+                      </Pressable>
+                    </Animated.View>
+                  </Animated.View>
+                )
               ) : (
                 displayedWorkouts.map((item, index) => (
                   <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(300)}>
@@ -361,4 +387,62 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 },
   metricToggle: { flexDirection: "row", gap: 8, marginBottom: 16 },
   metricPill: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999 },
+});
+
+const emptyStyles = StyleSheet.create({
+  wrap: {
+    alignItems: "center",
+    paddingTop: spacing.lg,
+    paddingBottom: 64,
+  },
+  bubble: {
+    maxWidth: 280,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    marginTop: -4,
+  },
+  bubbleTail: {
+    position: "absolute",
+    top: -7,
+    width: 14,
+    height: 14,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 2,
+    transform: [{ rotate: "45deg" }],
+  },
+  bubbleTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  bubbleSub: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.sm,
+  },
+  actionCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 6,
+  },
+  actionLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
 });

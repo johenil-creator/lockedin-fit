@@ -311,7 +311,7 @@ function NoPlanCard({
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** 1RM baseline CTA — shown when !has1RM. */
-function BaselineCTA({ onTake }: { onTake: () => void }) {
+function BaselineCTA({ onTake, onManual }: { onTake: () => void; onManual: () => void }) {
   const { theme } = useAppTheme();
   return (
     <View
@@ -320,15 +320,34 @@ function BaselineCTA({ onTake }: { onTake: () => void }) {
         { backgroundColor: theme.colors.surface, borderColor: theme.colors.accent },
       ]}
     >
-      <LockeMascot size={140} mood="encouraging" />
+      <LockeMascot size={110} mood="encouraging" />
       <Text style={[styles.baselineTitle, { color: theme.colors.text }]}>
         Set your baseline
       </Text>
       <Text style={[styles.baselineSub, { color: theme.colors.muted }]}>
-        Take the 1RM test so I can track your progress and set smart targets.
+        Add your 1RM data so I can track your progress and set smart targets.
       </Text>
       <View style={styles.baselineBtnWrap}>
-        <Button label="Take 1RM Test" onPress={onTake} />
+        <Pressable
+          style={[styles.baselineOption, { backgroundColor: theme.colors.primary + "15", borderColor: theme.colors.primary }]}
+          onPress={onTake}
+        >
+          <Ionicons name="barbell-outline" size={20} color={theme.colors.primary} />
+          <View style={styles.baselineOptionText}>
+            <Text style={[styles.baselineOptionLabel, { color: theme.colors.primary }]}>Take 1RM Test</Text>
+            <Text style={[styles.baselineOptionHint, { color: theme.colors.muted }]}>Guided protocol, most accurate</Text>
+          </View>
+        </Pressable>
+        <Pressable
+          style={[styles.baselineOption, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+          onPress={onManual}
+        >
+          <Ionicons name="create-outline" size={20} color={theme.colors.text} />
+          <View style={styles.baselineOptionText}>
+            <Text style={[styles.baselineOptionLabel, { color: theme.colors.text }]}>Enter Manually</Text>
+            <Text style={[styles.baselineOptionHint, { color: theme.colors.muted }]}>Quick if you know your numbers</Text>
+          </View>
+        </Pressable>
       </View>
     </View>
   );
@@ -711,6 +730,13 @@ export default function HomeScreen() {
 
   // ── Start session handler ─────────────────────────────────────────────────
 
+  const doStartPlanSession = useCallback(async (next: { week: string; day: string; exercises: import("../../lib/types").Exercise[] }) => {
+    const id = await startSessionFromPlan(
+      planName || "Workout", next.week, next.day, next.exercises, profile
+    );
+    router.push(`/session/${id}`);
+  }, [startSessionFromPlan, planName, profile, router]);
+
   const handleStartSession = useCallback(async () => {
     const active = getActiveSession();
     if (active) { router.push(`/session/${active.id}`); return; }
@@ -735,13 +761,24 @@ export default function HomeScreen() {
       );
       return;
     }
-    const id = await startSessionFromPlan(
-      planName || "Workout", next.week, next.day, next.exercises, profile
-    );
-    router.push(`/session/${id}`);
+
+    if (!has1RM) {
+      Alert.alert(
+        "No 1RM Data",
+        "Your big 4 lifts aren't set up yet. Weights will be more accurate with your 1RM data.",
+        [
+          { text: "Start Anyway", style: "cancel", onPress: () => doStartPlanSession(next) },
+          { text: "Enter Manually", onPress: () => router.push("/onboarding?retake=1&step=manual") },
+          { text: "Take 1RM Test", onPress: () => router.push("/orm-test?source=home") },
+        ]
+      );
+      return;
+    }
+
+    doStartPlanSession(next);
   }, [
     getActiveSession, getNextPlanDay, isPlanComplete, planExercises,
-    isDayCompleted, startSessionFromPlan, planName, profile, router,
+    isDayCompleted, doStartPlanSession, has1RM, router,
   ]);
 
   // ── Quick actions ─────────────────────────────────────────────────────────
@@ -816,7 +853,12 @@ export default function HomeScreen() {
         {/* Locke banner from session-end events */}
         <LockeBanner />
 
-        {/* 4. TODAY'S WORKOUT CARD (PRIMARY CTA) */}
+        {/* 4. 1RM BASELINE CTA */}
+        {!has1RM && profile.onboardingComplete && (
+          <BaselineCTA onTake={() => router.push("/orm-test?source=home")} onManual={() => router.push("/onboarding?retake=1&step=manual")} />
+        )}
+
+        {/* 5. TODAY'S WORKOUT CARD (PRIMARY CTA) */}
         {planExercises.length > 0 ? (
           <TodayWorkoutCard
             planName={planName || "Workout"}
@@ -834,11 +876,6 @@ export default function HomeScreen() {
             onQuick={() => router.push("/start-session")}
             onImport={() => router.push("/plan")}
           />
-        )}
-
-        {/* 5. 1RM BASELINE CTA */}
-        {!has1RM && profile.onboardingComplete && (
-          <BaselineCTA onTake={() => router.push("/orm-test?source=home")} />
         )}
 
         {/* 6. QUICK ACTIONS ROW */}
@@ -979,14 +1016,19 @@ const styles = StyleSheet.create({
   baselineCard: {
     borderWidth: 1.5,
     borderRadius: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     marginBottom: 16,
     alignItems: "center",
   },
-  baselineTitle: { fontSize: 17, fontWeight: "700", marginTop: 8, marginBottom: 4 },
-  baselineSub:   { fontSize: 13, lineHeight: 18, textAlign: "center" },
-  baselineBtnWrap: { alignSelf: "stretch", marginTop: 16 },
+  baselineTitle: { fontSize: 17, fontWeight: "700", marginTop: 4, marginBottom: 4 },
+  baselineSub:   { fontSize: 13, lineHeight: 18, textAlign: "center", marginBottom: 4 },
+  baselineBtnWrap: { alignSelf: "stretch", marginTop: 12, gap: 10 },
+  baselineOption: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1.5, paddingVertical: 12, paddingHorizontal: 16 },
+  baselineOptionText: { flex: 1 },
+  baselineOptionLabel: { fontSize: 15, fontWeight: "700" },
+  baselineOptionHint: { fontSize: 12, marginTop: 2 },
 
   // Section label
   sectionLabel: {

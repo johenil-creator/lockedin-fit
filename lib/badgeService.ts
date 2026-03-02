@@ -93,7 +93,8 @@ export function checkBadges(input: {
   profile: UserProfile;
   streakDays: number;
 }): Badge[] {
-  const { allWorkouts, profile, streakDays } = input;
+  const { session, allWorkouts, profile, streakDays } = input;
+  const isCardio = session.sessionType === "cardio";
 
   // Build set of already-unlocked badge IDs
   const existing = profile.badges;
@@ -106,7 +107,7 @@ export function checkBadges(input: {
     (w) => w.sessionType === "cardio"
   );
   const strengthSessions = allWorkouts.filter(
-    (w) => w.sessionType !== "cardio"
+    (w) => w.sessionType === "strength" || (w.sessionType !== "cardio" && w.exercises.some((e) => e.sets.some((s) => s.completed)))
   );
 
   const totalCompletedSets = allWorkouts.reduce((sum, w) => {
@@ -121,21 +122,24 @@ export function checkBadges(input: {
     Object.values(profile.estimated1RM).some((v) => v != null && v !== "");
 
   // Condition evaluators keyed by badge ID
+  // Session-type-specific badges only fire when the current session matches.
   const conditions: Record<string, () => boolean> = {
-    first_run:         () => cardioSessions.length >= 1,
-    "5k_finisher":     () => cardioSessions.some((w) => (w.cardioDistanceKm ?? 0) >= 5),
+    first_run:         () => isCardio && cardioSessions.length >= 1,
+    "5k_finisher":     () => isCardio && cardioSessions.some((w) => (w.cardioDistanceKm ?? 0) >= 5),
     "60_min_beast":    () =>
+      isCardio &&
       cardioSessions.some(
         (w) => Math.floor((w.cardioDurationMs ?? 0) / 60000) >= 60
       ),
     interval_warrior:  () =>
+      isCardio &&
       cardioSessions.some(
         (w) =>
           w.cardioGoalType === "intervals" &&
           (w.cardioIntervalsCompleted ?? 0) >= 10
       ),
-    consistent_cardio: () => cardioSessions.length >= 5,
-    first_lift:        () => strengthSessions.length >= 1,
+    consistent_cardio: () => isCardio && cardioSessions.length >= 5,
+    first_lift:        () => !isCardio && strengthSessions.length >= 1,
     "100_sets_club":   () => totalCompletedSets >= 100,
     "1rm_breaker":     () => has1RM,
     streak_7:          () => streakDays >= 7,

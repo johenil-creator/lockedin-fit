@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
-import type { Exercise } from "../lib/types";
+import type { Exercise, UserProfile, WorkoutSession } from "../lib/types";
 import { loadPlan, savePlan, clearPlan as clearPlanStorage, loadPlanProgress, savePlanProgress } from "../lib/storage";
+import { resolveExerciseLoad } from "../lib/loadEngine";
 
 type PlanContextValue = {
   planName: string;
@@ -13,6 +14,7 @@ type PlanContextValue = {
   isDayCompleted: (week: string, day: string) => boolean;
   isPlanComplete: boolean;
   totalPlanDays: number;
+  recalculateWeights: (profile: UserProfile, workouts: WorkoutSession[]) => Promise<number>;
 };
 
 const PlanCtx = createContext<PlanContextValue>({
@@ -26,6 +28,7 @@ const PlanCtx = createContext<PlanContextValue>({
   isDayCompleted: () => false,
   isPlanComplete: false,
   totalPlanDays: 0,
+  recalculateWeights: async () => 0,
 });
 
 export function PlanProvider({ children }: { children: React.ReactNode }) {
@@ -76,6 +79,42 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     return !!completedDays[`${week}|${day}`];
   }, [completedDays]);
 
+  const recalculateWeights = useCallback(async (profile: UserProfile, workouts: WorkoutSession[]): Promise<number> => {
+    if (exercises.length === 0) return 0;
+
+    let updatedCount = 0;
+    const updated = exercises.map((ex) => {
+      const weekStr = ex.week || "Week 1";
+      const workingSetCount = parseInt(ex.sets, 10) || 3;
+      const targetReps = ex.reps || "5";
+
+      const load = resolveExerciseLoad({
+        exerciseName: ex.exercise,
+        weekStr,
+        profile,
+        workouts,
+        workingSetCount,
+        targetReps,
+        plannedWarmUpCount: parseInt(ex.warmUpSets ?? "0", 10) || 0,
+      });
+
+      if (load.source === 'orm' && load.workingSets.length > 0 && load.workingSets[0].weight) {
+        const newWeight = load.workingSets[0].weight;
+        if (newWeight !== ex.weight) {
+          updatedCount++;
+          return { ...ex, weight: newWeight };
+        }
+      }
+      return ex;
+    });
+
+    if (updatedCount > 0) {
+      setExercises(updated);
+      await savePlan({ name: planName, data: updated });
+    }
+    return updatedCount;
+  }, [exercises, planName]);
+
   // Compute total unique plan days and whether all are complete
   const { isPlanComplete, totalPlanDays } = useMemo(() => {
     if (exercises.length === 0) return { isPlanComplete: false, totalPlanDays: 0 };
@@ -89,7 +128,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
   }, [exercises, completedDays]);
 
   return (
-    <PlanCtx.Provider value={{ planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted, isPlanComplete, totalPlanDays }}>
+    <PlanCtx.Provider value={{ planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted, isPlanComplete, totalPlanDays, recalculateWeights }}>
       {children}
     </PlanCtx.Provider>
   );

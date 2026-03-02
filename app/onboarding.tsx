@@ -7,6 +7,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
   StyleSheet as RNStyleSheet,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,8 +15,11 @@ import { LockeMascot } from "../components/Locke/LockeMascot";
 import type { LockeMascotMood } from "../components/Locke/LockeMascot";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useProfileContext } from "../contexts/ProfileContext";
+import { usePlanContext } from "../contexts/PlanContext";
+import { useWorkouts } from "../hooks/useWorkouts";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useLocke } from "../contexts/LockeContext";
+import { useToast } from "../contexts/ToastContext";
 import { Button } from "../components/Button";
 import { WelcomeStep } from "../components/onboarding/WelcomeStep";
 import { NameStep } from "../components/onboarding/NameStep";
@@ -67,12 +71,17 @@ const dotStyles = RNStyleSheet.create({
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { retake } = useLocalSearchParams<{ retake?: string }>();
+  const { retake, step: startStep } = useLocalSearchParams<{ retake?: string; step?: string }>();
   const { theme } = useAppTheme();
-  const { updateProfile } = useProfileContext();
+  const { updateProfile, profile } = useProfileContext();
   const { fire } = useLocke();
+  const { exercises, recalculateWeights } = usePlanContext();
+  const { workouts } = useWorkouts();
+  const { showToast } = useToast();
 
-  const [step, setStep] = useState<StepKey>(retake === "1" ? "explain" : "welcome");
+  const [step, setStep] = useState<StepKey>(
+    startStep === "manual" ? "unit" : retake === "1" ? "explain" : "welcome"
+  );
   const [lockeMood, setLockeMood] = useState<LockeMascotMood>("neutral");
 
   useEffect(() => {
@@ -100,8 +109,29 @@ export default function OnboardingScreen() {
         if (key) manual1RM[key] = val;
       }
     }
-    await updateProfile({ name: userName.trim(), weight: "", weightUnit: unit, manual1RM, onboardingComplete: true });
-    router.replace("/");
+    const updatedProfile = { ...profile, name: userName.trim(), weight: "", weightUnit: unit, manual1RM, onboardingComplete: true };
+    await updateProfile(updatedProfile);
+
+    const has1RM = Object.values(manual1RM).some((v) => v && parseFloat(v) > 0);
+    if (has1RM && exercises.length > 0) {
+      Alert.alert(
+        "Update Plan Weights",
+        "Update your plan weights with your new 1RM data?",
+        [
+          { text: "Skip", style: "cancel", onPress: () => router.replace("/") },
+          {
+            text: "Update",
+            onPress: async () => {
+              const count = await recalculateWeights(updatedProfile as any, workouts);
+              if (count > 0) showToast({ message: `Updated weights for ${count} exercise${count !== 1 ? "s" : ""}`, type: "success" });
+              router.replace("/");
+            },
+          },
+        ]
+      );
+    } else {
+      router.replace("/");
+    }
   }
 
   // ── Extracted steps ─────────────────────────────────────────────────────────

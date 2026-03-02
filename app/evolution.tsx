@@ -282,7 +282,7 @@ export default function EvolutionScreen() {
   })();
 
   const rankUpTips = [
-    { text: "Complete a workout session", xp: `+${XP_AWARDS.SESSION_COMPLETE} XP` },
+    { text: "Complete a workout session", xp: `+${XP_AWARDS.SESSION_BASE}–${XP_AWARDS.SESSION_MAX} XP` },
     { text: "Hit a personal record",     xp: `+${XP_AWARDS.PR_HIT} XP` },
     { text: "Build a 3-day streak",      xp: `+${XP_AWARDS.STREAK_3_DAYS} XP` },
     { text: "Build a 7-day streak",      xp: `+${XP_AWARDS.STREAK_7_DAYS} XP` },

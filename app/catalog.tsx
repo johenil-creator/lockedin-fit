@@ -17,6 +17,9 @@ import { useAppTheme } from "../contexts/ThemeContext";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { Button } from "../components/Button";
 import { BackButton } from "../components/BackButton";
+import { AppBottomSheet } from "../components/AppBottomSheet";
+import { LockeMascot } from "../components/Locke/LockeMascot";
+import { spacing } from "../lib/theme";
 import type { CatalogPlan } from "../lib/types";
 
 // ── Difficulty chip ────────────────────────────────────────────────────────────
@@ -125,10 +128,11 @@ function getDayPreviews(plan: CatalogPlan): { day: string; exercises: string[] }
 
 // ── Plan Card ─────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, startSessionFromPlan, getActiveSession }: {
+function PlanCard({ plan, startSessionFromPlan, getActiveSession, onNeed1RM }: {
   plan: CatalogPlan;
   startSessionFromPlan: ReturnType<typeof useWorkouts>["startSessionFromPlan"];
   getActiveSession: ReturnType<typeof useWorkouts>["getActiveSession"];
+  onNeed1RM: (startAnyway: () => void) => void;
 }) {
   const router = useRouter();
   const { theme } = useAppTheme();
@@ -196,19 +200,29 @@ function PlanCard({ plan, startSessionFromPlan, getActiveSession }: {
       }
     }
 
+    function promptOrStart() {
+      const m = profile.manual1RM;
+      const has1RM = !!(m?.deadlift || m?.squat || m?.bench || m?.ohp);
+      if (!has1RM) {
+        onNeed1RM(doStart);
+        return;
+      }
+      doStart();
+    }
+
     if (currentExercises.length > 0) {
       Alert.alert(
         "Replace Plan?",
         `Replace "${currentPlanName}"? Your progress will be reset.`,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Replace & Start", style: "destructive", onPress: doStart },
+          { text: "Replace & Start", style: "destructive", onPress: promptOrStart },
         ]
       );
       return;
     }
 
-    await doStart();
+    promptOrStart();
   }
 
   return (
@@ -316,11 +330,13 @@ const DIFFICULTY_OPTIONS = ["All", "Beginner", "Intermediate", "Advanced"] as co
 const DAYS_OPTIONS = [3, 4, 5, 6] as const;
 
 export default function CatalogScreen() {
+  const router = useRouter();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { startSessionFromPlan, getActiveSession } = useWorkouts();
   const [difficultyFilter, setDifficultyFilter] = useState<string>("All");
   const [daysFilter, setDaysFilter] = useState<number | null>(null);
+  const [ormPrompt, setOrmPrompt] = useState<{ startAnyway: () => void } | null>(null);
 
   const filtered = useMemo(
     () => CATALOG_PLANS.filter(p => {
@@ -400,11 +416,60 @@ export default function CatalogScreen() {
           </View>
         ) : (
           filtered.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} startSessionFromPlan={startSessionFromPlan} getActiveSession={getActiveSession} />
+            <PlanCard key={plan.id} plan={plan} startSessionFromPlan={startSessionFromPlan} getActiveSession={getActiveSession} onNeed1RM={(startAnyway) => setOrmPrompt({ startAnyway })} />
           ))
         )}
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* 1RM setup prompt bottom sheet */}
+      <AppBottomSheet
+        visible={!!ormPrompt}
+        onClose={() => setOrmPrompt(null)}
+        snapPoints={["58%"]}
+      >
+        <View style={ormStyles.container}>
+          <LockeMascot size={100} mood="savage" />
+          <Text style={[ormStyles.title, { color: theme.colors.text }]}>
+            Set Up Your Lifts First
+          </Text>
+          <Text style={[ormStyles.subtitle, { color: theme.colors.muted }]}>
+            Your big 4 lifts aren't configured yet. Adding your 1RM data lets me calculate accurate weights for every exercise.
+          </Text>
+          <View style={ormStyles.buttons}>
+            <Pressable
+              style={[ormStyles.optionCard, { backgroundColor: theme.colors.primary + "15", borderColor: theme.colors.primary }]}
+              onPress={() => { setOrmPrompt(null); router.push("/orm-test?source=retake"); }}
+            >
+              <Ionicons name="barbell-outline" size={22} color={theme.colors.primary} />
+              <View style={ormStyles.optionText}>
+                <Text style={[ormStyles.optionLabel, { color: theme.colors.primary }]}>Take 1RM Test</Text>
+                <Text style={[ormStyles.optionHint, { color: theme.colors.muted }]}>Guided protocol, most accurate</Text>
+              </View>
+            </Pressable>
+            <Pressable
+              style={[ormStyles.optionCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+              onPress={() => { setOrmPrompt(null); router.push("/onboarding?retake=1&step=manual"); }}
+            >
+              <Ionicons name="create-outline" size={22} color={theme.colors.text} />
+              <View style={ormStyles.optionText}>
+                <Text style={[ormStyles.optionLabel, { color: theme.colors.text }]}>Enter Manually</Text>
+                <Text style={[ormStyles.optionHint, { color: theme.colors.muted }]}>Quick if you know your numbers</Text>
+              </View>
+            </Pressable>
+          </View>
+          <Pressable
+            style={ormStyles.skipBtn}
+            onPress={() => {
+              const cb = ormPrompt?.startAnyway;
+              setOrmPrompt(null);
+              cb?.();
+            }}
+          >
+            <Text style={[ormStyles.skipText, { color: theme.colors.muted }]}>Skip for now</Text>
+          </Pressable>
+        </View>
+      </AppBottomSheet>
     </View>
   );
 }
@@ -499,4 +564,17 @@ const styles = StyleSheet.create({
   filterDivider: { width: 1, alignSelf: "stretch", marginHorizontal: 4, opacity: 0.4 },
   noResults: { paddingVertical: 40, alignItems: "center" },
   noResultsText: { fontSize: 14 },
+});
+
+const ormStyles = StyleSheet.create({
+  container:   { alignItems: "center", paddingHorizontal: spacing.lg },
+  title:       { fontSize: 20, fontWeight: "700", marginTop: 12, textAlign: "center" },
+  subtitle:    { fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 6, marginBottom: 20, paddingHorizontal: 8 },
+  buttons:     { width: "100%", gap: 10 },
+  optionCard:  { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1.5, paddingVertical: 14, paddingHorizontal: 16 },
+  optionText:  { flex: 1 },
+  optionLabel: { fontSize: 15, fontWeight: "700" },
+  optionHint:  { fontSize: 12, marginTop: 2 },
+  skipBtn:     { marginTop: 14, paddingVertical: 8 },
+  skipText:    { fontSize: 14, fontWeight: "600" },
 });

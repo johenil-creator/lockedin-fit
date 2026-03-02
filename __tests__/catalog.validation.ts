@@ -561,22 +561,28 @@ test("Working set count matches workingSetCount parameter", () => {
 
 console.log("\n── 7. XP Calculation ──\n");
 
-function buildCompletedSession(setsCount: number): WorkoutSession {
-  const sets: SetEntry[] = Array.from({ length: setsCount }, () => ({
+function buildCompletedSession(setsCount: number, totalSets?: number): WorkoutSession {
+  const completed: SetEntry[] = Array.from({ length: setsCount }, () => ({
     reps: "8",
     weight: "60",
     completed: true,
   }));
+  const incomplete: SetEntry[] = Array.from({ length: (totalSets ?? setsCount) - setsCount }, () => ({
+    reps: "8",
+    weight: "60",
+    completed: false,
+  }));
   const ex: SessionExercise = {
     exerciseId: "barbell_squat",
     name: "Barbell Squat",
-    sets,
+    sets: [...completed, ...incomplete],
   };
   return {
     id: "session-test",
     name: "Test Session",
     date: new Date().toISOString(),
     exercises: [ex],
+    startedAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),
   };
 }
@@ -585,8 +591,15 @@ test("Session with 5 completed sets awards correct XP", () => {
   const session = buildCompletedSession(5);
   const result = awardSessionXP(defaultXPRecord(), session, false, 1);
   const expectedSetXP = 5 * XP_AWARDS.PER_SET_COMPLETED;
-  const expectedTotal = expectedSetXP + XP_AWARDS.SESSION_COMPLETE;
+  // 100% completion → full session bonus (SESSION_MAX)
+  const expectedTotal = expectedSetXP + XP_AWARDS.SESSION_MAX;
   assertEqual(result.awarded, expectedTotal, `Expected ${expectedTotal} XP for 5-set session`);
+});
+
+test("Session with 0 completed sets awards 0 XP", () => {
+  const session = buildCompletedSession(0, 5);
+  const result = awardSessionXP(defaultXPRecord(), session, false, 1);
+  assertEqual(result.awarded, 0, "Expected 0 XP for empty session");
 });
 
 test("PR bonus adds XP_AWARDS.PR_HIT when isPR=true", () => {
