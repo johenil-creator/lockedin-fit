@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Alert,
   Pressable,
+  Share,
+  Clipboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -20,6 +22,9 @@ import { RankEvolutionPath } from "../../components/RankEvolutionPath";
 import { Button } from "../../components/Button";
 import { Skeleton } from "../../components/Skeleton";
 import { useHealthKit } from "../../hooks/useHealthKit";
+import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
+import type { Friend } from "../../lib/types";
 
 const BIG_4 = [
   { key: "deadlift" as const, label: "Deadlift" },
@@ -27,6 +32,16 @@ const BIG_4 = [
   { key: "ohp" as const, label: "Overhead Press" },
   { key: "bench" as const, label: "Bench Press" },
 ];
+
+const FRIEND_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I ambiguity
+
+function generateFriendCode(): string {
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += FRIEND_CODE_CHARS[Math.floor(Math.random() * FRIEND_CODE_CHARS.length)];
+  }
+  return code;
+}
 
 function calcEpley(weight: number, reps: number): number {
   if (reps <= 0 || weight <= 0) return 0;
@@ -46,7 +61,9 @@ export default function ProfileScreen() {
   const [name, setName] = useState("");
   const [weight, setWeight] = useState("");
   const [manualOverrides, setManualOverrides] = useState<Record<string, string>>({});
-
+  const [friendInput, setFriendInput] = useState("");
+  const [friendError, setFriendError] = useState("");
+  const [copyFlash, setCopyFlash] = useState(false);
 
   useEffect(() => {
     if (!profileLoading) {
@@ -71,6 +88,59 @@ export default function ProfileScreen() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs only when profile loads or 1RM changes
   }, [profileLoading, profile.manual1RM, hkAvailable]);
+
+  // Generate friend code once if missing
+  useEffect(() => {
+    if (!profileLoading && !profile.friendCode) {
+      updateProfile({ friendCode: generateFriendCode() });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileLoading]);
+
+  const myCode = profile.friendCode ?? "";
+  const friends: Friend[] = profile.friends ?? [];
+
+  function handleCopyCode() {
+    if (!myCode) return;
+    Clipboard.setString(myCode);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCopyFlash(true);
+    setTimeout(() => setCopyFlash(false), 1500);
+  }
+
+  async function handleShareCode() {
+    if (!myCode) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Share.share({
+      message: `Add me on LockedInFIT! My friend code is: ${myCode}`,
+    });
+  }
+
+  function handleAddFriend() {
+    setFriendError("");
+    const code = friendInput.trim().toUpperCase();
+    if (!code || code.length !== 6 || !/^[A-Z0-9]{6}$/.test(code)) {
+      setFriendError("Enter a valid 6-character code.");
+      return;
+    }
+    if (code === myCode) {
+      setFriendError("That's your own code!");
+      return;
+    }
+    if (friends.some((f) => f.code === code)) {
+      setFriendError("Already added.");
+      return;
+    }
+    const newFriend: Friend = { code, addedAt: new Date().toISOString() };
+    updateProfile({ friends: [...friends, newFriend] });
+    setFriendInput("");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  function handleRemoveFriend(code: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateProfile({ friends: friends.filter((f) => f.code !== code) });
+  }
 
   const estimated1RMs = useMemo(() => {
     const results: Record<string, number> = {};
@@ -101,7 +171,6 @@ export default function ProfileScreen() {
     return results;
   }, [workouts, profile.manual1RM, profile.estimated1RM]);
 
-
   function handleWeightBlur() {
     updateProfile({ weight });
   }
@@ -111,7 +180,6 @@ export default function ProfileScreen() {
       manual1RM: { ...profile.manual1RM, [key]: manualOverrides[key] },
     });
   }
-
 
   function handleClearData() {
     Alert.alert(
@@ -209,7 +277,97 @@ export default function ProfileScreen() {
         progress={progress}
       />
 
-      {/* Section 3: 1RM Tracker */}
+      {/* Section 3: Friends */}
+      <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          Friends
+        </Text>
+
+        {/* Your Code */}
+        <Text style={[typography.small, { color: theme.colors.muted, fontWeight: "500", marginBottom: 6 }]}>
+          Your Code
+        </Text>
+        <View style={styles.codeRow}>
+          <View style={[styles.codeBadge, { backgroundColor: theme.colors.mutedBg }]}>
+            <Text style={[styles.codeText, { color: theme.colors.accent }]}>
+              {myCode || "------"}
+            </Text>
+          </View>
+          <Pressable onPress={handleCopyCode} style={styles.iconBtn} hitSlop={8}>
+            <Ionicons
+              name={copyFlash ? "checkmark-circle" : "copy-outline"}
+              size={22}
+              color={copyFlash ? theme.colors.accent : theme.colors.muted}
+            />
+          </Pressable>
+          <Pressable onPress={handleShareCode} style={styles.iconBtn} hitSlop={8}>
+            <Ionicons name="share-outline" size={22} color={theme.colors.muted} />
+          </Pressable>
+        </View>
+
+        {/* Add a Friend */}
+        <Text style={[typography.small, { color: theme.colors.muted, fontWeight: "500", marginBottom: 6, marginTop: spacing.md }]}>
+          Add a Friend
+        </Text>
+        <View style={styles.addRow}>
+          <TextInput
+            style={[
+              styles.input,
+              styles.friendInput,
+              { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: friendError ? theme.colors.danger : theme.colors.border },
+            ]}
+            value={friendInput}
+            onChangeText={(val) => {
+              setFriendInput(val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6));
+              if (friendError) setFriendError("");
+            }}
+            placeholder="Enter code"
+            placeholderTextColor="#BDC4CE"
+            autoCapitalize="characters"
+            maxLength={6}
+            returnKeyType="done"
+            onSubmitEditing={handleAddFriend}
+          />
+          <Pressable
+            onPress={handleAddFriend}
+            style={[styles.addBtn, { backgroundColor: theme.colors.accent }]}
+          >
+            <Ionicons name="add" size={22} color="#fff" />
+          </Pressable>
+        </View>
+        {friendError ? (
+          <Text style={[typography.caption, { color: theme.colors.danger, marginTop: 4 }]}>
+            {friendError}
+          </Text>
+        ) : null}
+
+        {/* Friend List */}
+        {friends.length === 0 ? (
+          <Text style={[typography.caption, { color: theme.colors.muted, marginTop: spacing.md, textAlign: "center" }]}>
+            No friends yet — share your code and add theirs!
+          </Text>
+        ) : (
+          <View style={{ marginTop: spacing.md }}>
+            {friends.map((f) => (
+              <View key={f.code} style={[styles.friendRow, { borderBottomColor: theme.colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[typography.body, { color: theme.colors.text, fontWeight: "600" }]}>
+                    {f.nickname ?? f.code}
+                  </Text>
+                  {f.nickname ? (
+                    <Text style={[typography.caption, { color: theme.colors.muted }]}>{f.code}</Text>
+                  ) : null}
+                </View>
+                <Pressable onPress={() => handleRemoveFriend(f.code)} hitSlop={8}>
+                  <Ionicons name="close-circle-outline" size={22} color={theme.colors.danger} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Section 4: 1RM Tracker */}
       <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
         <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
           Big 4 Lifts — Est. 1RM
@@ -253,7 +411,7 @@ export default function ProfileScreen() {
         />
       </View>
 
-      {/* Section 4: Danger Zone */}
+      {/* Section 5: Danger Zone */}
       <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.danger, borderWidth: 1.5 }]}>
         <Text style={[typography.subheading, { color: theme.colors.danger, marginBottom: spacing.sm }]}>
           Danger Zone
@@ -325,5 +483,46 @@ const styles = StyleSheet.create({
   },
   gearBtn: {
     padding: 12,
+  },
+  codeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  codeBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+  },
+  codeText: {
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: 4,
+    fontVariant: ["tabular-nums"],
+  },
+  iconBtn: {
+    padding: 6,
+  },
+  addRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  friendInput: {
+    flex: 1,
+    letterSpacing: 2,
+  },
+  addBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  friendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
 });

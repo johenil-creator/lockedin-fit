@@ -175,26 +175,60 @@ export function calculateWorkingWeight(
 
 /**
  * Build graduated warm-up sets from 50% of 1RM up to ~5% below working
- * intensity, stepping in 10% increments. Modifier-aware.
+ * intensity. Produces exactly `count` sets, evenly spaced across the range.
  */
 export function buildWarmUpSets(
   orm: number,
   modifierFraction: number,
   workingIntensity: number,
   unit: 'kg' | 'lbs',
+  count: number = 4,
 ): { weight: string; reps: string }[] {
-  const warmUps: { weight: string; reps: string }[] = [];
-  let pct = 0.50;
-  const cap = workingIntensity - 0.05;
-  let repIndex = 0;
+  return buildGraduatedWarmUps(orm * modifierFraction, 0.50, workingIntensity - 0.05, count, unit);
+}
 
-  while (pct <= cap && repIndex < WARM_UP_REPS.length) {
-    const w = roundToPlate(orm * modifierFraction * pct, unit);
-    if (w > 0) {
-      warmUps.push({ weight: String(w), reps: String(WARM_UP_REPS[repIndex]) });
-    }
-    pct += 0.10;
-    repIndex++;
+/**
+ * Build graduated warm-up sets from a known working weight (no 1RM needed).
+ * Used by Tiers 2 & 3 where we don't have a direct ORM but do have a target weight.
+ * Produces exactly `count` sets ramping from 40% to 85% of working weight.
+ */
+export function buildWarmUpsFromWorkingWeight(
+  workingWeight: number,
+  unit: 'kg' | 'lbs',
+  count: number = 3,
+): { weight: string; reps: string }[] {
+  return buildGraduatedWarmUps(workingWeight, 0.40, 0.85, count, unit);
+}
+
+/**
+ * Shared helper: generates exactly `count` warm-up sets evenly spaced
+ * between `lowPct` and `highPct` of `baseWeight`, with descending reps.
+ */
+function buildGraduatedWarmUps(
+  baseWeight: number,
+  lowPct: number,
+  highPct: number,
+  count: number,
+  unit: 'kg' | 'lbs',
+): { weight: string; reps: string }[] {
+  if (count <= 0 || baseWeight <= 0) return [];
+
+  // Descending rep scheme: first warm-up is lightest/most reps, last is heaviest/fewest
+  const REP_POOL = [12, 10, 8, 6, 5, 3, 2, 1];
+  // Pick `count` reps spread across the pool
+  const reps: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const idx = Math.round((i / Math.max(count - 1, 1)) * (Math.min(count, REP_POOL.length) - 1));
+    reps.push(REP_POOL[idx]);
+  }
+
+  const step = count === 1 ? 0 : (highPct - lowPct) / (count - 1);
+  const warmUps: { weight: string; reps: string }[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const pct = lowPct + step * i;
+    const w = roundToPlate(baseWeight * pct, unit);
+    warmUps.push({ weight: String(Math.max(w, 0)), reps: String(reps[i]) });
   }
 
   return warmUps;

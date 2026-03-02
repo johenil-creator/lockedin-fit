@@ -139,14 +139,14 @@ export function useWorkouts() {
             if (load && load.workingSets.length > 0) {
               workingSets = load.workingSets.map((ws) => ({
                 reps: ws.reps,
-                weight: ex.weight || ws.weight,
+                weight: ws.weight,
                 completed: false,
               }));
             } else {
-              // No autofill — use plan weight or empty
+              // No autofill — load engine will fill when 1RM data is available
               workingSets = Array.from({ length: workingSetCount }, () => ({
                 reps: targetReps,
-                weight: ex.weight || "",
+                weight: "",
                 completed: false,
               }));
             }

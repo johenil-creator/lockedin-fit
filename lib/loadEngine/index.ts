@@ -8,6 +8,7 @@ import {
   get1RM,
   calculateWorkingWeight,
   buildWarmUpSets,
+  buildWarmUpsFromWorkingWeight,
   getLastUsedWeight,
   applyRPEProgression,
   roundToPlate,
@@ -90,7 +91,7 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
 
       if (workingWeight !== null && workingWeight > 0) {
         const warmUps = plannedWarmUpCount > 0
-          ? buildWarmUpSets(orm, classification.modifier.fraction, prescription.intensity, unit)
+          ? buildWarmUpSets(orm, classification.modifier.fraction, prescription.intensity, unit, plannedWarmUpCount)
           : [];
 
         const workingSets = Array.from({ length: workingSetCount }, () => ({
@@ -117,6 +118,10 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
     if (!isNaN(lastNum) && lastNum > 0) {
       const adjusted = applyRPEProgression(lastNum, prescription.rpe, unit);
 
+      const warmUps = plannedWarmUpCount > 0
+        ? buildWarmUpsFromWorkingWeight(adjusted, unit, plannedWarmUpCount)
+        : [];
+
       const workingSets = Array.from({ length: workingSetCount }, () => ({
         weight: String(adjusted),
         reps: targetReps,
@@ -125,7 +130,7 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
       return {
         workingWeight: adjusted,
         source: "rpe-estimate",
-        warmUps: [],
+        warmUps,
         workingSets,
         targetRPE: prescription.rpe,
         classification,
@@ -141,6 +146,10 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
     const estimate = estimatePatternWeight(profile, classification.pattern, blockMultiplier);
 
     if (estimate !== null && estimate.weight > 0) {
+      const warmUps = plannedWarmUpCount > 0
+        ? buildWarmUpsFromWorkingWeight(estimate.weight, unit, plannedWarmUpCount)
+        : [];
+
       const workingSets = Array.from({ length: workingSetCount }, () => ({
         weight: String(estimate.weight),
         reps: targetReps,
@@ -149,7 +158,7 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
       return {
         workingWeight: estimate.weight,
         source: "rpe-estimate", // closest semantic source — it's an estimate
-        warmUps: [],
+        warmUps,
         workingSets,
         targetRPE: prescription.rpe,
         classification,

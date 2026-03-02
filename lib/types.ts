@@ -129,6 +129,16 @@ export type UserProfile = {
   hapticsEnabled?: boolean;    // global haptics toggle (default true)
   cardioPRs?: CardioPRs;
   badges?: Badge[];
+  friendCode?: string;
+  friends?: Friend[];
+};
+
+// ── Friends ─────────────────────────────────────────────────────────────────
+
+export type Friend = {
+  code: string;
+  addedAt: string;
+  nickname?: string;
 };
 
 // ── 1RM Test Session ────────────────────────────────────────────────────────

@@ -170,7 +170,7 @@ export function smartParse(rawInput: unknown[][]): Exercise[] {
       exercise:   cleaned || cellEx,
       sets:       cell(row, setCol),
       reps:       cell(row, repCol),
-      weight:     cell(row, wtCol),
+      weight:     "",              // always ignored — app uses its own 1RM / load engine
       comments:   cell(row, ntCol),
       warmUpSets: cell(row, wuCol),
       restTime:   cell(row, rtCol),
@@ -268,9 +268,12 @@ export function parseJsonPlan(
   try {
     const parsed: unknown = JSON.parse(jsonText);
 
+    const stripWeights = (exs: Exercise[]) =>
+      exs.map((e) => ({ ...e, weight: "" }));
+
     if (Array.isArray(parsed)) {
       if (!parsed.every(isExerciseLike)) return null;
-      return { name: "Imported Plan", exercises: parsed as Exercise[] };
+      return { name: "Imported Plan", exercises: stripWeights(parsed as Exercise[]) };
     }
 
     if (
@@ -283,7 +286,7 @@ export function parseJsonPlan(
       if (!obj.exercises || !(obj.exercises as unknown[]).every(isExerciseLike)) return null;
       return {
         name: typeof obj.name === "string" ? obj.name : "Imported Plan",
-        exercises: obj.exercises as Exercise[],
+        exercises: stripWeights(obj.exercises as Exercise[]),
       };
     }
 
