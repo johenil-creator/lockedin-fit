@@ -3,12 +3,16 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedProps,
+  useAnimatedStyle,
   withTiming,
+  withSpring,
   FadeIn,
   Easing,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
+import { useAppTheme } from "../../contexts/ThemeContext";
+import { LockeMascot } from "../Locke/LockeMascot";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -16,7 +20,6 @@ const RING_SIZE = 160;
 const STROKE = 6;
 const R = (RING_SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
-const TOTAL_BEATS = 4; // 3, 2, 1, GO
 
 type Props = {
   visible: boolean;
@@ -24,8 +27,10 @@ type Props = {
 };
 
 export function CountdownRing({ visible, onComplete }: Props) {
+  const { theme } = useAppTheme();
   const [beat, setBeat] = useState(0); // 0=3, 1=2, 2=1, 3=GO
   const progress = useSharedValue(0); // 0→1 over the full countdown
+  const beatScale = useSharedValue(1);
 
   useEffect(() => {
     if (!visible) return;
@@ -34,9 +39,15 @@ export function CountdownRing({ visible, onComplete }: Props) {
 
     const timers: ReturnType<typeof setTimeout>[] = [];
 
+    function punchScale() {
+      beatScale.value = 1.15;
+      beatScale.value = withSpring(1, { damping: 12, stiffness: 300 });
+    }
+
     // Beat 0 → "3" (immediate)
     progress.value = withTiming(0.25, { duration: 800, easing: Easing.linear });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    punchScale();
 
     // Beat 1 → "2"
     timers.push(
@@ -44,6 +55,7 @@ export function CountdownRing({ visible, onComplete }: Props) {
         setBeat(1);
         progress.value = withTiming(0.5, { duration: 800, easing: Easing.linear });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        punchScale();
       }, 800)
     );
 
@@ -53,6 +65,7 @@ export function CountdownRing({ visible, onComplete }: Props) {
         setBeat(2);
         progress.value = withTiming(0.75, { duration: 800, easing: Easing.linear });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        punchScale();
       }, 1600)
     );
 
@@ -62,6 +75,7 @@ export function CountdownRing({ visible, onComplete }: Props) {
         setBeat(3);
         progress.value = withTiming(1, { duration: 800, easing: Easing.linear });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        punchScale();
       }, 2400)
     );
 
@@ -75,6 +89,10 @@ export function CountdownRing({ visible, onComplete }: Props) {
     strokeDashoffset: CIRCUMFERENCE * (1 - progress.value),
   }));
 
+  const scaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: beatScale.value }],
+  }));
+
   if (!visible) return null;
 
   const labels = ["3", "2", "1", "GO"];
@@ -82,16 +100,19 @@ export function CountdownRing({ visible, onComplete }: Props) {
   const isGo = beat === 3;
 
   return (
-    <Animated.View entering={FadeIn.duration(150)} style={styles.overlay}>
+    <Animated.View
+      entering={FadeIn.duration(150)}
+      style={[styles.overlay, { backgroundColor: theme.colors.bg }]}
+    >
       {/* SVG ring */}
-      <View style={styles.ringWrap}>
+      <Animated.View style={[styles.ringWrap, scaleStyle]}>
         <Svg width={RING_SIZE} height={RING_SIZE} style={styles.svg}>
           {/* Track */}
           <Circle
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}
             r={R}
-            stroke="#1C1C1E"
+            stroke={theme.colors.border}
             strokeWidth={STROKE}
             fill="none"
           />
@@ -100,7 +121,7 @@ export function CountdownRing({ visible, onComplete }: Props) {
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}
             r={R}
-            stroke="#30D158"
+            stroke={theme.colors.primary}
             strokeWidth={STROKE}
             fill="none"
             strokeLinecap="round"
@@ -114,15 +135,23 @@ export function CountdownRing({ visible, onComplete }: Props) {
         {/* Centered number */}
         <Text
           key={beat}
-          style={[styles.number, { color: isGo ? "#30D158" : "#FFFFFF" }]}
+          style={[
+            styles.number,
+            { color: isGo ? theme.colors.primary : theme.colors.text },
+          ]}
         >
           {label}
         </Text>
+      </Animated.View>
+
+      {/* Locke mascot below ring */}
+      <View style={styles.mascotWrap}>
+        <LockeMascot size={56} mood="encouraging" />
       </View>
 
       {/* Skip */}
       <Pressable onPress={onComplete} style={styles.skipBtn}>
-        <Text style={styles.skipText}>Skip</Text>
+        <Text style={[styles.skipText, { color: theme.colors.muted }]}>Skip</Text>
       </Pressable>
     </Animated.View>
   );
@@ -131,7 +160,6 @@ export function CountdownRing({ visible, onComplete }: Props) {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#000000",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -149,6 +177,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -2,
   },
+  mascotWrap: {
+    marginTop: 24,
+  },
   skipBtn: {
     position: "absolute",
     bottom: 60,
@@ -157,6 +188,5 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#98989D",
   },
 });

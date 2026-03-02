@@ -21,7 +21,9 @@
     "babel-preset-expo": "^54.0.10",
     "expo": "~54.0.33",
     "expo-asset": "~12.0.12",
+    "expo-auth-session": "~7.0.10",
     "expo-constants": "~18.0.13",
+    "expo-crypto": "~15.0.8",
     "expo-custom-assets": "^1.5.0",
     "expo-document-picker": "^14.0.8",
     "expo-file-system": "^19.0.21",
@@ -29,7 +31,9 @@
     "expo-linking": "~8.0.11",
     "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.23",
+    "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
+    "expo-web-browser": "~15.0.10",
     "papaparse": "^5.5.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -42,7 +46,7 @@
     "react-native-svg": "15.12.1",
     "react-native-worklets": "0.5.1",
     "rive-react-native": "^9.8.0",
-    "xlsx": "^0.20.3"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

@@ -90,10 +90,8 @@ function PresetCard({
   }));
 
   return (
-    <Animated.View
-      entering={FadeIn.delay(index * 30).duration(250)}
-      style={animStyle}
-    >
+    <Animated.View entering={FadeIn.delay(index * 30).duration(250)}>
+      <Animated.View style={animStyle}>
       <Pressable
         style={[
           styles.presetCard,
@@ -152,6 +150,7 @@ function PresetCard({
           </View>
         </View>
       </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 }

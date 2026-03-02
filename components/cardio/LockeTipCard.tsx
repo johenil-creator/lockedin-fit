@@ -2,7 +2,7 @@
  * LockeTipCard.tsx — Collapsible coaching tip card for the cardio session screen.
  *
  * Shows Locke's form cues for the active modality.
- * Starts expanded; tap anywhere to collapse/expand.
+ * Starts collapsed; tap anywhere to collapse/expand.
  * Entry animation: FadeInDown on mount.
  */
 
@@ -33,10 +33,10 @@ type Props = {
 export function LockeTipCard({ modality }: Props) {
   const { theme } = useAppTheme();
   const tip = getLockeTip(modality);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   // Height animation for collapse/expand
-  const contentHeight = useSharedValue(1);
+  const contentHeight = useSharedValue(0);
 
   const contentStyle = useAnimatedStyle(() => ({
     overflow: "hidden",

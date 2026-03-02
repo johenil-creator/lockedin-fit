@@ -46,7 +46,7 @@ import Animated, {
 
 // Gentle section entrance — short fade + subtle 8px slide, no spring bounce
 const sectionEnter = (delay: number) =>
-  FadeInDown.delay(delay).duration(350).damping(20).stiffness(150).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] });
+  FadeInDown.delay(delay).duration(350).damping(20).stiffness(150);
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../contexts/ThemeContext';
@@ -457,22 +457,21 @@ const BreakdownPill = React.memo(function BreakdownPill({
   }, [scale]);
 
   return (
-    <Animated.View
-      entering={sectionEnter(enterDelay ?? 0)}
-      style={[styles.pill, animStyle]}
-    >
-      <Pressable
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={[
-          styles.pillInner,
-          { borderColor: color + '55', backgroundColor: color + '18' },
-        ]}
-      >
-        <Text style={[styles.pillValue, { color }]}>{value}</Text>
-        <Text style={[styles.pillLabel, { color: theme.colors.muted }]}>{label}</Text>
-      </Pressable>
+    <Animated.View entering={sectionEnter(enterDelay ?? 0)} style={styles.pill}>
+      <Animated.View style={animStyle}>
+        <Pressable
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          style={[
+            styles.pillInner,
+            { borderColor: color + '55', backgroundColor: color + '18' },
+          ]}
+        >
+          <Text style={[styles.pillValue, { color }]}>{value}</Text>
+          <Text style={[styles.pillLabel, { color: theme.colors.muted }]}>{label}</Text>
+        </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 });
@@ -1055,7 +1054,7 @@ const ReadinessRow = React.memo(function ReadinessRow({
           {Math.round(score.score)}
         </Text>
         {score.label && (
-          <Text style={[styles.readinessRowStatusText, { color: score.color }]}>
+          <Text style={[styles.readinessRowStatusText, { color: score.color }]} numberOfLines={1}>
             {score.label}
           </Text>
         )}
@@ -2230,7 +2229,7 @@ const styles = StyleSheet.create({
   },
   // ── Readiness row score block ──────────────────────────────────────────────
   readinessRowScoreBlock: {
-    width: 58,
+    width: 72,
     alignItems: 'flex-end',
     gap: 1,
   },

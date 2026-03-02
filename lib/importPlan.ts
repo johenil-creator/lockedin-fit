@@ -62,9 +62,14 @@ export function looksLikeHtml(text: string): boolean {
  *     - The column just before "exercise" carries day-session labels (e.g. "FULL BODY 1:").
  *     - Forward-fill currentWeek and currentDay.
  */
-export function smartParse(rawRows: string[][]): Exercise[] {
+export function smartParse(rawInput: unknown[][]): Exercise[] {
+  // Normalize: ensure every row is a dense array of strings (no nulls, numbers, or holes)
+  const rawRows: string[][] = rawInput
+    .filter((r): r is unknown[] => Array.isArray(r))
+    .map(row => Array.from({ length: row.length }, (_, i) => String(row[i] ?? "")));
+
   const cell = (row: string[], i: number) =>
-    i >= 0 && i < row.length ? (row[i] ?? "").trim() : "";
+    i >= 0 && i < row.length ? row[i].trim() : "";
 
   // 1. Find header row
   let hIdx = -1;

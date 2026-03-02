@@ -2,6 +2,7 @@
   "expo": {
     "name": "LockedIn FIT",
     "slug": "lockedinfit",
+    "owner": "johenilh",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/icon_default.png",
@@ -14,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.LockedInFit",
+      "bundleIdentifier": "com.johenilhernandez.LockedInFit",
       "icon": "./assets/icons/icon_default.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -28,13 +29,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.lockedinfit"
+      "package": "com.johenilhernandez.lockedinfit"
     },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "lockedinfit",
+    "scheme": ["lockedinfit", "com.googleusercontent.apps.177992048804-gukij19ltkpa66qkao4j5d8ud0lkds46"],
     "plugins": [
       "expo-router",
       "./plugins/withAlternateIcons",

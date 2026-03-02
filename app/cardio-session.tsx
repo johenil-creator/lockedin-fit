@@ -2,7 +2,7 @@
  * app/cardio-session.tsx — Active cardio session screen.
  *
  * Open-ended timer with live calorie + distance estimates.
- * Apple Workout-style: pure black, left-aligned colored metrics, dual controls.
+ * LockedInFIT branded: themed dark surface, viridian accents, Locke mascot.
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -31,9 +31,14 @@ import { useWorkouts } from "../hooks/useWorkouts";
 import { useXP } from "../hooks/useXP";
 import { useStreak } from "../hooks/useStreak";
 import { useProfileContext } from "../contexts/ProfileContext";
+import { useAppTheme } from "../contexts/ThemeContext";
 import { CountdownRing } from "../components/cardio/CountdownRing";
 import { MetricRow } from "../components/cardio/MetricRow";
 import { WorkoutControls } from "../components/cardio/WorkoutControls";
+import { LockeTipCard } from "../components/cardio/LockeTipCard";
+import { LockeMascot } from "../components/Locke/LockeMascot";
+import type { LockeMascotMood } from "../components/Locke/LockeMascot";
+import { spacing } from "../lib/theme";
 import { makeId } from "../lib/helpers";
 import { calculateCardioXP, calculateVirtualSets } from "../lib/cardioXp";
 import { estimateCalories, estimateDistance, hasDistance } from "../lib/cardioCalories";
@@ -56,11 +61,20 @@ function formatTime(totalSeconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+/** Pick Locke's mood based on session state and elapsed time. */
+function sessionMood(isPaused: boolean, elapsedSec: number): LockeMascotMood {
+  if (isPaused) return "disappointed";
+  if (elapsedSec >= 1800) return "savage";      // 30+ min
+  if (elapsedSec >= 600) return "intense";       // 10+ min
+  return "encouraging";
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function CardioSessionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { theme } = useAppTheme();
   const { workouts, addWorkout } = useWorkouts();
   const { xp, setXPRecord } = useXP();
   const { recordActivity } = useStreak();
@@ -272,7 +286,7 @@ export default function CardioSessionScreen() {
       await updateProfile(profilePatch);
     }
 
-    // ── Icon mood ──────────────────────────────────────────────
+    // ── Icon mood ──────────────────────────────────────────
     checkIconMood({
       isSessionActive: false,
       prHitInLast24h: newPRs.length > 0,
@@ -336,53 +350,72 @@ export default function CardioSessionScreen() {
     opacity: pausedOpacity.value,
   }));
 
+  // ── Locke mood ─────────────────────────────────────────────────────────────
+  const lockeMood = sessionMood(isPaused, elapsedSec);
+
   // ── Control state ─────────────────────────────────────────────────────────
   const controlState: "running" | "paused" = isPaused ? "paused" : "running";
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Top bar */}
+    <View style={[styles.root, { backgroundColor: theme.colors.bg, paddingTop: insets.top }]}>
+      {/* Top bar — modality + Locke + lock icon */}
       <View style={styles.topBar}>
-        <Text style={styles.modalityLabel}>
+        <Text style={[styles.modalityLabel, { color: theme.colors.muted }]}>
           {modality.replace("_", " ").toUpperCase()}
         </Text>
 
-        {isRunning && !isPaused && (
-          <Pressable
-            onPress={() => {
-              setIsLocked(true);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            style={styles.lockBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Lock screen"
-          >
-            <Ionicons name="lock-closed" size={18} color="#98989D" />
-          </Pressable>
-        )}
+        <View style={styles.topBarRight}>
+          {isRunning && !isPaused && (
+            <Pressable
+              onPress={() => {
+                setIsLocked(true);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              style={styles.lockBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Lock screen"
+            >
+              <Ionicons name="lock-closed" size={18} color={theme.colors.muted} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
-      {/* Metrics stack */}
-      <View style={styles.metricsStack}>
+      {/* Main content area — vertically centered */}
+      <View style={styles.centerArea}>
         {/* PAUSED indicator */}
         {isPaused && (
-          <Animated.Text style={[styles.pausedLabel, pausedBlinkStyle]}>
+          <Animated.Text
+            style={[styles.pausedLabel, { color: theme.colors.primary }, pausedBlinkStyle]}
+          >
             PAUSED
           </Animated.Text>
         )}
 
-        <MetricRow label="ELAPSED TIME" value={formatTime(elapsedSec)} color="#FFD60A" size="hero" />
-        <MetricRow label="ACTIVE CAL" value={`${calories.active} cal`} color="#30D158" size="secondary" />
-        <MetricRow label="TOTAL CAL" value={`${calories.total} cal`} color="#FFFFFF" size="tertiary" />
-        {showDist && distanceKm !== null && (
-          <MetricRow label="DISTANCE" value={`${distanceKm.toFixed(2)} km`} color="#64D2FF" size="tertiary" />
+        {/* Hero timer */}
+        <MetricRow label="ELAPSED TIME" value={formatTime(elapsedSec)} color={theme.colors.primary} size="hero" />
+
+        {/* Secondary metrics row */}
+        <View style={styles.metricsRow}>
+          <MetricRow label="ACTIVE CAL" value={`${calories.active}`} color={theme.colors.success} size="compact" />
+          <MetricRow label="TOTAL CAL" value={`${calories.total}`} color={theme.colors.text} size="compact" />
+          {showDist && distanceKm !== null && (
+            <MetricRow label="DISTANCE" value={`${distanceKm.toFixed(2)} km`} color={theme.colors.accent} size="compact" />
+          )}
+        </View>
+
+        {/* Locke tip card — collapsed by default */}
+        {isRunning && (
+          <View style={styles.tipCardWrap}>
+            <LockeTipCard modality={modality} />
+          </View>
         )}
       </View>
 
-      {/* Bottom controls */}
-      <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 32 }]}>
-        {isRunning && (
+      {/* Bottom controls — absolutely pinned to bottom */}
+      {isRunning && (
+        <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 16 }]}>
           <WorkoutControls
             state={controlState}
             onPause={handlePause}
@@ -390,13 +423,13 @@ export default function CardioSessionScreen() {
             onEnd={handleEnd}
             onFinish={finishSession}
           />
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Lock overlay */}
       {isLocked && (
         <View
-          style={styles.lockOverlay}
+          style={[styles.lockOverlay, { backgroundColor: "rgba(13,17,23,0.92)" }]}
           onTouchStart={(e) => { lockTouchRef.current = e.nativeEvent.pageY; }}
           onTouchEnd={(e) => {
             const delta = lockTouchRef.current - e.nativeEvent.pageY;
@@ -406,9 +439,12 @@ export default function CardioSessionScreen() {
             }
           }}
         >
-          <Ionicons name="lock-closed" size={32} color="#98989D" style={{ marginTop: 80 }} />
-          <Text style={styles.lockedLabel}>LOCKED</Text>
-          <Text style={styles.swipeUnlock}>Swipe up to unlock</Text>
+          <View style={styles.lockContent}>
+            <LockeMascot size={48} mood="neutral" />
+            <Ionicons name="lock-closed" size={32} color={theme.colors.muted} style={{ marginTop: spacing.md }} />
+            <Text style={[styles.lockedLabel, { color: theme.colors.muted }]}>LOCKED</Text>
+          </View>
+          <Text style={[styles.swipeUnlock, { color: theme.colors.muted }]}>Swipe up to unlock</Text>
         </View>
       )}
 
@@ -423,7 +459,6 @@ export default function CardioSessionScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#000000",
   },
 
   // Top bar
@@ -432,23 +467,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   modalityLabel: {
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 1.4,
-    color: "#98989D",
   },
-  lockBtn: { padding: 13, marginRight: -5 },
+  topBarRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  lockBtn: { padding: 10 },
 
-  // Metrics stack
-  metricsStack: {
+  // Center area
+  centerArea: {
     flex: 1,
     justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
-    gap: 12,
+    gap: 20,
   },
 
   // Paused label
@@ -456,33 +496,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 3,
-    color: "#FFD60A",
-    marginBottom: 4,
   },
 
-  // Bottom controls
+  // Metrics row
+  metricsRow: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+
+  // Tip card
+  tipCardWrap: {
+    width: "100%",
+  },
+
+  // Bottom controls — absolute so they never get pushed off
   bottomControls: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     alignItems: "center",
-    paddingTop: 24,
+    paddingTop: 16,
   },
 
   // Lock overlay
   lockOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.85)",
     alignItems: "center",
     justifyContent: "space-between",
     paddingBottom: 80,
+  },
+  lockContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   lockedLabel: {
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 2,
-    color: "#98989D",
+    marginTop: spacing.sm,
   },
   swipeUnlock: {
     fontSize: 13,
     fontWeight: "500",
-    color: "#98989D",
   },
 });

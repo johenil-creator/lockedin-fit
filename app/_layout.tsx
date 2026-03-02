@@ -42,6 +42,7 @@ export default function RootLayout() {
                   <Stack.Screen name="cardio-setup" />
                   <Stack.Screen name="cardio-session" options={{ gestureEnabled: false }} />
                   <Stack.Screen name="settings" />
+                  <Stack.Screen name="import-drive" />
                 </Stack>
               </PlanProvider>
             </LockeProvider>

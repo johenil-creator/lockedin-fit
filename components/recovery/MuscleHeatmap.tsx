@@ -703,85 +703,78 @@ function MuscleHeatmapInner({
             d={d}
             fill={fill}
             fillOpacity={fillOpacity}
-            onPress={pressHandler ? () => pressHandler(muscle) : undefined}
-            accessibilityLabel={pressHandler ? getMuscleLabel(muscle) : undefined}
           />
         ))}
       </Svg>
 
       {/* ── Primed overlay: soft slow shimmer ─────────────────────────────── */}
       {hasPrimed && (
-        <Animated.View style={[StyleSheet.absoluteFill, primedStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, primedStyle]} pointerEvents="none">
           <MuscleOverlaySvg
             entries={primedEntries}
             width={width}
             height={height}
             viewBox={svgViewBox}
             prefix="pr"
-            onPress={pressHandler}
           />
         </Animated.View>
       )}
 
       {/* ── Shimmer overlay: charged muscles (opacity pulse) ──────────────── */}
       {hasShimmer && (
-        <Animated.View style={[StyleSheet.absoluteFill, shimmerStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, shimmerStyle]} pointerEvents="none">
           <MuscleOverlaySvg
             entries={shimmerEntries}
             width={width}
             height={height}
             viewBox={svgViewBox}
             prefix="sh"
-            onPress={pressHandler}
           />
         </Animated.View>
       )}
 
       {/* ── Strained overlay: scale throb ─────────────────────────────────── */}
       {hasStrained && (
-        <Animated.View style={[StyleSheet.absoluteFill, strainedStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, strainedStyle]} pointerEvents="none">
           <MuscleOverlaySvg
             entries={strainedEntries}
             width={width}
             height={height}
             viewBox={svgViewBox}
             prefix="st"
-            onPress={pressHandler}
           />
         </Animated.View>
       )}
 
       {/* ── Overloaded overlay: heartbeat rhythm ──────────────────────────── */}
       {hasOverloaded && (
-        <Animated.View style={[StyleSheet.absoluteFill, overloadedStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, overloadedStyle]} pointerEvents="none">
           <MuscleOverlaySvg
             entries={overloadedEntries}
             width={width}
             height={height}
             viewBox={svgViewBox}
             prefix="ov"
-            onPress={pressHandler}
           />
         </Animated.View>
       )}
 
       {/* ── Pulse overlay: peak muscles (flicker + pulse opacity) ─────────── */}
       {hasPulse && (
-        <Animated.View style={[StyleSheet.absoluteFill, pulseStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, pulseStyle]} pointerEvents="none">
           <MuscleOverlaySvg
             entries={pulseEntries}
             width={width}
             height={height}
             viewBox={svgViewBox}
             prefix="p"
-            onPress={pressHandler}
           />
         </Animated.View>
       )}
 
       {/* ── Plan border overlay: pulsing dashed border ────────────────────── */}
       {hasPlanBorders && (
-        <Animated.View style={[StyleSheet.absoluteFill, planBorderStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, planBorderStyle]} pointerEvents="none">
           <Svg width={width} height={height} viewBox={svgViewBox}>
             {planBorderPaths.map(({ muscle, d }, i) => (
               <Path
@@ -795,6 +788,28 @@ function MuscleHeatmapInner({
             ))}
           </Svg>
         </Animated.View>
+      )}
+
+      {/* ── Touch layer: single top-level SVG for all muscle taps ─────────── */}
+      {pressHandler && (
+        <Svg
+          width={width}
+          height={height}
+          viewBox={svgViewBox}
+          style={StyleSheet.absoluteFill}
+        >
+          {(Object.keys(pathMap) as MuscleGroup[]).flatMap((muscle) =>
+            (pathMap[muscle] ?? []).map((d, i) => (
+              <Path
+                key={`touch-${muscle}-${i}`}
+                d={d}
+                fill="transparent"
+                onPress={() => pressHandler(muscle)}
+                accessibilityLabel={getMuscleLabel(muscle)}
+              />
+            )),
+          )}
+        </Svg>
       )}
 
       {/* ── Selection highlight overlay (spring-scale, above state layers) ── */}

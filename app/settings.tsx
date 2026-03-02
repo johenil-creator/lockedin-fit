@@ -14,6 +14,7 @@ import {
   scheduleStreakRiskReminder,
   cancelAllReminders,
 } from "../lib/notifications";
+import { isSignedIn, signOut, signInWithGoogle, getStoredEmail } from "../lib/googleAuth";
 
 const KG_TO_LBS = 2.20462;
 const LBS_TO_KG = 0.453592;
@@ -35,6 +36,13 @@ export default function SettingsScreen() {
   const { profile, updateProfile } = useProfileContext();
   const [exporting, setExporting] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    isSignedIn().then(setGoogleConnected);
+    getStoredEmail().then(setGoogleEmail);
+  }, []);
 
   const restDays = profile.restDays ?? [];
   const defaultRestTimer = profile.defaultRestTimer ?? 90;
@@ -252,6 +260,75 @@ export default function SettingsScreen() {
           <Text style={[typography.body, { color: theme.colors.text }]}>Retake 1RM Setup</Text>
           <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
         </Pressable>
+      </Card>
+
+      {/* Google Account */}
+      <Card>
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          Google Account
+        </Text>
+        {googleConnected ? (
+          <>
+            {googleEmail && (
+              <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: spacing.sm }]}>
+                {googleEmail}
+              </Text>
+            )}
+            <Pressable
+              style={styles.row}
+              onPress={async () => {
+                await signOut();
+                try {
+                  await signInWithGoogle();
+                  const email = await getStoredEmail();
+                  setGoogleEmail(email);
+                  setGoogleConnected(true);
+                } catch {
+                  setGoogleConnected(false);
+                  setGoogleEmail(null);
+                }
+              }}
+            >
+              <Text style={[typography.body, { color: theme.colors.text }]}>Switch Account</Text>
+              <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
+            </Pressable>
+            <Pressable
+              style={styles.row}
+              onPress={() => {
+                Alert.alert("Disconnect Google?", "You'll need to sign in again to import from Drive.", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Disconnect",
+                    style: "destructive",
+                    onPress: async () => {
+                      await signOut();
+                      setGoogleConnected(false);
+                      setGoogleEmail(null);
+                    },
+                  },
+                ]);
+              }}
+            >
+              <Text style={[typography.body, { color: theme.colors.danger }]}>Disconnect</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Pressable
+            style={styles.row}
+            onPress={async () => {
+              try {
+                const result = await signInWithGoogle();
+                setGoogleConnected(true);
+                setGoogleEmail(result.email);
+              } catch {
+                // user cancelled or error
+              }
+            }}
+          >
+            <Text style={[typography.body, { color: theme.colors.primary }]}>Connect Google Account</Text>
+            <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
+          </Pressable>
+        )}
       </Card>
 
       {/* Version */}

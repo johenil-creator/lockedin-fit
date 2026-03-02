@@ -494,7 +494,7 @@ function EmptyPlanState({ onCatalog, onImport }: {
 
       {/* Speech bubble */}
       <RNAnimated.View
-        entering={FadeInDown.delay(200).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
+        entering={FadeInDown.delay(200).duration(350)}
         style={[epStyles.bubble, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
       >
         <View style={[epStyles.bubbleTail, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} />
@@ -507,7 +507,7 @@ function EmptyPlanState({ onCatalog, onImport }: {
       </RNAnimated.View>
 
       <RNAnimated.View
-        entering={FadeInDown.delay(350).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
+        entering={FadeInDown.delay(350).duration(350)}
         style={epStyles.cards}
       >
         <Pressable
@@ -650,11 +650,7 @@ export default function PlanScreen() {
   }
 
   function showImportPicker() {
-    Alert.alert("Import Workout Plan", "Choose a source to load your plan", [
-      { text: "File (CSV or Excel)", onPress: handleFileImport },
-      { text: "Google Sheets", onPress: () => setUrlModalVisible(true) },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    router.push("/import-drive");
   }
 
   const handleFileImport = useCallback(async () => {
@@ -842,14 +838,14 @@ export default function PlanScreen() {
         <>
           {/* Progress card */}
           {totalDays > 0 && (
-            <RNAnimated.View entering={FadeInDown.duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}>
+            <RNAnimated.View entering={FadeInDown.duration(350)}>
               <ProgressCard doneDays={doneDays} totalDays={totalDays} />
             </RNAnimated.View>
           )}
 
           {/* Block phase tabs — plans > 3 weeks only */}
           {showBlockTabs && (
-            <RNAnimated.View entering={FadeInDown.delay(80).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}>
+            <RNAnimated.View entering={FadeInDown.delay(80).duration(350)}>
               <BlockTabs
                 weeks={weeks}
                 blockSize={blockSize}
@@ -868,7 +864,7 @@ export default function PlanScreen() {
 
           {/* Week stepper */}
           {showStepper && (
-            <RNAnimated.View entering={FadeInDown.delay(160).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}>
+            <RNAnimated.View entering={FadeInDown.delay(160).duration(350)}>
               <WeekStepper
                 weeksInBlock={weeksInBlock}
                 selectedWeekInBlock={selectedWeekInBlock}
@@ -891,7 +887,7 @@ export default function PlanScreen() {
 
           {/* Phase context banner */}
           {currentBlockName && (
-            <RNAnimated.View entering={FadeInDown.delay(220).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}>
+            <RNAnimated.View entering={FadeInDown.delay(220).duration(350)}>
               <BlockBanner blockName={currentBlockName} />
             </RNAnimated.View>
           )}
@@ -921,7 +917,7 @@ export default function PlanScreen() {
               return (
                 <RNAnimated.View
                   key={dayGroup.day}
-                  entering={FadeInDown.delay(280 + dayIdx * 50).duration(350).withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
+                  entering={FadeInDown.delay(280 + dayIdx * 50).duration(350)}
                   style={{ marginBottom: 10 }}
                 >
                   <DayCard

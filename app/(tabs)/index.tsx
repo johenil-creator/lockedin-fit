@@ -425,7 +425,7 @@ function ProgressSnapshot({
         </View>
         <View style={[styles.statDivider, { backgroundColor: theme.colors.border }]} />
         <View style={styles.statCell}>
-          <Text style={[styles.statValue, { color: theme.colors.text, fontSize: 16 }]}>
+          <Text style={[styles.statValue, { color: theme.colors.text }]} numberOfLines={1}>
             {lastWorkoutDate}
           </Text>
           <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Last</Text>
@@ -636,7 +636,10 @@ export default function HomeScreen() {
   const totalCount    = useMemo(() => workouts.filter((w) => !!w.completedAt).length, [workouts]);
   const lastDate      = useMemo(() => {
     const last = workouts.find((w) => !!w.completedAt);
-    return last?.date ? fmtDate(last.date) : "—";
+    if (!last?.date) return "—";
+    const safe = /^\d{4}-\d{2}-\d{2}$/.test(last.date) ? last.date + "T12:00:00" : last.date;
+    const d = new Date(safe);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }, [workouts]);
 
   const thisWeekCount = useMemo(() => {
@@ -1039,9 +1042,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  statCell: { flex: 1, alignItems: "center", paddingVertical: 16 },
+  statCell: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 16 },
   statDivider: { width: 1, alignSelf: "stretch", marginVertical: 12 },
-  statValue: { fontSize: 24, fontWeight: "800", marginBottom: 2 },
+  statValue: { fontSize: 18, fontWeight: "700", marginBottom: 2 },
   statLabel: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 },
 
   recentCard:  { marginBottom: 8, padding: 14 },
