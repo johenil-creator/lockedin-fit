@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +11,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LockeMascot } from "../components/Locke/LockeMascot";
-import type { LockeMascotMood } from "../components/Locke/LockeMascot";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { usePlanContext } from "../contexts/PlanContext";
@@ -25,8 +23,8 @@ import { WelcomeStep } from "../components/onboarding/WelcomeStep";
 import { NameStep } from "../components/onboarding/NameStep";
 import { UnitStep } from "../components/onboarding/UnitStep";
 import { ExplainStep } from "../components/onboarding/ExplainStep";
+import { HealthStep } from "../components/onboarding/HealthStep";
 import { StepSlide, onboardingStyles as styles } from "../components/onboarding/shared";
-import { LIFT_TIPS } from "../lib/liftTips";
 
 const LIFTS = ["Deadlift", "Squat", "Bench Press", "Overhead Press"] as const;
 type LiftKey = "deadlift" | "squat" | "bench" | "ohp";
@@ -38,11 +36,15 @@ const LIFT_KEY_MAP: Record<string, LiftKey> = {
   "Overhead Press": "ohp",
 };
 
-type StepKey = "welcome" | "name" | "unit" | "explain" | "manual";
+type StepKey = "welcome" | "name" | "unit" | "explain" | "health" | "manual";
 
-const STEP_ORDER: StepKey[] = ["welcome", "name", "explain", "unit", "manual"];
+const STEP_ORDER: StepKey[] = ["welcome", "name", "unit", "health", "explain", "manual"];
+const VISIBLE_STEPS: StepKey[] = Platform.OS === "ios"
+  ? STEP_ORDER
+  : STEP_ORDER.filter((s) => s !== "health");
+
 function stepIndex(s: StepKey): number {
-  const idx = STEP_ORDER.indexOf(s);
+  const idx = VISIBLE_STEPS.indexOf(s);
   return idx >= 0 ? idx : 0;
 }
 
@@ -82,8 +84,6 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState<StepKey>(
     startStep === "manual" ? "unit" : retake === "1" ? "explain" : "welcome"
   );
-  const [lockeMood, setLockeMood] = useState<LockeMascotMood>("neutral");
-
   useEffect(() => {
     fire({ trigger: "onboarding" }, 12000);
   }, []);
@@ -141,9 +141,8 @@ export default function OnboardingScreen() {
   if (step === "welcome") {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-        <ProgressDots current={currentStepIdx} total={STEP_ORDER.length} />
+        <ProgressDots current={currentStepIdx} total={VISIBLE_STEPS.length} />
         <WelcomeStep
-          lockeMood={lockeMood}
           onContinue={() => setStep("name")}
         />
       </View>
@@ -153,26 +152,14 @@ export default function OnboardingScreen() {
   if (step === "name") {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-        <ProgressDots current={currentStepIdx} total={STEP_ORDER.length} />
+        <ProgressDots current={currentStepIdx} total={VISIBLE_STEPS.length} />
         <NameStep
           userName={userName}
           onChangeUserName={setUserName}
           onContinue={() => {
             updateProfile({ name: userName.trim() });
-            setStep("explain");
+            setStep("unit");
           }}
-        />
-      </View>
-    );
-  }
-
-  if (step === "explain") {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-        <ProgressDots current={currentStepIdx} total={STEP_ORDER.length} />
-        <ExplainStep
-          onManual={() => { setLockeMood("encouraging"); setStep("unit"); }}
-          onSkip={skip}
         />
       </View>
     );
@@ -181,12 +168,39 @@ export default function OnboardingScreen() {
   if (step === "unit") {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-        <ProgressDots current={currentStepIdx} total={STEP_ORDER.length} />
+        <ProgressDots current={currentStepIdx} total={VISIBLE_STEPS.length} />
         <UnitStep
           unit={unit}
           onSelectUnit={setUnit}
-          onContinue={() => setStep("manual")}
-          onBack={() => setStep("explain")}
+          onContinue={() => setStep(Platform.OS === "ios" ? "health" : "explain")}
+          onBack={() => setStep("name")}
+        />
+      </View>
+    );
+  }
+
+  if (step === "health") {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+        <ProgressDots current={currentStepIdx} total={VISIBLE_STEPS.length} />
+        <HealthStep
+          unit={unit}
+          onSynced={(w) => { updateProfile({ weight: w }); setStep("explain"); }}
+          onSkip={() => setStep("explain")}
+          onBack={() => setStep("unit")}
+        />
+      </View>
+    );
+  }
+
+  if (step === "explain") {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+        <ProgressDots current={currentStepIdx} total={VISIBLE_STEPS.length} />
+        <ExplainStep
+          onManual={() => setStep("manual")}
+          onSkip={skip}
+          onBack={() => setStep(Platform.OS === "ios" ? "health" : "unit")}
         />
       </View>
     );
@@ -207,7 +221,7 @@ export default function OnboardingScreen() {
           <View style={{ alignItems: "center", marginBottom: 16 }}>
             <LockeMascot size={240} mood="encouraging" />
             <Text style={{ fontSize: 13, color: theme.colors.muted, textAlign: "center", marginTop: 6 }}>
-              Here's how each lift works.
+              Let's get your starting numbers.
             </Text>
           </View>
           <Text style={[styles.stepEyebrow, { color: theme.colors.primary }]}>YOUR NUMBERS</Text>
@@ -221,9 +235,6 @@ export default function OnboardingScreen() {
           {LIFTS.map((lift) => (
             <View key={lift} style={[styles.liftCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
               <Text style={[styles.liftName, { color: theme.colors.text }]}>{lift}</Text>
-              <Text style={{ fontSize: 12, lineHeight: 17, color: theme.colors.muted, marginBottom: 8 }}>
-                {LIFT_TIPS[lift]}
-              </Text>
               <View style={styles.manualRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.inputLabel, { color: theme.colors.muted }]}>1RM ({unit})</Text>
@@ -244,7 +255,7 @@ export default function OnboardingScreen() {
           <View style={{ height: 24 }} />
           <Button label="Save & Continue" onPress={handleManualSave} disabled={isSaving} loading={isSaving} />
           <View style={{ height: 12 }} />
-          <Button label="Back" onPress={() => setStep("unit")} variant="secondary" />
+          <Button label="Back" onPress={() => setStep("explain")} variant="secondary" />
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>

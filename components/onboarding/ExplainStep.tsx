@@ -1,45 +1,87 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { LockeMascot } from "../Locke/LockeMascot";
 import { Button } from "../Button";
+import { BackButton } from "../BackButton";
 import { useAppTheme } from "../../contexts/ThemeContext";
-import { StepSlide, onboardingStyles as styles } from "./shared";
+import { onboardingStyles as styles } from "./shared";
 
 type Props = {
   onManual: () => void;
   onSkip: () => void;
+  onBack: () => void;
 };
 
-export function ExplainStep({ onManual, onSkip }: Props) {
+export function ExplainStep({ onManual, onSkip, onBack }: Props) {
   const { theme } = useAppTheme();
   const router = useRouter();
-  return (
-    <StepSlide>
-      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
-        <View style={styles.body}>
-          <Text style={[styles.stepEyebrow, { color: theme.colors.primary }]}>SETUP</Text>
-          <Text style={[styles.stepTitle, { color: theme.colors.text }]}>What's a 1RM?</Text>
-          <Text style={[styles.explainText, { color: theme.colors.muted }]}>
-            Your <Text style={{ color: theme.colors.text, fontWeight: "700" }}>1-Rep Max (1RM)</Text> is
-            the maximum weight you can lift for a single rep on a given exercise.
-          </Text>
-          <Text style={[styles.explainText, { color: theme.colors.muted }]}>
-            We use it to set intelligent load targets in your plans, track progress over time,
-            and award PRs when you break your personal records.
-          </Text>
-          <Text style={[styles.explainText, { color: theme.colors.muted }]}>
-            You don't need to test your true max — enter any weight and rep count and we'll
-            estimate it using the Epley formula.
-          </Text>
-        </View>
 
-        <View style={[styles.bottom, { gap: 12 }]}>
-          <Button label="Start 1RM Test" onPress={() => router.push("/orm-test?source=onboarding")} />
-          <Button label="Skip – I Know My Numbers" onPress={onManual} variant="secondary" />
-          <Pressable onPress={onSkip} style={styles.skipTextBtn}>
-            <Text style={[styles.skipText, { color: theme.colors.muted }]}>Skip for now</Text>
-          </Pressable>
-        </View>
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+      <View style={explainStyles.header}>
+        <BackButton onPress={onBack} />
       </View>
-    </StepSlide>
+
+      <View style={explainStyles.inner}>
+        <LockeMascot size={200} mood="encouraging" />
+
+        <Text style={[explainStyles.microcopy, { color: theme.colors.muted }]}>
+          This starts your first session — warm-ups on 4 main lifts (~30–45 min).
+        </Text>
+
+        <Text style={[explainStyles.heading, { color: theme.colors.text }]}>
+          Let's find your 1RM
+        </Text>
+
+        <Text style={[explainStyles.subtitle, { color: theme.colors.muted }]}>
+          Your 1-Rep Max — the heaviest weight you can lift once. We'll use it
+          to set your training weights and track PRs.
+        </Text>
+      </View>
+
+      <View style={styles.bottom}>
+        <Button
+          label="Start 1RM Test"
+          onPress={() => router.push("/orm-test?source=onboarding")}
+        />
+        <View style={{ height: 12 }} />
+        <Button label="I Know My Numbers" onPress={onManual} variant="secondary" />
+        <Pressable onPress={onSkip} style={styles.skipTextBtn}>
+          <Text style={[styles.skipText, { color: theme.colors.muted }]}>
+            Skip for now
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
+
+const explainStyles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 24,
+    marginBottom: 4,
+  },
+  inner: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  microcopy: {
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  heading: {
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+});
