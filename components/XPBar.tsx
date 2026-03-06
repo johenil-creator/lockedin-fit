@@ -8,17 +8,17 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { useAppTheme } from "../contexts/ThemeContext";
-import { radius } from "../lib/theme";
 import type { RankLevel } from "../lib/types";
 
 type Props = {
-  totalXP:   number;
-  progress:  number;     // 0–1 within current rank band
-  toNext:    number;     // XP remaining to next rank
-  nextRank:  RankLevel | null;
+  totalXP:      number;
+  bandCurrent:  number;     // XP earned within current rank band
+  bandTotal:    number;     // total XP required for current band (0 at Apex)
+  progress:     number;     // 0–1 within current rank band
+  nextRank:     RankLevel | null;
 };
 
-export function XPBar({ totalXP, progress, toNext, nextRank }: Props) {
+export function XPBar({ totalXP, bandCurrent, bandTotal, progress, nextRank }: Props) {
   const { theme } = useAppTheme();
   const fillPct = Math.max(0, Math.min(progress, 1)) * 100;
   const animatedWidth = useSharedValue(0);
@@ -34,21 +34,25 @@ export function XPBar({ totalXP, progress, toNext, nextRank }: Props) {
     width: `${animatedWidth.value}%`,
   }));
 
+  const isApex = !nextRank;
+
   return (
     <View style={styles.container}>
       {/* Labels */}
       <View style={styles.labels}>
-        <Text style={[styles.xpText, { color: theme.colors.muted }]}>
-          {totalXP} XP
-        </Text>
-        {nextRank ? (
-          <Text style={[styles.nextText, { color: theme.colors.muted }]}>
-            {toNext} to {nextRank}
+        {isApex ? (
+          <Text style={[styles.xpText, { color: theme.colors.primary }]}>
+            APEX {"\u00B7"} {totalXP} XP
           </Text>
         ) : (
-          <Text style={[styles.nextText, { color: theme.colors.primary }]}>
-            APEX
-          </Text>
+          <>
+            <Text style={[styles.xpText, { color: theme.colors.muted }]}>
+              {bandCurrent} / {bandTotal} XP
+            </Text>
+            <Text style={[styles.nextText, { color: theme.colors.muted }]}>
+              {"\u2192"} {nextRank}
+            </Text>
+          </>
         )}
       </View>
 
@@ -76,12 +80,12 @@ const styles = StyleSheet.create({
   nextText: { fontSize: 11, fontWeight: "600" },
   track: {
     height:       8,
-    borderRadius: radius.full,
+    borderRadius: 4,
     overflow:     "hidden",
   },
   fill: {
     height:       "100%",
-    borderRadius: radius.full,
+    borderRadius: 4,
     minWidth:     4,
   },
 });

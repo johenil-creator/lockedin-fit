@@ -58,6 +58,7 @@ export default function RootLayout() {
                     <Stack.Screen name="cardio-session" options={{ gestureEnabled: false }} />
                     <Stack.Screen name="profile" />
                     <Stack.Screen name="settings" />
+                    <Stack.Screen name="exercise-library" options={{ headerShown: false }} />
                     <Stack.Screen name="import-drive" />
                     <Stack.Screen name="auth" options={{ animation: "slide_from_bottom" }} />
                   </Stack>

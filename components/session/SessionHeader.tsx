@@ -1,8 +1,17 @@
+import { useState, useEffect, type RefObject } from "react";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { BackButton } from "../BackButton";
 import { useAppTheme } from "../../contexts/ThemeContext";
+
+function formatElapsed(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 type Props = {
   sessionName: string;
@@ -13,8 +22,10 @@ type Props = {
   planContext?: string;
   /** 0–1 fraction of sets completed across all exercises */
   setsProgress?: number;
-  /** formatted elapsed time string e.g. "12:34" */
-  elapsed?: string;
+  /** ISO timestamp of when the session started — header manages its own timer */
+  startedAt?: string;
+  /** Ref to accumulated background milliseconds (subtracted from elapsed) */
+  backgroundMs?: RefObject<number>;
 };
 
 export function SessionHeader({
@@ -24,11 +35,24 @@ export function SessionHeader({
   onClearActiveExercise,
   planContext,
   setsProgress,
-  elapsed,
+  startedAt,
+  backgroundMs,
 }: Props) {
   const router = useRouter();
   const { theme } = useAppTheme();
 
+  // ── Self-contained elapsed timer ──────────────────────────────────────────
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!isActive || !startedAt) return;
+    const start = new Date(startedAt).getTime();
+    const tick = () => setElapsed(Math.floor((Date.now() - start - (backgroundMs?.current ?? 0)) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isActive, startedAt]);
+
+  const elapsedStr = elapsed > 0 ? formatElapsed(elapsed) : undefined;
   const pct = Math.min(Math.max(setsProgress ?? 0, 0), 1);
 
   return (
@@ -58,10 +82,10 @@ export function SessionHeader({
             {sessionName}
           </Text>
         </View>
-        {isActive && elapsed ? (
+        {isActive && elapsedStr ? (
           <View style={styles.elapsedWrap}>
             <Ionicons name="time-outline" size={13} color={theme.colors.muted} />
-            <Text style={[styles.elapsedText, { color: theme.colors.muted }]}>{elapsed}</Text>
+            <Text style={[styles.elapsedText, { color: theme.colors.muted }]}>{elapsedStr}</Text>
           </View>
         ) : null}
       </View>

@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   Pressable,
   Alert,
   LayoutAnimation,
@@ -176,7 +177,7 @@ function DifficultyChip({ difficulty }: { difficulty: CatalogPlan["difficulty"] 
 
 // ── Plan Card ────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, startSessionFromPlan, getActiveSession, onNeed1RM, isRecommended, index }: {
+const PlanCard = React.memo(function PlanCard({ plan, startSessionFromPlan, getActiveSession, onNeed1RM, isRecommended, index }: {
   plan: CatalogPlan;
   startSessionFromPlan: ReturnType<typeof useWorkouts>["startSessionFromPlan"];
   getActiveSession: ReturnType<typeof useWorkouts>["getActiveSession"];
@@ -260,10 +261,11 @@ function PlanCard({ plan, startSessionFromPlan, getActiveSession, onNeed1RM, isR
     setExpanded(!expanded);
   }
 
-  const entryDelay = Math.min(index * 60, 300);
+  // Only animate first 5 cards to avoid blocking the JS thread on mount
+  const shouldAnimate = index < 5;
+  const entryDelay = Math.min(index * 60, 240);
 
-  return (
-    <Animated.View entering={FadeInDown.delay(entryDelay).duration(350).springify().damping(18)}>
+  const content = (
       <Animated.View style={animStyle}>
         <Pressable
           style={[
@@ -366,9 +368,17 @@ function PlanCard({ plan, startSessionFromPlan, getActiveSession, onNeed1RM, isR
           )}
         </Pressable>
       </Animated.View>
-    </Animated.View>
   );
-}
+
+  if (shouldAnimate) {
+    return (
+      <Animated.View entering={FadeInDown.delay(entryDelay).duration(300).springify().damping(18)}>
+        {content}
+      </Animated.View>
+    );
+  }
+  return content;
+});
 
 // ── Filter chip (reusable) ───────────────────────────────────────────────────
 
@@ -398,6 +408,7 @@ function FilterChip({ label, active, onPress, theme }: {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
+const planKeyExtractor = (item: CatalogPlan) => item.id;
 const DAYS_OPTIONS = [3, 4, 5] as const;
 const DURATION_OPTIONS = [3, 6, 12] as const;
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced"] as const;
@@ -542,33 +553,39 @@ export default function CatalogScreen() {
       )}
 
       {/* ── Plan list ── */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
-        {sorted.length === 0 ? (
-          <View style={styles.noResults}>
-            <LockeMascot size={80} mood="neutral" />
-            <Text style={[styles.noResultsTitle, { color: theme.colors.text }]}>No plans match</Text>
-            <Text style={[styles.noResultsText, { color: theme.colors.muted }]}>
-              Try loosening your filters or tap Clear to see all plans.
-            </Text>
-            <View style={{ marginTop: 12 }}>
-              <Button label="Clear Filters" onPress={clearAll} variant="secondary" small />
-            </View>
+      {sorted.length === 0 ? (
+        <View style={styles.noResults}>
+          <LockeMascot size={80} mood="neutral" />
+          <Text style={[styles.noResultsTitle, { color: theme.colors.text }]}>No plans match</Text>
+          <Text style={[styles.noResultsText, { color: theme.colors.muted }]}>
+            Try loosening your filters or tap Clear to see all plans.
+          </Text>
+          <View style={{ marginTop: 12 }}>
+            <Button label="Clear Filters" onPress={clearAll} variant="secondary" small />
           </View>
-        ) : (
-          sorted.map((plan, i) => (
+        </View>
+      ) : (
+        <FlatList
+          data={sorted}
+          keyExtractor={planKeyExtractor}
+          renderItem={({ item, index }) => (
             <PlanCard
-              key={plan.id}
-              plan={plan}
+              plan={item}
               startSessionFromPlan={startSessionFromPlan}
               getActiveSession={getActiveSession}
               onNeed1RM={(startAnyway) => setOrmPrompt({ startAnyway })}
-              isRecommended={recommendedIds.has(plan.id)}
-              index={i}
+              isRecommended={recommendedIds.has(item.id)}
+              index={index}
             />
-          ))
-        )}
-        <View style={{ height: 20 }} />
-      </ScrollView>
+          )}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.list}
+          initialNumToRender={5}
+          maxToRenderPerBatch={3}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === "android"}
+        />
+      )}
 
       {/* 1RM setup prompt bottom sheet */}
       <AppBottomSheet

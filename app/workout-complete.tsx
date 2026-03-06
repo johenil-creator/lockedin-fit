@@ -21,7 +21,7 @@ import Animated, {
   Easing,
   interpolate,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { hapticWorkoutComplete, hapticRankUp, hapticTap } from "../lib/hapticFeedback";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { glowColors, spacing, radius } from "../lib/theme";
@@ -126,6 +126,110 @@ const particleStyles = StyleSheet.create({
   },
 });
 
+// ── Confetti Piece (single falling rectangle) ───────────────────────────────
+
+const CONFETTI_COLORS = ["#00875A", "#E6EDF3", "#006B47", "#FFD60A"];
+const CONFETTI_COUNT = 28;
+
+// Pre-compute deterministic per-piece configs so each render is stable
+const CONFETTI_CONFIGS = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  // Spread x across 0-1, then jitter slightly with a hash
+  startXPct: (i / CONFETTI_COUNT) + ((((i * 7 + 3) % 13) / 13 - 0.5) * (1 / CONFETTI_COUNT)),
+  // Horizontal drift amplitude in px (some drift left, some right)
+  driftAmp: ((i * 11 + 5) % 21) - 10, // -10 to +10
+  // Rotation end angle in degrees
+  rotEnd: ((i * 37 + 17) % 360),
+  // Delay stagger in ms (0–300ms spread)
+  delay: ((i * 23) % 300),
+  // Duration jitter: 1500–2000ms
+  duration: 1500 + ((i * 13) % 500),
+}));
+
+function ConfettiPiece({
+  config,
+  active,
+  screenWidth,
+  screenHeight,
+}: {
+  config: (typeof CONFETTI_CONFIGS)[number];
+  active: boolean;
+  screenWidth: number;
+  screenHeight: number;
+}) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    if (active) {
+      progress.value = 0;
+      progress.value = withDelay(
+        config.delay,
+        withTiming(1, { duration: config.duration, easing: Easing.in(Easing.quad) })
+      );
+    }
+  }, [active]);
+
+  const startX = config.startXPct * screenWidth;
+  const fallDistance = screenHeight + 20; // fall past bottom edge
+
+  const animStyle = useAnimatedStyle(() => {
+    const t = progress.value;
+    return {
+      opacity: interpolate(t, [0, 0.1, 0.7, 1], [0, 1, 1, 0]),
+      transform: [
+        { translateX: startX + Math.sin(t * Math.PI * 2) * config.driftAmp },
+        { translateY: interpolate(t, [0, 1], [-10, fallDistance]) },
+        { rotate: `${interpolate(t, [0, 1], [0, config.rotEnd])}deg` },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        confettiStyles.piece,
+        { backgroundColor: config.color },
+        animStyle,
+      ]}
+    />
+  );
+}
+
+function ConfettiBurst({ active }: { active: boolean }) {
+  const { width, height } = useWindowDimensions();
+
+  if (!active) return null;
+
+  return (
+    <View style={confettiStyles.container} pointerEvents="none">
+      {CONFETTI_CONFIGS.map((cfg, i) => (
+        <ConfettiPiece
+          key={i}
+          config={cfg}
+          active={active}
+          screenWidth={width}
+          screenHeight={height}
+        />
+      ))}
+    </View>
+  );
+}
+
+const confettiStyles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+  },
+  piece: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 4,
+    height: 8,
+    borderRadius: 1,
+  },
+});
+
 // ── Level-Up Overlay ─────────────────────────────────────────────────────────
 
 function LevelUpOverlay({
@@ -156,7 +260,7 @@ function LevelUpOverlay({
 
   useEffect(() => {
     if (visible) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      hapticRankUp();
 
       scrimOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
 
@@ -178,7 +282,7 @@ function LevelUpOverlay({
       rankNameScale.value = withDelay(550, withSpring(1, { damping: 14, stiffness: 160, mass: 0.7 }));
       rankNameOpacity.value = withDelay(550, withTiming(1, { duration: 200 }));
 
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 550);
+      // Extra punch on rank name reveal — handled by hapticRankUp crescendo
 
       flavorOpacity.value = withDelay(700, withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) }));
 
@@ -210,7 +314,7 @@ function LevelUpOverlay({
   }));
 
   const handleContinue = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticTap();
     onContinue();
   }, [onContinue]);
 
@@ -374,6 +478,7 @@ export default function WorkoutCompleteScreen() {
 
   const [claimed, setClaimed] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [confettiActive, setConfettiActive] = useState(false);
 
   // ── Block hardware back button ─────────────────────────────────────────────
   useEffect(() => {
@@ -383,7 +488,7 @@ export default function WorkoutCompleteScreen() {
 
   // ── Entry haptic ───────────────────────────────────────────────────────────
   useEffect(() => {
-    const t = setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 100);
+    const t = setTimeout(() => hapticTap(), 100);
     return () => clearTimeout(t);
   }, []);
 
@@ -506,8 +611,9 @@ export default function WorkoutCompleteScreen() {
   const handleClaimXP = useCallback(() => {
     if (claimed || !params) return;
     setClaimed(true);
+    setConfettiActive(true);
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    hapticWorkoutComplete();
 
     // Button press spring
     btnScale.value = withSequence(
@@ -533,7 +639,6 @@ export default function WorkoutCompleteScreen() {
     if (params.rankedUp) {
       // Show level-up overlay after claim animation (1200ms)
       setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setShowLevelUp(true);
       }, 1200);
     } else {
@@ -670,6 +775,9 @@ export default function WorkoutCompleteScreen() {
           </Text>
         </Pressable>
       </Animated.View>
+
+      {/* Confetti overlay */}
+      <ConfettiBurst active={confettiActive} />
 
       {/* Level-Up Overlay */}
       <LevelUpOverlay

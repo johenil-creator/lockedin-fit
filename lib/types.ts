@@ -138,10 +138,13 @@ export type UserProfile = {
   freezesResetWeek?: string;   // ISO week string (e.g. "2026-W09") when freezes last reset
   defaultRestTimer?: number;   // rest timer default in seconds (30/60/90/120)
   hapticsEnabled?: boolean;    // global haptics toggle (default true)
+  notificationsEnabled?: boolean; // push notification toggle (default false)
+  reminderHour?: number;       // workout reminder hour (8, 12, 18, or 21; default 18)
   cardioPRs?: CardioPRs;
   badges?: Badge[];
   friendCode?: string;
   friends?: Friend[];
+  dailyXPGoal?: number;  // daily XP target (default 30)
 };
 
 // ── Friends ─────────────────────────────────────────────────────────────────
@@ -206,6 +209,8 @@ export type XPRecord = {
   rank: RankLevel;
   history: XPHistoryEntry[];
   awardedMilestones?: string[];  // permanent record of streak milestones awarded
+  todayXP?: number;       // XP earned today
+  todayDate?: string;     // ISO date string (YYYY-MM-DD) for resetting daily count
 };
 
 export type PerformanceWeek = {

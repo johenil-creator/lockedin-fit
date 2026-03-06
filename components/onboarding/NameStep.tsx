@@ -21,6 +21,9 @@ export function NameStep({ userName, onChangeUserName, onContinue }: Props) {
           <Text style={[styles.welcomeTitle, { color: theme.colors.text }]}>
             What should I call you?
           </Text>
+          <Text style={[styles.welcomeSub, { color: theme.colors.muted }]}>
+            This is how Locke will greet you.
+          </Text>
           <TextInput
             style={[styles.nameInput, { backgroundColor: theme.colors.surface, color: theme.colors.text, borderColor: theme.colors.border }]}
             value={userName}

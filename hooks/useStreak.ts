@@ -42,6 +42,17 @@ function missedNonRestDays(a: string, b: string, restDays: number[]): number {
   return missed;
 }
 
+/** Return ISO-week string, e.g. "2026-W09". */
+export function isoWeek(d: Date = new Date()): string {
+  const copy = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  copy.setUTCDate(copy.getUTCDate() + 4 - (copy.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(
+    ((copy.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+  );
+  return `${copy.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
 export function useStreak() {
   const [streak, setStreak] = useState<StreakData>(DEFAULT_STREAK);
   const streakRef = useRef<StreakData>(DEFAULT_STREAK);

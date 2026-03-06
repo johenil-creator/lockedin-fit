@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadXP, saveXP } from "../lib/storage";
 import { defaultXPRecord, applyXP } from "../lib/xpService";
-import { rankForXP, nextRank, rankProgress, xpToNextRank } from "../lib/rankService";
+import { rankForXP, nextRank, rankProgress, xpToNextRank, rankBandCurrent, rankBandTotal } from "../lib/rankService";
 import { getCurrentWeekKey } from "../lib/leagueService";
 import { syncWeeklyXP } from "../lib/xpSync";
 import { auth } from "../lib/firebase";
@@ -61,6 +61,13 @@ export function useXP() {
   const progress: number         = rankProgress(xp.total);
   const toNext: number           = xpToNextRank(xp.total);
   const nextTier                 = nextRank(rank);
+  const bandCurrent: number      = rankBandCurrent(xp.total);
+  const bandTotal: number        = rankBandTotal(xp.total);
 
-  return { xp, loading, awardXP, setXPRecord, rank, progress, toNext, nextTier };
+  // Daily XP tracking
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayXP: number          = xp.todayDate === todayStr ? (xp.todayXP ?? 0) : 0;
+
+  return { xp, loading, awardXP, setXPRecord, rank, progress, toNext, nextTier, bandCurrent, bandTotal, todayXP };
 }

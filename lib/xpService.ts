@@ -7,7 +7,7 @@ export const XP_AWARDS = {
   PER_SET_COMPLETED:  2,
   SESSION_BASE:       5,   // minimum session bonus (requires ≥1 completed set)
   SESSION_MAX:       15,   // maximum session bonus (full workout)
-  PR_HIT:            10,
+  PR_HIT:            25,
   STREAK_3_DAYS:      5,
   STREAK_7_DAYS:     10,
   STREAK_14_DAYS:    30,
@@ -37,10 +37,16 @@ const STREAK_MILESTONES: [number, number, string][] = [
 // ── Default empty record ──────────────────────────────────────────────────────
 
 export function defaultXPRecord(): XPRecord {
-  return { total: 0, rank: "Runt", history: [] };
+  return { total: 0, rank: "Runt", history: [], todayXP: 0, todayDate: "" };
 }
 
 // ── Core award function ───────────────────────────────────────────────────────
+
+/** Get today's date as YYYY-MM-DD string. */
+function todayDateString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 /**
  * Apply an XP award to an existing record.
@@ -59,6 +65,11 @@ export function applyXP(
     amount,
     reason,
   };
+
+  // Track daily XP — reset if the date rolled over
+  const today = todayDateString();
+  const prevDayXP = record.todayDate === today ? (record.todayXP ?? 0) : 0;
+
   return {
     total:   newTotal,
     rank:    rankForXP(newTotal),
@@ -66,6 +77,8 @@ export function applyXP(
     awardedMilestones: milestone
       ? [...(record.awardedMilestones ?? []), milestone]
       : record.awardedMilestones,
+    todayXP:   prevDayXP + amount,
+    todayDate: today,
   };
 }
 

@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
-    padding: spacing.md + 2,
-    marginBottom: spacing.sm + 4,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
 });

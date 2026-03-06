@@ -26,7 +26,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -50,7 +50,7 @@ const sectionEnter = (delay: number) =>
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../contexts/ThemeContext';
-import { radius, spacing, typography } from '../../lib/theme';
+import { glowColors, radius, spacing, typography } from '../../lib/theme';
 import { useRecovery } from '../../hooks/useRecovery';
 import { MuscleHeatmapDual } from '../../components/recovery/MuscleHeatmapDual';
 import { RecoveryTrendGraph } from '../../components/recovery/RecoveryTrendGraph';
@@ -105,7 +105,7 @@ const GAUGE_BG_PATH = (() => {
 })();
 
 function readinessColor(score: number): string {
-  if (score >= 80) return '#00875A';
+  if (score >= 80) return glowColors.viridian;
   if (score >= 60) return '#58A6FF';
   if (score >= 40) return '#FF9800';
   return '#F44336';
@@ -113,11 +113,11 @@ function readinessColor(score: number): string {
 
 // ── Commentary tone color map ─────────────────────────────────────────────────
 const TONE_COLOR: Record<RecoveryCommentaryTone, string> = {
-  nurturing:  '#00875A',
+  nurturing:  glowColors.viridian,
   coaching:   '#58A6FF',
   intense:    '#FF9800',
   savage:     '#F44336',
-  welcoming:  '#00875A',
+  welcoming:  glowColors.viridian,
 };
 
 // ── Mini gauge constants (score explanation sheet) ────────────────────────────
@@ -406,7 +406,7 @@ const ReadinessHero = React.memo(function ReadinessHero({
         <BreakdownPill
           label="Freshness"
           value={Math.round(readiness.components.muscleFreshness)}
-          color="#00875A"
+          color={theme.colors.primary}
           onPress={() => onPillPress('Freshness')}
           enterDelay={0}
         />
@@ -479,9 +479,9 @@ const BreakdownPill = React.memo(function BreakdownPill({
 
 // Mascot glow color map
 const MOOD_GLOW: Record<string, string> = {
-  celebrating: '#00875A',
-  savage: '#00875A',
-  encouraging: '#00875A',
+  celebrating: glowColors.viridian,
+  savage: glowColors.viridian,
+  encouraging: glowColors.viridian,
   focused: '#58A6FF',
   concerned: '#FF9800',
   rest_day: '#9DA5B0',
@@ -500,13 +500,13 @@ const CoachCard = React.memo(function CoachCard({
   const [expanded, setExpanded] = useState(false);
   const tipCount = coach.tips?.length ?? 0;
   const hasTips = tipCount > 0;
-  const mascotGlow = MOOD_GLOW[coach.mascotMood] ?? '#9DA5B0';
+  const mascotGlow = MOOD_GLOW[coach.mascotMood] ?? theme.colors.muted;
 
   // Commentary tone color + savage border tint
   const commentaryColor = commentary ? (TONE_COLOR[commentary.tone] ?? theme.colors.muted) : theme.colors.muted;
   const isSavage = commentary?.tone === 'savage';
   const cardBorderStyle = isSavage
-    ? { borderColor: '#F44336' + '50', borderWidth: 1.5 }
+    ? { borderColor: theme.colors.danger + '50', borderWidth: 1.5 }
     : undefined;
 
   // Chevron rotation animation for tip toggle
@@ -693,7 +693,7 @@ const PlateauCard = React.memo(function PlateauCard({
 }) {
   const { theme } = useAppTheme();
   const classColor =
-    plateau.classification === 'under_recovered' ? '#F44336' :
+    plateau.classification === 'under_recovered' ? theme.colors.danger :
     plateau.classification === 'under_stimulated' ? '#58A6FF' :
     '#FF9800';
   const classLabel =
@@ -724,7 +724,7 @@ const PlateauCard = React.memo(function PlateauCard({
 // Zone definitions for ACWR bar
 const ACWR_ZONES = [
   { label: 'Under-trained', color: '#58A6FF', pctStart: 0, pctEnd: 40 },
-  { label: 'Sweet Spot', color: '#00875A', pctStart: 40, pctEnd: 65 },
+  { label: 'Sweet Spot', color: glowColors.viridian, pctStart: 40, pctEnd: 65 },
   { label: 'Caution', color: '#FF9800', pctStart: 65, pctEnd: 75 },
   { label: 'Danger Zone', color: '#F44336', pctStart: 75, pctEnd: 100 },
 ] as const;
@@ -1137,6 +1137,7 @@ const EmptyGaugeRing = React.memo(function EmptyGaugeRing() {
 /** Enhanced empty state — animated orbiting dots, 0% gauge hint, CTA button. */
 const EmptyState = React.memo(function EmptyState() {
   const { theme } = useAppTheme();
+  const router = useRouter();
   const orbitRotation = useSharedValue(0);
 
   useEffect(() => {
@@ -1175,7 +1176,7 @@ const EmptyState = React.memo(function EmptyState() {
           styles.emptyCtaBtn,
           { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 },
         ]}
-        onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/(tabs)"); }}
       >
         <Text style={[styles.emptyCtaBtnText, { color: theme.colors.primaryText }]}>
           Start your first workout
@@ -1389,15 +1390,15 @@ export default function RecoveryScreen() {
   );
 
   const selectedPillInfo = useMemo(() => {
-    if (!selectedPill || !data) return { value: 0, color: '#fff' };
-    const colorMap: Record<PillKey, string> = { Freshness: '#00875A', 'Block Fit': '#58A6FF', Workload: '#FF9800' };
+    if (!selectedPill || !data) return { value: 0, color: theme.colors.text };
+    const colorMap: Record<PillKey, string> = { Freshness: theme.colors.primary, 'Block Fit': '#58A6FF', Workload: '#FF9800' };
     const valueMap: Record<PillKey, number> = {
       Freshness: Math.round(data.readiness.components.muscleFreshness),
       'Block Fit': Math.round(data.readiness.components.blockContext),
       Workload: Math.round(data.readiness.components.acwrScore),
     };
     return { value: valueMap[selectedPill], color: colorMap[selectedPill] };
-  }, [selectedPill, data]);
+  }, [selectedPill, data, theme.colors]);
 
   const muscleReadiness = useMemo(
     () => effectiveFatigueMap ? computeMuscleReadiness(effectiveFatigueMap) : null,
@@ -1481,7 +1482,7 @@ export default function RecoveryScreen() {
         {/* Error banner */}
         {(data as any)?.error && (
           <Animated.View entering={FadeIn.duration(300)} style={[styles.dataBanner, styles.errorBanner]}>
-            <Ionicons name="alert-circle" size={16} color="#F44336" />
+            <Ionicons name="alert-circle" size={16} color={theme.colors.danger} />
             <Text style={styles.errorBannerText}>
               Couldn't load recovery data. Pull to refresh.
             </Text>
@@ -1588,14 +1589,14 @@ export default function RecoveryScreen() {
                         <Circle cx={18} cy={18} r={14} fill="none" stroke={theme.colors.mutedBg} strokeWidth={3} />
                         <Circle
                           cx={18} cy={18} r={14} fill="none"
-                          stroke={data.trainingLoad.adaptationScore >= 70 ? '#00875A' : data.trainingLoad.adaptationScore >= 45 ? '#58A6FF' : '#FF9800'}
+                          stroke={data.trainingLoad.adaptationScore >= 70 ? theme.colors.primary : data.trainingLoad.adaptationScore >= 45 ? '#58A6FF' : '#FF9800'}
                           strokeWidth={3} strokeLinecap="round"
                           strokeDasharray={[2 * Math.PI * 14, 2 * Math.PI * 14]}
                           strokeDashoffset={2 * Math.PI * 14 * (1 - data.trainingLoad.adaptationScore / 100)}
                           transform="rotate(-90, 18, 18)"
                         />
                       </Svg>
-                      <Text style={[styles.adaptGaugeText, { color: data.trainingLoad.adaptationScore >= 70 ? '#00875A' : data.trainingLoad.adaptationScore >= 45 ? '#58A6FF' : '#FF9800' }]}>
+                      <Text style={[styles.adaptGaugeText, { color: data.trainingLoad.adaptationScore >= 70 ? theme.colors.primary : data.trainingLoad.adaptationScore >= 45 ? '#58A6FF' : '#FF9800' }]}>
                         {data.trainingLoad.adaptationScore}
                       </Text>
                     </View>

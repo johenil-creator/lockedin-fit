@@ -397,7 +397,7 @@ function ProgressCard({ doneDays, totalDays }: {
     <View style={[pcStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
       {/* Coach row — mini Locke + speech bubble */}
       <View style={pcStyles.coachRow}>
-        <LockeMascot size={52} mood={coach.mood} />
+        <LockeMascot size={80} mood={coach.mood} />
         <View style={[pcStyles.coachBubble, { backgroundColor: theme.colors.mutedBg }]}>
           <View style={[pcStyles.coachTail, { backgroundColor: theme.colors.mutedBg }]} />
           <Text style={[pcStyles.coachText, { color: theme.colors.text }]}>{coach.text}</Text>

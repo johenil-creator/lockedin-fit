@@ -91,7 +91,7 @@ export default function OrmTestScreen() {
     profile.weightUnit ?? "kg"
   );
   const [unitChosen, setUnitChosen] = useState(
-    source !== "onboarding" && !!profile.onboardingComplete && !!profile.weightUnit
+    !!profile.weightUnit
   );
   const [exitModalVisible, setExitModalVisible] = useState(false);
   const [setsVisible, setSetsVisible] = useState(false);
@@ -145,15 +145,17 @@ export default function OrmTestScreen() {
   useEffect(() => {
     if (ormTest.loading) return;
     if (ormTest.session !== null) {
-      // Coming from onboarding fresh — clear stale session, show unit picker
+      // Coming from onboarding fresh — clear stale session and start fresh
       if (source === "onboarding") {
         ormTest.clearSession();
+        // Start fresh test immediately with the unit from onboarding
+        setTimeout(() => ormTest.startTest(unit), 0);
         return;
       }
       setUnit(ormTest.session.unit);
       setUnitChosen(true);
     } else if (unitChosen && !ormTest.session) {
-      // Auto-skipped unit picker (onboarding already done) — start test
+      // Unit already known — start test directly
       ormTest.startTest(unit);
     }
   }, [ormTest.loading]);

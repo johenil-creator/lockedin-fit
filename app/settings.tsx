@@ -12,6 +12,7 @@ import {
   requestNotificationPermission,
   scheduleWorkoutReminder,
   scheduleStreakRiskReminder,
+  scheduleInactivityNudge,
   cancelAllReminders,
 } from "../lib/notifications";
 import { isSignedIn, signOut, signInWithGoogle, getStoredEmail } from "../lib/googleAuth";
@@ -22,6 +23,13 @@ const LBS_TO_KG = 0.453592;
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const REST_TIMER_OPTIONS = [30, 60, 90, 120] as const;
+const DAILY_XP_GOAL_OPTIONS = [15, 30, 50, 75] as const;
+const REMINDER_TIME_OPTIONS = [
+  { label: "Morning", hour: 8, sublabel: "8 AM" },
+  { label: "Noon", hour: 12, sublabel: "12 PM" },
+  { label: "Evening", hour: 18, sublabel: "6 PM" },
+  { label: "Night", hour: 21, sublabel: "9 PM" },
+] as const;
 
 function convertValue(val: string | undefined, factor: number): string {
   if (!val) return "";
@@ -36,7 +44,6 @@ export default function SettingsScreen() {
   const { theme, isDark, toggleTheme } = useAppTheme();
   const { profile, updateProfile } = useProfileContext();
   const [exporting, setExporting] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const { user, signOut: authSignOut } = useAuth();
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
@@ -49,6 +56,9 @@ export default function SettingsScreen() {
   const restDays = profile.restDays ?? [];
   const defaultRestTimer = profile.defaultRestTimer ?? 90;
   const hapticsEnabled = profile.hapticsEnabled !== false; // default true
+  const dailyXPGoal = profile.dailyXPGoal ?? 30;
+  const notificationsEnabled = profile.notificationsEnabled ?? false;
+  const reminderHour = profile.reminderHour ?? 18;
 
   function handleUnitChange(newUnit: "kg" | "lbs") {
     if (newUnit === profile.weightUnit) return;
@@ -191,6 +201,32 @@ export default function SettingsScreen() {
         </View>
       </Card>
 
+      {/* Daily XP Goal */}
+      <Card>
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          Daily XP Goal
+        </Text>
+        <View style={styles.timerRow}>
+          {DAILY_XP_GOAL_OPTIONS.map((val) => {
+            const active = dailyXPGoal === val;
+            return (
+              <Pressable
+                key={val}
+                style={[styles.timerChip, { backgroundColor: active ? theme.colors.primary : theme.colors.mutedBg, borderColor: active ? theme.colors.primary : theme.colors.border }]}
+                onPress={() => updateProfile({ dailyXPGoal: val })}
+              >
+                <Text style={[styles.timerChipText, { color: active ? theme.colors.primaryText : theme.colors.text }]}>
+                  {val}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={[typography.caption, { color: theme.colors.muted, marginTop: spacing.sm }]}>
+          XP target shown on home screen
+        </Text>
+      </Card>
+
       {/* Rest Days */}
       <Card>
         <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: 4 }]}>
@@ -233,19 +269,72 @@ export default function SettingsScreen() {
                   Alert.alert("Notifications Disabled", "Enable notifications in your device settings.");
                   return;
                 }
-                await scheduleWorkoutReminder(18); // 6pm
+                await scheduleWorkoutReminder(reminderHour);
                 await scheduleStreakRiskReminder();
+                await scheduleInactivityNudge();
               } else {
                 await cancelAllReminders();
               }
-              setNotificationsEnabled(val);
+              updateProfile({ notificationsEnabled: val });
             }}
             trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
             thumbColor="#ffffff"
           />
         </View>
-        <Text style={[typography.caption, { color: theme.colors.muted }]}>
-          Daily reminder at 6pm + streak-at-risk alert at 8pm
+
+        {/* Reminder time picker — only shown when notifications are on */}
+        {notificationsEnabled && (
+          <View style={{ marginTop: spacing.sm }}>
+            <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: 8 }]}>
+              Reminder Time
+            </Text>
+            <View style={styles.timerRow}>
+              {REMINDER_TIME_OPTIONS.map((opt) => {
+                const active = reminderHour === opt.hour;
+                return (
+                  <Pressable
+                    key={opt.hour}
+                    style={[
+                      styles.timerChip,
+                      {
+                        backgroundColor: active ? theme.colors.primary : theme.colors.mutedBg,
+                        borderColor: active ? theme.colors.primary : theme.colors.border,
+                      },
+                    ]}
+                    onPress={async () => {
+                      updateProfile({ reminderHour: opt.hour });
+                      await scheduleWorkoutReminder(opt.hour);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.timerChipText,
+                        { color: active ? theme.colors.primaryText : theme.colors.text, fontSize: 12 },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                    <Text
+                      style={{
+                        color: active ? theme.colors.primaryText : theme.colors.muted,
+                        fontSize: 10,
+                        fontWeight: "600",
+                        marginTop: 2,
+                      }}
+                    >
+                      {opt.sublabel}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        <Text style={[typography.caption, { color: theme.colors.muted, marginTop: spacing.sm }]}>
+          {notificationsEnabled
+            ? `Daily reminder at ${REMINDER_TIME_OPTIONS.find((o) => o.hour === reminderHour)?.sublabel ?? "6 PM"} + streak alert at 8 PM`
+            : "Enable for daily reminders + streak-at-risk alerts"}
         </Text>
       </Card>
 

@@ -17,10 +17,10 @@ export function WelcomeStep({ onContinue }: Props) {
           <LockeMascot size={400} mood="encouraging" />
           <Text style={[styles.lockeIntro, { color: theme.colors.primary }]}>I'm Locke.</Text>
           <Text style={[styles.welcomeSub, { color: theme.colors.muted }]}>
-            I'm your personal trainer. I'll guide your sessions, track your progress, and help you crush PRs.
+            I'll guide your sessions, track your progress, and help you crush PRs.
           </Text>
           <Text style={[styles.welcomeSub, { color: theme.colors.muted, marginTop: 8 }]}>
-            Let's build something great together.
+            Just a few quick questions and you're in.
           </Text>
         </View>
 

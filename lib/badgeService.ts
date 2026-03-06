@@ -231,3 +231,38 @@ export function checkBadges(input: {
 
   return newBadges;
 }
+
+// ── Badge progress hints ─────────────────────────────────────────────────────
+
+export type BadgeStats = {
+  cardioCount: number;
+  strengthCount: number;
+  totalWorkouts: number;
+  totalSets: number;
+  streakDays: number;
+  has1RM: boolean;
+};
+
+/** Returns a short progress string for a locked badge, e.g. "3 / 5 sessions". */
+export function getBadgeProgress(badgeId: string, stats: BadgeStats): string | null {
+  const { cardioCount, strengthCount, totalWorkouts, totalSets, streakDays } = stats;
+  switch (badgeId) {
+    case "first_run":         return cardioCount >= 1 ? null : `${cardioCount} / 1`;
+    case "consistent_cardio": return `${Math.min(cardioCount, 5)} / 5 sessions`;
+    case "first_lift":        return strengthCount >= 1 ? null : `${strengthCount} / 1`;
+    case "iron_regular":      return `${Math.min(strengthCount, 10)} / 10 sessions`;
+    case "100_sets_club":     return `${Math.min(totalSets, 100)} / 100 sets`;
+    case "500_sets_club":     return `${Math.min(totalSets, 500)} / 500 sets`;
+    case "streak_7":          return `${Math.min(streakDays, 7)} / 7 days`;
+    case "streak_30":         return `${Math.min(streakDays, 30)} / 30 days`;
+    case "streak_100":        return `${Math.min(streakDays, 100)} / 100 days`;
+    case "streak_365":        return `${Math.min(streakDays, 365)} / 365 days`;
+    case "quarter_century":   return `${Math.min(totalWorkouts, 25)} / 25 workouts`;
+    case "half_century":      return `${Math.min(totalWorkouts, 50)} / 50 workouts`;
+    case "centurion":         return `${Math.min(totalWorkouts, 100)} / 100 workouts`;
+    case "double_threat":
+      if (cardioCount >= 1 && strengthCount >= 1) return null;
+      return cardioCount >= 1 ? "Need strength" : strengthCount >= 1 ? "Need cardio" : "Need both";
+    default: return null;
+  }
+}

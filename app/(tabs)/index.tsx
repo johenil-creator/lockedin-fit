@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { fmtDate, wasCompletedToday } from "../../lib/helpers";
@@ -17,7 +18,7 @@ import { useWorkouts } from "../../hooks/useWorkouts";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import type { Exercise, LockeTrigger } from "../../lib/types";
 import { useXP } from "../../hooks/useXP";
-import { useStreak } from "../../hooks/useStreak";
+import { useStreak, isoWeek } from "../../hooks/useStreak";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { RankBadge } from "../../components/RankBadge";
@@ -42,7 +43,7 @@ type HeaderSectionProps = {
   onReset?: () => void;
 };
 
-function HeaderSection({ topInset, onCycleSpeech, onReset }: HeaderSectionProps) {
+const HeaderSection = React.memo(function HeaderSection({ topInset, onCycleSpeech, onReset }: HeaderSectionProps) {
   const { theme } = useAppTheme();
   const [devOpen, setDevOpen] = useState(false);
   return (
@@ -84,7 +85,7 @@ function HeaderSection({ topInset, onCycleSpeech, onReset }: HeaderSectionProps)
       </View>
     </View>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -94,30 +95,36 @@ type RankXPRowProps = {
   rank: ReturnType<typeof useXP>["rank"];
   xp: ReturnType<typeof useXP>["xp"];
   progress: number;
-  toNext: number;
+  bandCurrent: number;
+  bandTotal: number;
   nextTier: ReturnType<typeof useXP>["nextTier"];
   streak: ReturnType<typeof useStreak>["streak"];
+  freezesRemaining: number;
+  onStreakPress: () => void;
 };
 
-function RankXPRow({
+const RankXPRow = React.memo(function RankXPRow({
   name,
   rank,
   xp,
   progress,
-  toNext,
+  bandCurrent,
+  bandTotal,
   nextTier,
   streak,
+  freezesRemaining,
+  onStreakPress,
 }: RankXPRowProps) {
   const { theme } = useAppTheme();
 
-  const streakLabel = streak.current > 0 ? `${streak.current}d` : "—";
+  const streakLabel = `${streak.current}d`;
 
-  // Spec: primary if >= 7, primary @0.7 if >= 3, muted otherwise
+  // 3 visual states: 0 = muted, 1-6 = primary@70%, 7+ = primary
   const streakColor =
     streak.current >= 7
       ? theme.colors.primary
-      : streak.current >= 3
-      ? theme.colors.primary + "B3"   // ~0.7 opacity hex
+      : streak.current >= 1
+      ? theme.colors.primary + "B3"
       : theme.colors.muted;
 
   return (
@@ -130,21 +137,35 @@ function RankXPRow({
         <View style={styles.xpBarWrap}>
           <XPBar
             totalXP={xp.total}
+            bandCurrent={bandCurrent}
+            bandTotal={bandTotal}
             progress={progress}
-            toNext={toNext}
             nextRank={nextTier?.rank ?? null}
           />
         </View>
-        <View style={styles.streakChip}>
-          <Ionicons name="flash" size={12} color={streakColor} />
+        <Pressable
+          style={styles.streakArea}
+          onPress={onStreakPress}
+          hitSlop={8}
+        >
+          <Ionicons name="paw-outline" size={14} color={streakColor} />
           <Text style={[styles.streakChipLabel, { color: streakColor }]}>
             {streakLabel}
           </Text>
-        </View>
+          {freezesRemaining > 0 && (
+            <>
+              <View style={styles.freezeGap} />
+              <Ionicons name="shield-checkmark-outline" size={12} color={theme.colors.muted} />
+              <Text style={[styles.freezeLabel, { color: theme.colors.muted }]}>
+                {freezesRemaining}
+              </Text>
+            </>
+          )}
+        </Pressable>
       </View>
     </View>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -154,7 +175,7 @@ type LockePanelProps = {
   microcopy: string;
 };
 
-function LockePanel({ mood, microcopy }: LockePanelProps) {
+const LockePanel = React.memo(function LockePanel({ mood, microcopy }: LockePanelProps) {
   const { theme } = useAppTheme();
   return (
     <View
@@ -169,7 +190,7 @@ function LockePanel({ mood, microcopy }: LockePanelProps) {
       </Text>
     </View>
   );
-}
+});
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -187,7 +208,7 @@ type TodayWorkoutCardProps = {
   onStart: () => void;
 };
 
-function TodayWorkoutCard({
+const TodayWorkoutCard = React.memo(function TodayWorkoutCard({
   planName,
   week,
   day,
@@ -272,12 +293,12 @@ function TodayWorkoutCard({
       </View>
     </View>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Shown when no plan is loaded. */
-function NoPlanCard({
+const NoPlanCard = React.memo(function NoPlanCard({
   onBrowse,
   onQuick,
   onImport,
@@ -310,12 +331,12 @@ function NoPlanCard({
       </View>
     </View>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** 1RM baseline CTA — shown when !has1RM. */
-function BaselineCTA({ onTake, onManual }: { onTake: () => void; onManual: () => void }) {
+const BaselineCTA = React.memo(function BaselineCTA({ onTake, onManual }: { onTake: () => void; onManual: () => void }) {
   const { theme } = useAppTheme();
   return (
     <View
@@ -355,7 +376,7 @@ function BaselineCTA({ onTake, onManual }: { onTake: () => void; onManual: () =>
       </View>
     </View>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -367,7 +388,7 @@ type QuickActionDef = {
   showBadge?: boolean;
 };
 
-function QuickActionsRow({ actions }: { actions: QuickActionDef[] }) {
+const QuickActionsRow = React.memo(function QuickActionsRow({ actions }: { actions: QuickActionDef[] }) {
   const { theme } = useAppTheme();
   return (
     <View style={styles.quickActionsRow}>
@@ -398,7 +419,7 @@ function QuickActionsRow({ actions }: { actions: QuickActionDef[] }) {
       ))}
     </View>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -411,7 +432,7 @@ type ProgressSnapshotProps = {
   onWorkoutPress: (id: string) => void;
 };
 
-function ProgressSnapshot({
+const ProgressSnapshot = React.memo(function ProgressSnapshot({
   totalSessions,
   thisWeekSessions,
   lastWorkoutDate,
@@ -484,7 +505,56 @@ function ProgressSnapshot({
       )}
     </View>
   );
-}
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Daily XP progress bar — shows today's earned XP vs daily goal. */
+const DailyGoalCard = React.memo(function DailyGoalCard({
+  todayXP,
+  dailyGoal,
+}: {
+  todayXP: number;
+  dailyGoal: number;
+}) {
+  const { theme } = useAppTheme();
+  const pct = Math.min(todayXP / dailyGoal, 1);
+  const done = todayXP >= dailyGoal;
+
+  return (
+    <View
+      style={[
+        styles.dailyGoalCard,
+        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+      ]}
+    >
+      <View style={styles.dailyGoalHeader}>
+        <Text style={[styles.dailyGoalLabel, { color: theme.colors.muted }]}>
+          DAILY XP
+        </Text>
+        <Text style={[styles.dailyGoalValues, { color: done ? theme.colors.primary : theme.colors.text }]}>
+          {todayXP}/{dailyGoal}
+        </Text>
+      </View>
+      <View style={[styles.dailyGoalTrack, { backgroundColor: theme.colors.mutedBg }]}>
+        <View
+          style={[
+            styles.dailyGoalFill,
+            {
+              backgroundColor: done ? theme.colors.primary : theme.colors.primary + "B3",
+              width: `${Math.round(pct * 100)}%`,
+            },
+          ]}
+        />
+      </View>
+      {done && (
+        <Text style={[styles.dailyGoalDone, { color: theme.colors.primary }]}>
+          Daily goal reached!
+        </Text>
+      )}
+    </View>
+  );
+});
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
@@ -542,8 +612,9 @@ export default function HomeScreen() {
     reload: reloadWorkouts,
   } = useWorkouts();
   const [refreshing, setRefreshing] = useState(false);
+  const [streakSheetOpen, setStreakSheetOpen] = useState(false);
   const { hydrated, profileRef } = useProfileContext();
-  const { xp, rank, progress, toNext, nextTier } = useXP();
+  const { xp, rank, progress, toNext, nextTier, bandCurrent, bandTotal, todayXP } = useXP();
   const { streak, daysSinceActivity } = useStreak();
   const { fire } = useLocke();
   const {
@@ -648,6 +719,11 @@ export default function HomeScreen() {
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const profile      = profileRef.current;
+  const week         = isoWeek();
+  const freezesRemaining =
+    profile.freezesResetWeek === week
+      ? (profile.freezesRemaining ?? 2)
+      : 2;
   const has1RM       = !!(
     profile.manual1RM?.deadlift ||
     profile.manual1RM?.squat    ||
@@ -790,7 +866,7 @@ export default function HomeScreen() {
   const quickActions = useMemo<QuickActionDef[]>(
     () => [
       { icon: "heart-outline",       label: "Cardio",    onPress: () => router.push("/cardio-setup") },
-      { icon: "list-outline",        label: "View Plan", onPress: () => router.push("/plan") },
+      { icon: "book-outline",        label: "Exercises", onPress: () => router.push("/exercise-library") },
       { icon: "stats-chart-outline", label: "Stats",     onPress: () => router.push("/weekly-summary") },
     ],
     [router]
@@ -829,10 +905,21 @@ export default function HomeScreen() {
           rank={rank}
           xp={xp}
           progress={progress}
-          toNext={toNext}
+          bandCurrent={bandCurrent}
+          bandTotal={bandTotal}
           nextTier={nextTier}
           streak={streak}
+          freezesRemaining={freezesRemaining}
+          onStreakPress={() => setStreakSheetOpen(true)}
         />
+
+        {/* 1b. DAILY XP GOAL */}
+        {(profileRef.current.dailyXPGoal ?? 30) > 0 && (
+          <DailyGoalCard
+            todayXP={todayXP}
+            dailyGoal={profileRef.current.dailyXPGoal ?? 30}
+          />
+        )}
 
         {/* 2. ACTIVE SESSION BANNER — above primary CTA */}
         {activeSession && (
@@ -849,10 +936,11 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* 3. LOCKE PANEL — only when has1RM */}
-        {has1RM && (
-          <LockePanel mood={lockeMood} microcopy={microcopy} />
-        )}
+        {/* 3. LOCKE PANEL — always visible */}
+        <LockePanel
+          mood={has1RM ? lockeMood : "encouraging"}
+          microcopy={has1RM ? microcopy : "Set up your lifts and I'll handle the rest."}
+        />
 
         {/* Locke banner from session-end events */}
         <LockeBanner />
@@ -904,6 +992,38 @@ export default function HomeScreen() {
 
         {/* DEV: Tools — subtle, bottom */}
       </ScrollView>
+
+      {/* Streak bottom sheet — must be outside ScrollView for gorhom */}
+      <AppBottomSheet visible={streakSheetOpen} onClose={() => setStreakSheetOpen(false)}>
+        <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>Your Streak</Text>
+        <View style={styles.sheetRow}>
+          <Text style={[styles.sheetRowLabel, { color: theme.colors.muted }]}>Current</Text>
+          <Text style={[styles.sheetRowValue, { color: theme.colors.text }]}>
+            {streak.current} days
+          </Text>
+        </View>
+        <View style={styles.sheetRow}>
+          <Text style={[styles.sheetRowLabel, { color: theme.colors.muted }]}>Longest</Text>
+          <Text style={[styles.sheetRowValue, { color: theme.colors.text }]}>
+            {streak.longest} days
+          </Text>
+        </View>
+        <View style={[styles.sheetDivider, { backgroundColor: theme.colors.border }]} />
+        <View style={styles.sheetRow}>
+          <View style={styles.sheetShieldRow}>
+            <Ionicons name="shield-checkmark-outline" size={14} color={theme.colors.muted} />
+            <Text style={[styles.sheetRowLabel, { color: theme.colors.muted }]}>
+              Streak Shields
+            </Text>
+          </View>
+          <Text style={[styles.sheetRowValue, { color: theme.colors.text }]}>
+            {freezesRemaining} remaining
+          </Text>
+        </View>
+        <Text style={[styles.sheetCaption, { color: theme.colors.muted }]}>
+          Shields protect your streak on rest days. You get 2 each week, resetting Monday.
+        </Text>
+      </AppBottomSheet>
     </View>
   );
 }
@@ -949,8 +1069,19 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   xpBarWrap: { flex: 1 },
-  streakChip: { flexDirection: "row", alignItems: "center", gap: 3 },
+  streakArea: { flexDirection: "row", alignItems: "center", gap: 3 },
   streakChipLabel: { fontSize: 12, fontWeight: "700" },
+  freezeGap: { width: 3 },
+  freezeLabel: { fontSize: 11, fontWeight: "600" },
+
+  // Streak bottom sheet
+  sheetTitle: { fontSize: 17, fontWeight: "700", marginBottom: 16 },
+  sheetRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  sheetRowLabel: { fontSize: 14 },
+  sheetRowValue: { fontSize: 14, fontWeight: "700" },
+  sheetShieldRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  sheetDivider: { height: 1, marginVertical: 6 },
+  sheetCaption: { fontSize: 12, lineHeight: 17, marginTop: 4 },
 
   // Active session banner
   activeBanner: {
@@ -1096,4 +1227,24 @@ const styles = StyleSheet.create({
   recentCard:  { marginBottom: 8, padding: 14 },
   recentName:  { fontSize: 15, fontWeight: "600" },
   recentMeta:  { fontSize: 12, marginTop: 2 },
+
+  // Daily XP goal
+  dailyGoalCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  dailyGoalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  dailyGoalLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
+  dailyGoalValues: { fontSize: 13, fontWeight: "700" },
+  dailyGoalTrack: { height: 6, borderRadius: 999, overflow: "hidden" },
+  dailyGoalFill: { height: "100%", borderRadius: 999, minWidth: 4 },
+  dailyGoalDone: { fontSize: 11, fontWeight: "600", marginTop: 4, textAlign: "center" },
 });

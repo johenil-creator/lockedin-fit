@@ -1,17 +1,17 @@
 import { View, Text, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { radius } from "../lib/theme";
 import type { RankLevel } from "../lib/types";
 
-// Rank-specific icon characters (text-based, no image assets needed)
-const RANK_ICONS: Record<RankLevel, string> = {
-  Runt:     "·",
-  Scout:    "›",
-  Stalker:  "»",
-  Hunter:   "◆",
-  Sentinel: "▲",
-  Alpha:    "★",
-  Apex:     "⬡",
+const RANK_ICONS: Record<RankLevel, keyof typeof Ionicons.glyphMap> = {
+  Runt:     "paw-outline",
+  Scout:    "eye-outline",
+  Stalker:  "footsteps-outline",
+  Hunter:   "locate-outline",
+  Sentinel: "shield-half-outline",
+  Alpha:    "star-outline",
+  Apex:     "diamond-outline",
 };
 
 type Props = {
@@ -30,9 +30,7 @@ export function RankBadge({ rank, compact = false }: Props) {
         { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border },
       ]}
     >
-      <Text style={[styles.icon, { color: theme.colors.primary }]}>
-        {RANK_ICONS[rank]}
-      </Text>
+      <Ionicons name={RANK_ICONS[rank]} size={14} color={theme.colors.primary} />
       {!compact && (
         <Text style={[styles.label, { color: theme.colors.text }]}>{rank}</Text>
       )}
@@ -44,12 +42,11 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: radius.full,
     borderWidth: 1,
   },
-  icon:  { fontSize: 13, fontWeight: "700" },
   label: { fontSize: 12, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
 });

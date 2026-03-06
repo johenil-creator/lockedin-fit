@@ -3,8 +3,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useProfileContext } from "../contexts/ProfileContext";
+import { useWorkouts } from "../hooks/useWorkouts";
+import { useStreak } from "../hooks/useStreak";
 import { BackButton } from "../components/BackButton";
-import { BADGE_DEFINITIONS } from "../lib/badgeService";
+import { BADGE_DEFINITIONS, getBadgeProgress, type BadgeStats } from "../lib/badgeService";
 import { glowColors, spacing, radius, typography } from "../lib/theme";
 import type { Badge } from "../lib/types";
 
@@ -63,16 +65,18 @@ function formatDate(iso: string): string {
 function BadgeRow({
   def,
   unlocked,
+  progress,
 }: {
   def: (typeof BADGE_DEFINITIONS)[number];
   unlocked: Badge | undefined;
+  progress: string | null;
 }) {
   const { theme } = useAppTheme();
   const isUnlocked = !!unlocked;
   const iconName = BADGE_ICON_MAP[def.icon] ?? "help-circle-outline";
 
   return (
-    <View style={[styles.badgeRow, { opacity: isUnlocked ? 1 : 0.35 }]}>
+    <View style={[styles.badgeRow, { opacity: isUnlocked ? 1 : 0.4 }]}>
       <View style={[styles.iconCircle, { backgroundColor: isUnlocked ? glowColors.viridianDim : theme.colors.mutedBg }]}>
         <Ionicons
           name={iconName}
@@ -86,6 +90,11 @@ function BadgeRow({
         {isUnlocked && unlocked.unlockedAt && (
           <Text style={[styles.badgeDate, { color: glowColors.viridian }]}>
             {formatDate(unlocked.unlockedAt)}
+          </Text>
+        )}
+        {!isUnlocked && progress && (
+          <Text style={[styles.badgeProgress, { color: theme.colors.primary }]}>
+            {progress}
           </Text>
         )}
       </View>
@@ -102,6 +111,8 @@ export default function BadgesScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useAppTheme();
   const { profile } = useProfileContext();
+  const { workouts } = useWorkouts();
+  const { streak } = useStreak();
 
   const unlockedMap = new Map<string, Badge>();
   for (const b of profile.badges ?? []) {
@@ -111,6 +122,19 @@ export default function BadgesScreen() {
   const total = BADGE_DEFINITIONS.length;
   const earned = unlockedMap.size;
   const progressPct = total > 0 ? earned / total : 0;
+
+  // Compute stats for progress indicators
+  const completed = workouts.filter((w) => !!w.completedAt);
+  const badgeStats: BadgeStats = {
+    cardioCount: completed.filter((w) => w.sessionType === "cardio").length,
+    strengthCount: completed.filter(
+      (w) => w.sessionType === "strength" || (w.sessionType !== "cardio" && w.exercises.some((e) => e.sets.some((s) => s.completed)))
+    ).length,
+    totalWorkouts: completed.length,
+    totalSets: completed.reduce((sum, w) => sum + w.exercises.flatMap((e) => e.sets).filter((s) => s.completed).length, 0),
+    streakDays: streak.current,
+    has1RM: !!(profile.estimated1RM && Object.values(profile.estimated1RM).some((v) => v != null && v !== "")),
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.bg, paddingTop: insets.top }]}>
@@ -150,7 +174,12 @@ export default function BadgesScreen() {
             <View key={cat.label} style={[styles.card, { backgroundColor: theme.colors.surface }]}>
               <Text style={[styles.categoryTitle, { color: theme.colors.text }]}>{cat.label}</Text>
               {defs.map((def) => (
-                <BadgeRow key={def.id} def={def} unlocked={unlockedMap.get(def.id)} />
+                <BadgeRow
+                  key={def.id}
+                  def={def}
+                  unlocked={unlockedMap.get(def.id)}
+                  progress={unlockedMap.has(def.id) ? null : getBadgeProgress(def.id, badgeStats)}
+                />
               ))}
             </View>
           );
@@ -239,6 +268,11 @@ const styles = StyleSheet.create({
   },
   badgeDate: {
     fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  badgeProgress: {
+    fontSize: 11,
     fontWeight: "600",
     marginTop: 2,
   },

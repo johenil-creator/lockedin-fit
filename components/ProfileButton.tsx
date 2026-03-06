@@ -1,25 +1,22 @@
 import React from "react";
-import { Pressable, Text, StyleSheet } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useProfileContext } from "../contexts/ProfileContext";
 import { useAppTheme } from "../contexts/ThemeContext";
 
 function ProfileButtonInner() {
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { profileRef } = useProfileContext();
-
-  const initial = (profileRef.current.name || "?").charAt(0).toUpperCase();
 
   return (
     <Pressable
       onPress={() => router.push("/profile")}
-      style={[styles.avatar, { backgroundColor: theme.colors.primary }]}
+      style={[styles.avatar, { backgroundColor: theme.colors.mutedBg }]}
       accessibilityRole="button"
       accessibilityLabel="Profile"
       hitSlop={8}
     >
-      <Text style={styles.initial}>{initial}</Text>
+      <Ionicons name="person" size={16} color={theme.colors.primary} />
     </Pressable>
   );
 }
@@ -33,10 +30,5 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-  },
-  initial: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
   },
 });

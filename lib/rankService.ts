@@ -6,7 +6,7 @@ export type RankThreshold = { rank: RankLevel; xp: number };
 
 export const RANK_LADDER: RankThreshold[] = [
   { rank: "Runt",     xp: 0    },
-  { rank: "Scout",    xp: 50   },
+  { rank: "Scout",    xp: 120  },
   { rank: "Stalker",  xp: 200  },
   { rank: "Hunter",   xp: 500  },
   { rank: "Sentinel", xp: 1000 },
@@ -49,6 +49,21 @@ export function rankProgress(totalXP: number): number {
   const bandStart = RANK_LADDER[idx].xp;
   const bandEnd   = RANK_LADDER[idx + 1].xp;
   return (totalXP - bandStart) / (bandEnd - bandStart);
+}
+
+/** XP earned within the current rank band (0-based). */
+export function rankBandCurrent(totalXP: number): number {
+  const rank = rankForXP(totalXP);
+  const idx = RANK_LADDER.findIndex((t) => t.rank === rank);
+  return totalXP - RANK_LADDER[idx].xp;
+}
+
+/** Total XP required to complete the current rank band, or 0 at Apex. */
+export function rankBandTotal(totalXP: number): number {
+  const rank = rankForXP(totalXP);
+  const idx = RANK_LADDER.findIndex((t) => t.rank === rank);
+  if (idx === RANK_LADDER.length - 1) return 0;
+  return RANK_LADDER[idx + 1].xp - RANK_LADDER[idx].xp;
 }
 
 /** True if newXP crosses a rank boundary that oldXP did not. */

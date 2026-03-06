@@ -29,7 +29,7 @@ import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useWorkouts } from "../hooks/useWorkouts";
 import { useXP } from "../hooks/useXP";
-import { useStreak } from "../hooks/useStreak";
+import { useStreak, isoWeek } from "../hooks/useStreak";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { CountdownRing } from "../components/cardio/CountdownRing";
@@ -50,6 +50,7 @@ import type { WorkoutCompleteParams } from "../lib/xpService";
 import type { WorkoutSession } from "../lib/types";
 import type { CardioModality } from "../lib/cardioSuggestions";
 import { useIconMood } from "../hooks/useIconMood";
+import { cancelStreakRiskReminder } from "../lib/notifications";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -226,9 +227,27 @@ export default function CardioSessionScreen() {
     session.virtualSets = virtualSets;
 
     await addWorkout(session);
-    const { streak: newStreak } = await recordActivity();
 
+    // ── Streak (with freeze + rest-day support) ──────────────────────────
     const currentProfile = profileRef.current;
+    const restDays = currentProfile.restDays ?? [];
+    const week = isoWeek();
+    const freezesLeft =
+      currentProfile.freezesResetWeek === week
+        ? (currentProfile.freezesRemaining ?? 2)
+        : 2;
+    const { streak: newStreak, freezesUsed } = await recordActivity(
+      new Date(),
+      restDays,
+      freezesLeft
+    );
+    if (freezesUsed > 0 || currentProfile.freezesResetWeek !== week) {
+      updateProfile({
+        freezesRemaining: freezesLeft - freezesUsed,
+        freezesResetWeek: week,
+      });
+    }
+
     const { newPRs, updatedRecord: newPRRecord } = detectCardioPRs(
       session,
       currentProfile.cardioPRs ?? {}
@@ -293,6 +312,9 @@ export default function CardioSessionScreen() {
       streakDays: newStreak.current,
       lastWorkoutAt: now,
     });
+
+    // ── Cancel streak-at-risk notification ───────────────
+    void cancelStreakRiskReminder();
 
     const next = getNextRank(currentXP.rank);
     const completeParams: WorkoutCompleteParams = {

@@ -95,7 +95,8 @@ export default function OnboardingScreen() {
 
   async function skip() {
     await updateProfile({ name: userName.trim(), weightUnit: unit, onboardingComplete: true });
-    router.replace("/");
+    // Send new users to catalog so they pick a plan immediately
+    router.replace(exercises.length > 0 ? "/" : "/catalog");
   }
 
   async function handleManualSave() {
@@ -209,7 +210,8 @@ export default function OnboardingScreen() {
   // ── Manual 1RM entry step ────────────────────────────────────────────────────
 
   return (
-    <StepSlide>
+    <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+      <ProgressDots current={VISIBLE_STEPS.length - 1} total={VISIBLE_STEPS.length} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -221,15 +223,15 @@ export default function OnboardingScreen() {
           <View style={{ alignItems: "center", marginBottom: 16 }}>
             <LockeMascot size={240} mood="encouraging" />
             <Text style={{ fontSize: 13, color: theme.colors.muted, textAlign: "center", marginTop: 6 }}>
-              Let's get your starting numbers.
+              Just your best guess — we'll dial it in.
             </Text>
           </View>
-          <Text style={[styles.stepEyebrow, { color: theme.colors.primary }]}>YOUR NUMBERS</Text>
+          <Text style={[styles.stepEyebrow, { color: theme.colors.primary }]}>YOUR LIFTS</Text>
           <Text style={[styles.stepTitle, { color: theme.colors.text }]}>
-            Enter your 1RM values
+            What's the heaviest you've lifted?
           </Text>
           <Text style={[styles.stepSub, { color: theme.colors.muted }]}>
-            Leave blank any lifts you don't track
+            Rough estimates are fine — leave blank any you're unsure about
           </Text>
 
           {LIFTS.map((lift) => (
@@ -259,6 +261,6 @@ export default function OnboardingScreen() {
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </StepSlide>
+    </View>
   );
 }

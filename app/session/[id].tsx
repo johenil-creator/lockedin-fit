@@ -1,5 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from "react";
-import * as Haptics from "expo-haptics";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import {
+  hapticSetComplete,
+  hapticPR,
+  hapticStreakRisk,
+} from "../../lib/hapticFeedback";
 import {
   View,
   Text,
@@ -22,7 +26,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { usePlanContext } from "../../contexts/PlanContext";
 import { useXP } from "../../hooks/useXP";
-import { useStreak } from "../../hooks/useStreak";
+import { useStreak, isoWeek } from "../../hooks/useStreak";
 import { usePerformance } from "../../hooks/usePerformance";
 import { buildPerformanceWeek, upsertPerformanceWeek, isoWeekKey } from "../../lib/performanceScore";
 import { useIconMood } from "../../hooks/useIconMood";
@@ -32,6 +36,7 @@ import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { getExerciseEquipment } from "../../lib/loadEngine/classifier";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   loadCustomCatalog,
   saveCustomCatalog,
@@ -50,6 +55,7 @@ import { updateTrainingLoad } from "../../lib/adaptationModel";
 import { clearRecoveryCache } from "../../lib/recoveryEstimator";
 import { clearReadinessCache } from "../../lib/readinessScore";
 import { clearForecastCache } from "../../lib/fatigueForecast";
+import { cancelStreakRiskReminder } from "../../lib/notifications";
 import { EXERCISE_CUES } from "../../src/data/exerciseCues";
 import { RANK_IMAGES } from "../../components/RankEvolutionPath";
 import { Card } from "../../components/Card";
@@ -66,6 +72,7 @@ import { useProfileContext } from "../../contexts/ProfileContext";
 import { useToast } from "../../contexts/ToastContext";
 import { makeId } from "../../lib/helpers";
 import { ExerciseFeedbackSheet } from "../../components/session/ExerciseFeedbackSheet";
+import { CoachMarks } from "../../components/session/CoachMarks";
 import type {
   WorkoutSession,
   SessionExercise,
@@ -88,6 +95,8 @@ function formatRestTime(seconds: number): string {
   const s = seconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+const COACH_KEY = "@lockedinfit/sessionCoachSeen";
 
 // ── Fatigue pipeline (fire-and-forget) ───────────────────────────────────────
 
@@ -198,6 +207,40 @@ async function recordSessionFatigue(
 
 // ── Progress Bar ────────────────────────────────────────────────────────────
 
+// ── Floating Pause Bar (self-contained timer) ─────────────────────────────
+
+function FloatingPauseBar({
+  startedAt,
+  backgroundMs,
+  onPause,
+}: {
+  startedAt: string;
+  backgroundMs: React.RefObject<number>;
+  onPause: () => void;
+}) {
+  const { theme } = useAppTheme();
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = new Date(startedAt).getTime();
+    const tick = () => setElapsed(Math.floor((Date.now() - start - (backgroundMs.current ?? 0)) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+
+  return (
+    <Pressable
+      onPress={onPause}
+      style={[styles.floatingPauseBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}
+    >
+      <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: "700", fontFamily: "monospace", marginRight: 10 }}>
+        {formatElapsed(elapsed)}
+      </Text>
+      <Text style={{ color: theme.colors.accent, fontSize: 14, fontWeight: "700" }}>pause</Text>
+    </Pressable>
+  );
+}
+
 // ── Pause Overlay ──────────────────────────────────────────────────────────
 
 function PauseOverlay({
@@ -238,7 +281,7 @@ export default function SessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { workouts, loading: workoutsLoading, updateWorkout } = useWorkouts();
+  const { workouts, loading: workoutsLoading, updateWorkout, deleteWorkout } = useWorkouts();
   const { exercises: planExercises, markDayCompleted } = usePlanContext();
   const { xp, setXPRecord, rank } = useXP();
   const { recordActivity } = useStreak();
@@ -249,7 +292,6 @@ export default function SessionScreen() {
   const sessionUnit = profile.weightUnit === "lbs" ? "lbs" : "kg";
   const [pickerVisible, setPickerVisible] = useState(false);
   const [manualName, setManualName] = useState("");
-  const [elapsed, setElapsed] = useState(0);
 
   // Classify exercise modal state
   const [classifyVisible, setClassifyVisible] = useState(false);
@@ -268,6 +310,9 @@ export default function SessionScreen() {
 
   // Rest timers
   const { restTimers, startRestTimer, dismissRestTimer, advanceTimers } = useRestTimers();
+
+  // Coach marks (first-use walkthrough)
+  const [showCoach, setShowCoach] = useState(false);
 
   // Session notes editing
 
@@ -316,21 +361,20 @@ export default function SessionScreen() {
     setPaused(false);
   }, []);
 
-  useEffect(() => {
-    if (!session?.isActive || !session?.startedAt) return;
-    const start = new Date(session.startedAt).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start - totalBackgroundMsRef.current) / 1000));
-    tick();
-    const intervalId = setInterval(tick, 1000);
-    return () => clearInterval(intervalId);
-  }, [session?.isActive, session?.startedAt]);
-
   // Load custom catalog entries into the matcher on mount
   useEffect(() => {
     loadCustomCatalog().then((entries) => {
       entries.forEach((e: ExerciseCatalogEntry) => addCustomEntry(e));
     });
   }, []);
+
+  // Show coach marks on first session visit
+  useEffect(() => {
+    if (!session?.isActive) return;
+    AsyncStorage.getItem(COACH_KEY).then((val) => {
+      if (!val) setShowCoach(true);
+    });
+  }, [session?.isActive]);
 
   // ── Auto-recalculate weights when 1RM data becomes available ──────────────
   const ormRecalcDone = useRef(false);
@@ -569,7 +613,7 @@ export default function SessionScreen() {
     if (patch.completed === true) {
       const wasCompleted = ex.sets[setIdx]?.completed;
       if (!wasCompleted) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        hapticSetComplete();
         startRestTimer(exId, setIdx, ex.restTime ?? profile.defaultRestTimer ?? 90);
 
         // PR detection — compare this set's Epley 1RM against past sessions
@@ -620,7 +664,7 @@ export default function SessionScreen() {
           if (prDetected) {
             if (prFlashTimer.current) clearTimeout(prFlashTimer.current);
             setPrFlash(ex.name);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            hapticPR();
             prFlashTimer.current = setTimeout(() => setPrFlash(null), 2500);
           }
         }
@@ -858,7 +902,8 @@ export default function SessionScreen() {
         onClearActiveExercise={() => setActiveExerciseId(null)}
         planContext={sessionPlanContext}
         setsProgress={setsProgressFraction}
-        elapsed={formatElapsed(elapsed)}
+        startedAt={session.startedAt}
+        backgroundMs={totalBackgroundMsRef}
       />
 
 
@@ -1174,8 +1219,16 @@ export default function SessionScreen() {
                       [
                         { text: "Keep Going", style: "cancel" },
                         {
-                          text: "End Session",
+                          text: "Discard",
                           style: "destructive",
+                          onPress: async () => {
+                            await deleteWorkout(session.id);
+                            hapticStreakRisk();
+                            router.replace("/");
+                          },
+                        },
+                        {
+                          text: "End Session",
                           onPress: async () => {
                             // ── Idempotency guard ──────────────────────────────
                             if (session.xpClaimed) {
@@ -1196,8 +1249,21 @@ export default function SessionScreen() {
                               markDayCompleted(session.planWeek, session.planDay);
                             }
 
-                            // ── Streak ──────────────────────────────────────────
-                            const { streak: newStreak } = await recordActivity();
+                            // ── Streak (with freeze + rest-day support) ────────
+                            const restDays = profile.restDays ?? [];
+                            const week = isoWeek();
+                            const freezesLeft =
+                              profile.freezesResetWeek === week
+                                ? (profile.freezesRemaining ?? 2)
+                                : 2;
+                            const { streak: newStreak, freezesUsed } =
+                              await recordActivity(new Date(), restDays, freezesLeft);
+                            if (freezesUsed > 0 || profile.freezesResetWeek !== week) {
+                              updateProfile({
+                                freezesRemaining: freezesLeft - freezesUsed,
+                                freezesResetWeek: week,
+                              });
+                            }
 
                             // ── PR detection (Epley 1RM + bodyweight reps vs prior sessions) ─────
                             const prevSessions = workouts.filter(
@@ -1309,6 +1375,9 @@ export default function SessionScreen() {
                               [...workouts.filter((w) => w.id !== completed.id), completed],
                             );
 
+                            // ── Cancel streak-at-risk notification ───────────────
+                            void cancelStreakRiskReminder();
+
                             // ── Navigate to Workout Complete screen ──────────────
                             const params = buildWorkoutCompleteParams(
                               completed,
@@ -1387,7 +1456,19 @@ export default function SessionScreen() {
           Movement Pattern
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 40 }}>
-          {(["squat", "hinge", "horizontal_push", "horizontal_pull", "vertical_push", "vertical_pull", "isolation_upper", "isolation_lower", "core", "conditioning", "carry"] as const).map((p) => (
+          {([
+            ["squat", "Squat"],
+            ["hinge", "Hinge / Deadlift"],
+            ["horizontal_push", "Chest Press"],
+            ["horizontal_pull", "Row"],
+            ["vertical_push", "Shoulder Press"],
+            ["vertical_pull", "Pull-Up / Lat"],
+            ["isolation_upper", "Arms / Shoulders"],
+            ["isolation_lower", "Legs (Isolation)"],
+            ["core", "Core"],
+            ["conditioning", "Cardio / Conditioning"],
+            ["carry", "Carry"],
+          ] as const).map(([p, label]) => (
             <Pressable
               key={p}
               onPress={() => setClassifyPattern(p)}
@@ -1404,7 +1485,7 @@ export default function SessionScreen() {
                 fontSize: 12,
                 fontWeight: "600",
               }}>
-                {p.replace(/_/g, " ")}
+                {label}
               </Text>
             </Pressable>
           ))}
@@ -1414,7 +1495,13 @@ export default function SessionScreen() {
           Anchor Lift (for auto-fill)
         </Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
-          {(["none", "squat", "deadlift", "bench", "ohp"] as const).map((l) => (
+          {([
+            ["none", "None"],
+            ["squat", "Squat"],
+            ["deadlift", "Deadlift"],
+            ["bench", "Bench Press"],
+            ["ohp", "Overhead Press"],
+          ] as const).map(([l, label]) => (
             <Pressable
               key={l}
               onPress={() => setClassifyAnchor(l)}
@@ -1429,9 +1516,8 @@ export default function SessionScreen() {
                 color: classifyAnchor === l ? theme.colors.primaryText : theme.colors.text,
                 fontSize: 13,
                 fontWeight: "600",
-                textTransform: "capitalize",
               }}>
-                {l}
+                {label}
               </Text>
             </Pressable>
           ))}
@@ -1456,17 +1542,22 @@ export default function SessionScreen() {
         onSkip={handleFeedbackSkip}
       />
 
+      {/* First-use coach marks */}
+      <CoachMarks
+        visible={showCoach}
+        onDismiss={() => {
+          setShowCoach(false);
+          AsyncStorage.setItem(COACH_KEY, "1");
+        }}
+      />
+
       {/* Floating pause bar */}
-      {session.isActive && (
-        <Pressable
-          onPress={() => setPaused(true)}
-          style={[styles.floatingPauseBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}
-        >
-          <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: "700", fontFamily: "monospace", marginRight: 10 }}>
-            {formatElapsed(elapsed)}
-          </Text>
-          <Text style={{ color: theme.colors.accent, fontSize: 14, fontWeight: "700" }}>pause</Text>
-        </Pressable>
+      {session.isActive && session.startedAt && (
+        <FloatingPauseBar
+          startedAt={session.startedAt}
+          backgroundMs={totalBackgroundMsRef}
+          onPause={() => setPaused(true)}
+        />
       )}
 
       {/* Auto-pause overlay */}
