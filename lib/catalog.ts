@@ -1213,4 +1213,320 @@ export const CATALOG_PLANS: CatalogPlan[] = [
       slot("core-2", ["Plank (Weighted)", "Farmer Walk", "Suitcase Carry", "Dead Bug (Weighted)"], "3", "45-60s", "Day 4", "0", "60"),
     ], 6, "linear"),
   },
+
+  // ─── 18. 3-Day Strength (12 weeks) ──────────────────────────────────────────
+  {
+    id: "3d-strength",
+    name: "3-Day Strength",
+    goal: "Strength (Squat / Bench / Deadlift)",
+    description: "A 12-week linear strength programme built around the big three — one heavy day each for squat, bench, and deadlift.",
+    difficulty: "Intermediate",
+    daysPerWeek: 3,
+    totalWeeks: 12,
+    weeklyProgression: LINEAR_STRENGTH,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Squat Day
+      slot("squat", ["Barbell Back Squat", "Pause Squat", "Safety Bar Squat", "Tempo Squat (3-1-0)"], "4", "5", "Day 1", "3", "180"),
+      slot("leg-press", ["Leg Press", "Hack Squat", "Belt Squat", "Pendulum Squat"], "3", "8-10", "Day 1", "1", "90"),
+      slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 1", "0", "60"),
+      slot("lunge", ["Walking Lunge", "Reverse Lunge", "Bulgarian Split Squat", "Deficit Reverse Lunge"], "3", "10 each", "Day 1", "0", "90"),
+      slot("core", ["Hanging Leg Raise", "Ab Wheel Rollout", "Plank (Weighted)", "Pallof Press"], "3", "12-15", "Day 1", "0", "60"),
+      // Day 2 — Bench Day
+      slot("bench", ["Barbell Bench Press", "Pause Bench Press", "Close-Grip Bench Press", "Floor Press"], "4", "5", "Day 2", "3", "180"),
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Low-Incline Dumbbell Press", "Incline Smith Press"], "3", "8-10", "Day 2", "1", "90"),
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Seal Row"], "4", "6-8", "Day 2", "1", "120"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 2", "0", "60"),
+      slot("tricep", ["Tricep Pushdown", "Skull Crusher", "Overhead Extension", "V-Bar Pushdown"], "3", "12-15", "Day 2", "0", "60"),
+      // Day 3 — Deadlift Day
+      slot("deadlift", ["Conventional Deadlift", "Sumo Deadlift", "Trap Bar Deadlift", "Pause Deadlift"], "4", "5", "Day 3", "3", "180"),
+      slot("hip-hinge", ["Romanian Deadlift", "Stiff-Leg Deadlift", "Good Morning", "Dumbbell RDL"], "3", "8-10", "Day 3", "1", "120"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Chin-Up"], "4", "6-8", "Day 3", "0", "120"),
+      slot("bicep", ["Barbell Curl", "EZ-Bar Curl", "Hammer Curl", "Cable Curl"], "3", "10-12", "Day 3", "0", "60"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Donkey Calf Raise", "Single-Leg Calf Raise"], "4", "12-15", "Day 3", "0", "60"),
+    ], 12, "linear"),
+  },
+
+  // ─── 19. 3-Day Hypertrophy (6 weeks) ────────────────────────────────────────
+  {
+    id: "3d-hypertrophy",
+    name: "3-Day Hypertrophy",
+    goal: "Full Body Hypertrophy",
+    description: "A 6-week full-body hypertrophy programme — push-focused, pull-focused, and legs-focused sessions for maximum growth on three days.",
+    difficulty: "Intermediate",
+    daysPerWeek: 3,
+    totalWeeks: 6,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Full Body A (Push emphasis)
+      slot("flat-press", ["Flat Barbell Bench Press", "Flat Dumbbell Bench Press", "Close-Grip Bench Press", "Floor Press"], "4", "8-10", "Day 1", "2", "120"),
+      slot("shoulder-press", ["Seated Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Push Press"], "3", "10-12", "Day 1", "1", "90"),
+      slot("squat", ["Barbell Back Squat", "Goblet Squat", "Leg Press", "Belt Squat"], "3", "10-12", "Day 1", "2", "120"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 1", "0", "60"),
+      slot("tricep", ["Tricep Rope Pushdown", "Overhead Tricep Extension", "Skull Crusher", "V-Bar Pushdown"], "3", "12-15", "Day 1", "0", "60"),
+      // Day 2 — Full Body B (Pull emphasis)
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Meadows Row"], "4", "8-10", "Day 2", "2", "120"),
+      slot("pull-up", ["Lat Pulldown", "Weighted Pull-Up", "Neutral-Grip Pull-Up", "Close-Grip Pulldown"], "3", "8-10", "Day 2", "1", "90"),
+      slot("hip-hinge", ["Romanian Deadlift", "Stiff-Leg Deadlift", "Dumbbell RDL", "Good Morning"], "3", "10-12", "Day 2", "2", "120"),
+      slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "3", "15-20", "Day 2", "0", "60"),
+      slot("bicep", ["Barbell Curl", "EZ-Bar Curl", "Dumbbell Curl", "Cable Curl"], "3", "10-12", "Day 2", "0", "60"),
+      // Day 3 — Full Body C (Legs emphasis)
+      slot("squat-variation", ["Front Squat", "Hack Squat", "Safety Bar Squat", "Pendulum Squat"], "4", "8-10", "Day 3", "2", "120"),
+      slot("hip-thrust", ["Hip Thrust", "Barbell Glute Bridge", "Smith Machine Hip Thrust", "Banded Hip Thrust"], "4", "10-12", "Day 3", "1", "90"),
+      slot("lunge", ["Walking Lunge", "Reverse Lunge", "Bulgarian Split Squat", "Lateral Lunge"], "3", "10 each", "Day 3", "0", "90"),
+      slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 3", "0", "60"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Leg Press Calf Raise", "Single-Leg Calf Raise"], "4", "12-15", "Day 3", "0", "60"),
+    ], 6, "percentage"),
+  },
+
+  // ─── 20. 3-Day Athletic (6 weeks) ───────────────────────────────────────────
+  {
+    id: "3d-athletic",
+    name: "3-Day Athletic",
+    goal: "Athletic Foundations",
+    description: "A beginner-friendly 6-week programme blending strength, pulling power, and conditioning across three balanced sessions.",
+    difficulty: "Beginner",
+    daysPerWeek: 3,
+    totalWeeks: 6,
+    weeklyProgression: LINEAR_STRENGTH,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Strength Foundations
+      slot("squat", ["Goblet Squat", "Barbell Back Squat", "Leg Press", "Smith Machine Squat"], "3", "8-10", "Day 1", "2", "120"),
+      slot("flat-press", ["Flat Dumbbell Bench Press", "Barbell Bench Press", "Machine Chest Press", "Floor Press"], "3", "8-10", "Day 1", "1", "90"),
+      slot("shoulder-press", ["Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Landmine Press"], "3", "10-12", "Day 1", "1", "90"),
+      slot("lunge-pattern", ["Reverse Lunge", "Walking Lunge", "Goblet Reverse Lunge", "Step-Up"], "3", "10 each", "Day 1", "0", "60"),
+      slot("core", ["Plank", "Dead Bug", "Bird Dog", "Pallof Press"], "3", "30-45s", "Day 1", "0", "45"),
+      // Day 2 — Pull & Hinge
+      slot("hinge", ["Romanian Deadlift", "Dumbbell RDL", "Trap Bar Deadlift", "Good Morning"], "3", "8-10", "Day 2", "2", "120"),
+      slot("row", ["Dumbbell Row", "Seated Cable Row", "T-Bar Row", "Chest-Supported Row"], "3", "8-10", "Day 2", "1", "90"),
+      slot("vertical-pull", ["Lat Pulldown", "Pull-Up (Assisted)", "Close-Grip Pulldown", "Cable Pullover"], "3", "10-12", "Day 2", "0", "90"),
+      slot("bicep", ["Dumbbell Curl", "EZ-Bar Curl", "Cable Curl", "Hammer Curl"], "3", "12-15", "Day 2", "0", "60"),
+      slot("core-2", ["Cable Crunch", "Hanging Knee Raise", "Ab Wheel Rollout", "Leg Raise"], "3", "12-15", "Day 2", "0", "45"),
+      // Day 3 — Conditioning & Movement
+      slot("kettlebell", ["Kettlebell Swing", "Kettlebell Goblet Squat", "Kettlebell Clean", "Kettlebell Snatch"], "3", "12-15", "Day 3", "1", "60"),
+      slot("plyo", ["Box Jump", "Jump Squat", "Broad Jump", "Skater Jump"], "3", "8-10", "Day 3", "0", "60"),
+      slot("lunge", ["Lateral Lunge", "Reverse Lunge", "Curtsy Lunge", "Walking Lunge"], "3", "10 each", "Day 3", "0", "60"),
+      slot("core-3", ["Russian Twist", "Mountain Climber", "Plank Shoulder Tap", "Bicycle Crunch"], "3", "20", "Day 3", "0", "45"),
+      slot("carry", ["Farmer Walk", "Suitcase Carry", "Overhead Carry", "Trap Bar Carry"], "3", "40m", "Day 3", "0", "60"),
+    ], 6, "linear"),
+  },
+
+  // ─── 21. 5-Day Bro Split (12 weeks) ─────────────────────────────────────────
+  {
+    id: "5d-bro-split",
+    name: "5-Day Bro Split",
+    goal: "Hypertrophy (Chest / Back / Shoulders / Legs / Arms)",
+    description: "A classic 12-week bodybuilding bro split — one muscle group per day with high volume for maximum pump and growth.",
+    difficulty: "Intermediate",
+    daysPerWeek: 5,
+    totalWeeks: 12,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Chest
+      slot("flat-press", ["Flat Barbell Bench Press", "Flat Dumbbell Bench Press", "Close-Grip Bench Press", "Floor Press"], "4", "8-10", "Day 1", "2", "120"),
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Low-Incline Dumbbell Press", "Incline Smith Press"], "4", "8-10", "Day 1", "1", "90"),
+      slot("cable-fly", ["Cable Crossover", "Low-to-High Cable Flye", "Pec Deck", "Dumbbell Flye"], "3", "12-15", "Day 1", "0", "60"),
+      slot("dip-compound", ["Weighted Dip", "Chest Dip", "Machine Dip", "Ring Dip"], "3", "10-12", "Day 1", "0", "90"),
+      slot("machine-press", ["Machine Chest Press", "Smith Machine Bench Press", "Hammer Strength Press", "Seated Press Machine"], "3", "12-15", "Day 1", "0", "60"),
+      // Day 2 — Back
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Seal Row"], "4", "6-8", "Day 2", "2", "120"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Close-Grip Pulldown"], "4", "6-8", "Day 2", "1", "120"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 2", "0", "90"),
+      slot("pulldown", ["Lat Pulldown", "Straight-Arm Pulldown", "Close-Grip Pulldown", "Cable Pullover"], "3", "10-12", "Day 2", "0", "60"),
+      slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "3", "15-20", "Day 2", "0", "60"),
+      // Day 3 — Shoulders
+      slot("shoulder-press", ["Seated Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Push Press"], "4", "8-10", "Day 3", "2", "120"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "4", "12-15", "Day 3", "0", "60"),
+      slot("rear-delt-focus", ["Face Pull", "Reverse Pec Deck", "Rear Delt Cable Flye", "Prone Y Raise"], "3", "12-15", "Day 3", "0", "60"),
+      slot("upright-row", ["Upright Row", "Cable Upright Row", "Dumbbell Upright Row", "Barbell Upright Row"], "3", "10-12", "Day 3", "0", "60"),
+      slot("front-raise", ["Front Raise", "Cable Front Raise", "Plate Front Raise", "Alternating Dumbbell Front Raise"], "3", "12-15", "Day 3", "0", "60"),
+      // Day 4 — Legs
+      slot("squat", ["Barbell Back Squat", "Safety Bar Squat", "Hack Squat", "Belt Squat"], "4", "6-8", "Day 4", "3", "150"),
+      slot("hip-hinge", ["Romanian Deadlift", "Stiff-Leg Deadlift", "Good Morning", "Dumbbell RDL"], "4", "8-10", "Day 4", "2", "120"),
+      slot("leg-press", ["Leg Press", "Hack Squat", "Pendulum Squat", "Belt Squat"], "3", "10-12", "Day 4", "1", "90"),
+      slot("hamstring-curl", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 4", "0", "60"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Leg Press Calf Raise", "Single-Leg Calf Raise"], "4", "12-15", "Day 4", "0", "60"),
+      // Day 5 — Arms
+      slot("bicep-compound", ["Barbell Curl", "EZ-Bar Curl", "Chin-Up", "Preacher Curl"], "4", "8-10", "Day 5", "1", "90"),
+      slot("tricep-compound", ["Close-Grip Bench Press", "Weighted Dip", "Skull Crusher", "JM Press"], "4", "8-10", "Day 5", "1", "90"),
+      slot("bicep-iso", ["Incline Dumbbell Curl", "Concentration Curl", "Spider Curl", "Cable Curl"], "3", "12-15", "Day 5", "0", "60"),
+      slot("tricep-iso", ["Tricep Rope Pushdown", "Overhead Tricep Extension", "Kickback", "V-Bar Pushdown"], "3", "12-15", "Day 5", "0", "60"),
+      slot("forearm", ["Wrist Curl", "Reverse Wrist Curl", "Farmer Walk", "Plate Pinch"], "3", "15-20", "Day 5", "0", "45"),
+    ], 12, "percentage"),
+  },
+
+  // ─── 22. 5-Day Strength (12 weeks) ──────────────────────────────────────────
+  {
+    id: "5d-strength",
+    name: "5-Day Strength",
+    goal: "Strength (Squat / Bench / Deadlift / Upper / Lower)",
+    description: "An advanced 12-week linear strength programme — three heavy competition-lift days plus upper and lower accessory days.",
+    difficulty: "Advanced",
+    daysPerWeek: 5,
+    totalWeeks: 12,
+    weeklyProgression: LINEAR_STRENGTH,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Squat
+      slot("squat", ["Barbell Back Squat", "Pause Squat", "Tempo Squat (3-1-0)", "Close-Stance Squat"], "5", "3-5", "Day 1", "3", "180"),
+      slot("front-squat", ["Front Squat", "Safety Bar Squat", "Goblet Squat", "Zercher Squat"], "3", "6-8", "Day 1", "1", "120"),
+      slot("lunge", ["Walking Lunge", "Reverse Lunge", "Bulgarian Split Squat", "Front-Rack Lunge"], "3", "10 each", "Day 1", "0", "90"),
+      slot("quad-iso", ["Leg Extension", "Sissy Squat", "Spanish Squat", "Wall Sit (Weighted)"], "3", "12-15", "Day 1", "0", "60"),
+      slot("core", ["Hanging Leg Raise", "Ab Wheel Rollout", "Pallof Press", "Plank (Weighted)"], "3", "12-15", "Day 1", "0", "60"),
+      // Day 2 — Bench
+      slot("bench", ["Barbell Bench Press", "Pause Bench Press", "Close-Grip Bench Press", "Floor Press"], "5", "3-5", "Day 2", "3", "180"),
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Low-Incline Dumbbell Press", "Incline Smith Press"], "3", "6-8", "Day 2", "1", "90"),
+      slot("fly", ["Cable Crossover", "Dumbbell Flye", "Pec Deck", "Machine Flye"], "3", "12-15", "Day 2", "0", "60"),
+      slot("tricep", ["Tricep Pushdown", "Skull Crusher", "Overhead Extension", "V-Bar Pushdown"], "3", "10-12", "Day 2", "0", "60"),
+      slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "3", "15-20", "Day 2", "0", "60"),
+      // Day 3 — Deadlift
+      slot("deadlift", ["Conventional Deadlift", "Sumo Deadlift", "Trap Bar Deadlift", "Pause Deadlift"], "5", "3-5", "Day 3", "3", "180"),
+      slot("hip-hinge", ["Romanian Deadlift", "Stiff-Leg Deadlift", "Good Morning", "Deficit Deadlift"], "3", "6-8", "Day 3", "1", "120"),
+      slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 3", "0", "60"),
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Seal Row"], "4", "6-8", "Day 3", "1", "120"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Donkey Calf Raise", "Single-Leg Calf Raise"], "4", "12-15", "Day 3", "0", "60"),
+      // Day 4 — Upper Accessories
+      slot("ohp", ["Overhead Press", "Push Press", "Z Press", "Viking Press"], "4", "6-8", "Day 4", "2", "150"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Chin-Up"], "4", "6-8", "Day 4", "1", "120"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 4", "0", "90"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 4", "0", "60"),
+      slot("arm-superset", ["EZ-Bar Curl + Skull Crusher", "Hammer Curl + Tricep Pushdown", "Cable Curl + Overhead Extension", "Preacher Curl + Dip"], "3", "10-12", "Day 4", "0", "60", "Superset arms"),
+      // Day 5 — Lower Accessories
+      slot("front-squat", ["Front Squat", "Safety Bar Squat", "Goblet Squat", "Zercher Squat"], "4", "6-8", "Day 5", "2", "120"),
+      slot("hip-thrust", ["Hip Thrust", "Barbell Glute Bridge", "Smith Machine Hip Thrust", "Banded Hip Thrust"], "4", "8-10", "Day 5", "1", "90"),
+      slot("leg-press", ["Leg Press", "Hack Squat", "Pendulum Squat", "Belt Squat"], "3", "10-12", "Day 5", "1", "90"),
+      slot("back-extension", ["Reverse Hyperextension", "Back Extension", "45-Degree Hyper", "Glute-Focused Back Extension"], "3", "12-15", "Day 5", "0", "60"),
+      slot("core-2", ["Cable Crunch", "Suitcase Carry", "Farmer Walk", "Dead Bug (Weighted)"], "3", "12-15", "Day 5", "0", "60"),
+    ], 12, "linear"),
+  },
+
+  // ─── 23. 5-Day Body Recomp (6 weeks) ────────────────────────────────────────
+  {
+    id: "5d-body-recomp",
+    name: "5-Day Body Recomp",
+    goal: "Push / Pull / Legs / Upper / Lower Recomp",
+    description: "A 6-week push/pull/legs plus upper/lower split designed for body recomposition — build muscle and burn fat simultaneously.",
+    difficulty: "Intermediate",
+    daysPerWeek: 5,
+    totalWeeks: 6,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Push
+      slot("flat-press", ["Flat Barbell Bench Press", "Flat Dumbbell Bench Press", "Close-Grip Bench Press", "Floor Press"], "4", "8-10", "Day 1", "2", "120"),
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Low-Incline Dumbbell Press", "Incline Smith Press"], "3", "10-12", "Day 1", "1", "90"),
+      slot("shoulder-press", ["Seated Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Push Press"], "3", "10-12", "Day 1", "1", "90"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12-15", "Day 1", "0", "60"),
+      slot("tricep", ["Tricep Rope Pushdown", "Overhead Tricep Extension", "Skull Crusher", "V-Bar Pushdown"], "3", "12-15", "Day 1", "0", "60"),
+      // Day 2 — Pull
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Meadows Row"], "4", "6-8", "Day 2", "2", "120"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Close-Grip Pulldown"], "4", "6-8", "Day 2", "1", "120"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 2", "0", "90"),
+      slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "3", "15-20", "Day 2", "0", "60"),
+      slot("bicep", ["Barbell Curl", "EZ-Bar Curl", "Dumbbell Curl", "Cable Curl"], "3", "10-12", "Day 2", "0", "60"),
+      // Day 3 — Legs
+      slot("squat", ["Barbell Back Squat", "Safety Bar Squat", "Hack Squat", "Belt Squat"], "4", "6-8", "Day 3", "3", "150"),
+      slot("hip-hinge", ["Romanian Deadlift", "Stiff-Leg Deadlift", "Good Morning", "Dumbbell RDL"], "4", "8-10", "Day 3", "2", "120"),
+      slot("leg-press", ["Leg Press", "Hack Squat", "Pendulum Squat", "Belt Squat"], "3", "10-12", "Day 3", "1", "90"),
+      slot("hamstring", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 3", "0", "60"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Leg Press Calf Raise", "Single-Leg Calf Raise"], "4", "12-15", "Day 3", "0", "60"),
+      // Day 4 — Upper
+      slot("ohp", ["Overhead Press", "Push Press", "Z Press", "Viking Press"], "4", "6-8", "Day 4", "2", "120"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Chin-Up"], "3", "8-10", "Day 4", "1", "90"),
+      slot("cable-fly", ["Cable Crossover", "Low-to-High Cable Flye", "Pec Deck", "Dumbbell Flye"], "3", "12-15", "Day 4", "0", "60"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 4", "0", "90"),
+      slot("arm-superset", ["EZ-Bar Curl + Skull Crusher", "Hammer Curl + Tricep Pushdown", "Cable Curl + Overhead Extension", "Preacher Curl + Dip"], "3", "10-12", "Day 4", "0", "60", "Superset arms"),
+      // Day 5 — Lower
+      slot("front-squat", ["Front Squat", "Goblet Squat", "Zercher Squat", "Landmine Squat"], "4", "8-10", "Day 5", "2", "120"),
+      slot("hip-thrust", ["Hip Thrust", "Barbell Glute Bridge", "Smith Machine Hip Thrust", "Banded Hip Thrust"], "4", "10-12", "Day 5", "1", "90"),
+      slot("lunge", ["Walking Lunge", "Reverse Lunge", "Lateral Lunge", "Deficit Reverse Lunge"], "3", "10 each", "Day 5", "0", "90"),
+      slot("quad-iso", ["Leg Extension", "Sissy Squat", "Spanish Squat", "Wall Sit (Weighted)"], "3", "12-15", "Day 5", "0", "60"),
+      slot("core", ["Hanging Leg Raise", "Ab Wheel Rollout", "Cable Crunch", "Pallof Press"], "3", "12-15", "Day 5", "0", "60"),
+    ], 6, "percentage"),
+  },
+
+  // ─── 21. 5-Day Peak Week ────────────────────────────────────────────────────
+  {
+    id: "5d-peak-week",
+    name: "5-Day Peak Week",
+    goal: "Strength Peaking",
+    description: "An advanced 3-week peaking cycle across five days — heavy competition lifts with targeted accessories for a final push.",
+    difficulty: "Advanced",
+    daysPerWeek: 5,
+    totalWeeks: 3,
+    weeklyProgression: LINEAR_STRENGTH,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Squat
+      slot("squat", ["Barbell Back Squat", "Safety Bar Squat", "Paused Back Squat", "Belt Squat"], "5", "3", "Day 1", "3", "180"),
+      slot("paused-work", ["Paused Back Squat", "Pin Squat", "Tempo Back Squat", "Anderson Squat"], "4", "3", "Day 1", "1", "150"),
+      slot("quad-compound", ["Front Squat", "Hack Squat", "Leg Press", "Belt Squat"], "3", "6", "Day 1", "1", "120"),
+      slot("hamstring-curl", ["Leg Curl", "Nordic Curl", "Seated Leg Curl", "Swiss Ball Leg Curl"], "3", "10", "Day 1", "0", "60"),
+      slot("core", ["Ab Wheel Rollout", "Hanging Leg Raise", "Pallof Press", "Plank (Weighted)"], "3", "10", "Day 1", "0", "60"),
+      // Day 2 — Bench
+      slot("bench", ["Flat Barbell Bench Press", "Close-Grip Bench Press", "Paused Bench Press", "Floor Press"], "5", "3", "Day 2", "3", "180"),
+      slot("paused-work", ["Paused Bench Press", "Spoto Press", "Pin Press", "Board Press"], "4", "3", "Day 2", "1", "150"),
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Low-Incline Dumbbell Press", "Incline Smith Press"], "3", "8", "Day 2", "1", "90"),
+      slot("tricep", ["Skull Crusher", "Close-Grip Floor Press", "JM Press", "Tricep Rope Pushdown"], "3", "10", "Day 2", "0", "60"),
+      slot("rear-delt", ["Face Pull", "Band Pull-Apart", "Reverse Pec Deck", "Prone Y Raise"], "3", "15", "Day 2", "0", "60"),
+      // Day 3 — Deadlift
+      slot("deadlift", ["Conventional Deadlift", "Sumo Deadlift", "Paused Deadlift", "Trap Bar Deadlift"], "5", "3", "Day 3", "3", "180"),
+      slot("deficit-work", ["Deficit Deadlift", "Paused Deadlift", "Block Pull", "Snatch-Grip Deadlift"], "4", "3", "Day 3", "1", "150"),
+      slot("hip-hinge", ["Romanian Deadlift", "Stiff-Leg Deadlift", "Good Morning", "Dumbbell RDL"], "3", "6", "Day 3", "1", "120"),
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Meadows Row"], "3", "8", "Day 3", "0", "90"),
+      slot("back-extension", ["Back Extension", "Reverse Hyperextension", "45-Degree Hyper", "Glute-Focused Back Extension"], "3", "12", "Day 3", "0", "60"),
+      // Day 4 — Upper Accessories
+      slot("ohp", ["Overhead Press", "Push Press", "Z Press", "Viking Press"], "4", "5", "Day 4", "2", "120"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Chin-Up"], "4", "6", "Day 4", "1", "90"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10", "Day 4", "0", "90"),
+      slot("lateral", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "3", "12", "Day 4", "0", "60"),
+      slot("bicep", ["Barbell Curl", "EZ-Bar Curl", "Hammer Curl", "Dumbbell Curl"], "3", "10", "Day 4", "0", "60"),
+      // Day 5 — Lower Accessories
+      slot("front-squat", ["Front Squat", "Goblet Squat", "Zercher Squat", "Landmine Squat"], "4", "5", "Day 5", "2", "120"),
+      slot("hip-thrust", ["Hip Thrust", "Barbell Glute Bridge", "Smith Machine Hip Thrust", "Banded Hip Thrust"], "4", "8", "Day 5", "1", "90"),
+      slot("lunge", ["Walking Lunge", "Reverse Lunge", "Bulgarian Split Squat", "Deficit Reverse Lunge"], "3", "8 each", "Day 5", "0", "90"),
+      slot("hamstring-curl", ["Seated Leg Curl", "Lying Leg Curl", "Nordic Curl", "Swiss Ball Leg Curl"], "3", "10", "Day 5", "0", "60"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Leg Press Calf Raise", "Single-Leg Calf Raise"], "3", "12", "Day 5", "0", "60"),
+    ], 3, "linear"),
+  },
+
+  // ─── 22. 5-Day Hypertrophy ──────────────────────────────────────────────────
+  {
+    id: "5d-hypertrophy",
+    name: "5-Day Hypertrophy",
+    goal: "Hypertrophy",
+    description: "A 6-week bodybuilding split hitting each muscle group with dedicated volume — classic high-rep hypertrophy across five training days.",
+    difficulty: "Intermediate",
+    daysPerWeek: 5,
+    totalWeeks: 6,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Chest & Triceps
+      slot("flat-press", ["Flat Barbell Bench Press", "Flat Dumbbell Bench Press", "Machine Chest Press", "Floor Press"], "4", "8-10", "Day 1", "2", "120"),
+      slot("incline-press", ["Incline Dumbbell Press", "Incline Barbell Press", "Low-Incline Dumbbell Press", "Incline Smith Press"], "4", "10-12", "Day 1", "1", "90"),
+      slot("cable-fly", ["Cable Crossover", "Low-to-High Cable Flye", "Pec Deck", "Dumbbell Flye"], "3", "12-15", "Day 1", "0", "60"),
+      slot("tricep-push", ["Tricep Rope Pushdown", "V-Bar Pushdown", "Single-Arm Pushdown", "Reverse-Grip Pushdown"], "3", "12-15", "Day 1", "0", "60"),
+      slot("tricep-extension", ["Overhead Tricep Extension", "Skull Crusher", "Cable Overhead Extension", "Dumbbell Overhead Extension"], "3", "12-15", "Day 1", "0", "60"),
+      // Day 2 — Back & Biceps
+      slot("row", ["Barbell Row", "Pendlay Row", "T-Bar Row", "Meadows Row"], "4", "8-10", "Day 2", "2", "120"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Close-Grip Pulldown"], "4", "8-10", "Day 2", "1", "90"),
+      slot("cable-row", ["Seated Cable Row", "Chest-Supported Row", "Machine Row", "Single-Arm Cable Row"], "3", "10-12", "Day 2", "0", "90"),
+      slot("bicep-compound", ["Barbell Curl", "EZ-Bar Curl", "Dumbbell Curl", "Cable Curl"], "3", "10-12", "Day 2", "0", "60"),
+      slot("bicep-iso", ["Hammer Curl", "Preacher Curl", "Incline Dumbbell Curl", "Concentration Curl"], "3", "12-15", "Day 2", "0", "60"),
+      // Day 3 — Shoulders
+      slot("shoulder-press", ["Seated Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Barbell Overhead Press"], "4", "8-10", "Day 3", "2", "120"),
+      slot("lateral-raise", ["Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise"], "4", "12-15", "Day 3", "0", "60"),
+      slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "4", "15-20", "Day 3", "0", "60"),
+      slot("front-raise", ["Front Raise", "Cable Front Raise", "Plate Front Raise", "Alternating Dumbbell Front Raise"], "3", "12-15", "Day 3", "0", "60"),
+      slot("trap", ["Dumbbell Shrug", "Barbell Shrug", "Cable Shrug", "Trap Bar Shrug"], "3", "12-15", "Day 3", "0", "60"),
+      // Day 4 — Legs
+      slot("squat", ["Barbell Back Squat", "Safety Bar Squat", "Hack Squat", "Belt Squat"], "4", "8-10", "Day 4", "3", "150"),
+      slot("hip-hinge", ["Romanian Deadlift", "Stiff-Leg Deadlift", "Good Morning", "Dumbbell RDL"], "4", "10-12", "Day 4", "2", "120"),
+      slot("leg-press", ["Leg Press", "Hack Squat", "Pendulum Squat", "Belt Squat"], "3", "10-12", "Day 4", "1", "90"),
+      slot("hamstring-curl", ["Leg Curl", "Seated Leg Curl", "Nordic Curl", "Swiss Ball Leg Curl"], "3", "10-12", "Day 4", "0", "60"),
+      slot("calf", ["Calf Raise", "Seated Calf Raise", "Leg Press Calf Raise", "Single-Leg Calf Raise"], "4", "15-20", "Day 4", "0", "60"),
+      // Day 5 — Full Upper
+      slot("ohp", ["Overhead Press", "Push Press", "Z Press", "Viking Press"], "4", "8-10", "Day 5", "2", "120"),
+      slot("pull-up", ["Weighted Pull-Up", "Lat Pulldown", "Neutral-Grip Pull-Up", "Chin-Up"], "4", "8-10", "Day 5", "1", "90"),
+      slot("cable-fly", ["Cable Crossover", "High-to-Low Cable Flye", "Pec Deck", "Machine Flye"], "3", "12-15", "Day 5", "0", "60"),
+      slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "3", "15-20", "Day 5", "0", "60"),
+      slot("arm-superset", ["EZ-Bar Curl + Skull Crusher", "Hammer Curl + Tricep Pushdown", "Cable Curl + Overhead Extension", "Preacher Curl + Dip"], "3", "10-12", "Day 5", "0", "60", "Superset arms"),
+    ], 6, "percentage"),
+  },
 ];

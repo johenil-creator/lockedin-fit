@@ -7,6 +7,15 @@ export type SetEntry = {
   isWarmUp?: boolean;
 };
 
+// ── Exercise Feedback ───────────────────────────────────────────────────────
+
+export type FeelingTag = 'great' | 'good' | 'okay' | 'tough' | 'brutal';
+
+export type ExerciseFeedback = {
+  rpe: number;          // 1-10, user-reported rate of perceived exertion
+  feeling: FeelingTag;  // how they felt overall
+};
+
 export type SessionExercise = {
   exerciseId: string;
   name: string;
@@ -21,6 +30,7 @@ export type SessionExercise = {
   matchedPattern?: string;
   matchedAnchor?: string;
   matchedModifier?: number;
+  feedback?: ExerciseFeedback;  // user-reported post-exercise feedback
 };
 
 export type WorkoutSession = {

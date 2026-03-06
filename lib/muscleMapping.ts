@@ -144,7 +144,7 @@ export function getMusclesWorked(
  *   For each exercise in the session:
  *     - Resolve primary + secondary muscle groups
  *     - For each completed, non-warm-up set:
- *         intensity = targetRPE / RPE_NEUTRAL  (default RPE 7 → multiplier 1.0)
+ *         intensity = RPE / RPE_NEUTRAL  (prefers feedback.rpe → targetRPE → default 7)
  *         primary muscles   += BASE_FATIGUE_PER_SET * intensity
  *         secondary muscles += BASE_FATIGUE_PER_SET * intensity * SECONDARY_CREDIT
  *   Clamp all values to [0, 100].
@@ -185,8 +185,8 @@ export function computeSessionFatigue(session: WorkoutSession): MuscleFatigueMap
 
     if (primary.length === 0 && secondary.length === 0) continue;
 
-    // Default RPE per exercise (clamp to [1, 10])
-    const rpe = Math.max(1, Math.min(10, exercise.targetRPE ?? 7));
+    // Prefer user-reported RPE from feedback, fall back to targetRPE, then default 7
+    const rpe = Math.max(1, Math.min(10, exercise.feedback?.rpe ?? exercise.targetRPE ?? 7));
     const intensity = rpe / RPE_NEUTRAL;
 
     for (const set of exercise.sets) {

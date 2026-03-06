@@ -64,10 +64,12 @@ import { useRestTimers } from "../../hooks/useRestTimers";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { useToast } from "../../contexts/ToastContext";
 import { makeId } from "../../lib/helpers";
+import { ExerciseFeedbackSheet } from "../../components/session/ExerciseFeedbackSheet";
 import type {
   WorkoutSession,
   SessionExercise,
   SetEntry,
+  ExerciseFeedback,
   MuscleGroup,
   MuscleFatigueMap,
 } from "../../lib/types";
@@ -254,6 +256,10 @@ export default function SessionScreen() {
   const [classifyPattern, setClassifyPattern] = useState("squat");
   const [classifyAnchor, setClassifyAnchor] = useState("none");
   const [showCues, setShowCues] = useState(false);
+
+  // Exercise feedback sheet state
+  const [feedbackTarget, setFeedbackTarget] = useState<{ exerciseId: string; exerciseName: string } | null>(null);
+  const [pendingNav, setPendingNav] = useState<{ type: 'next'; nextExId: string } | { type: 'list' } | null>(null);
 
   // PR flash state
   const [prFlash, setPrFlash] = useState<string | null>(null); // exercise name
@@ -659,6 +665,37 @@ export default function SessionScreen() {
   }
 
 
+  // ── Exercise feedback handlers ───────────────────────────────────────────
+  function executePendingNav(nav: { type: 'next'; nextExId: string } | { type: 'list' } | null) {
+    if (!nav) return;
+    if (nav.type === 'next') {
+      setActiveExerciseId(nav.nextExId);
+    } else {
+      setActiveExerciseId(null);
+    }
+  }
+
+  function handleFeedbackSubmit(feedback: ExerciseFeedback) {
+    if (!feedbackTarget || !session) return;
+    const updatedExercises = session.exercises.map((ex) =>
+      ex.exerciseId === feedbackTarget.exerciseId
+        ? { ...ex, feedback }
+        : ex
+    );
+    update({ ...session, exercises: updatedExercises });
+    const nav = pendingNav;
+    setFeedbackTarget(null);
+    setPendingNav(null);
+    executePendingNav(nav);
+  }
+
+  function handleFeedbackSkip() {
+    const nav = pendingNav;
+    setFeedbackTarget(null);
+    setPendingNav(null);
+    executePendingNav(nav);
+  }
+
   // ── Sequential set enforcement helpers ────────────────────────────────────
   // Returns the index of the first incomplete set for an exercise (the "current" set)
   function getCurrentSetIndex(ex: SessionExercise): number {
@@ -1001,11 +1038,12 @@ export default function SessionScreen() {
                     <Button
                       label={isLastExercise ? "All Exercises" : "Next Exercise"}
                       onPress={() => {
-                        if (!isLastExercise) {
-                          setActiveExerciseId(session.exercises[activeExerciseIndex + 1].exerciseId);
-                        } else {
-                          setActiveExerciseId(null);
-                        }
+                        const nav = !isLastExercise
+                          ? { type: 'next' as const, nextExId: session.exercises[activeExerciseIndex + 1].exerciseId }
+                          : { type: 'list' as const };
+                        // Show feedback sheet before navigating
+                        setFeedbackTarget({ exerciseId: activeExercise.exerciseId, exerciseName: activeExercise.name });
+                        setPendingNav(nav);
                       }}
                     />
                   </View>
@@ -1345,6 +1383,14 @@ export default function SessionScreen() {
           <Button label="Save & Add" onPress={handleClassifyAndAdd} />
         </View>
       </AppBottomSheet>
+
+      {/* Exercise feedback sheet */}
+      <ExerciseFeedbackSheet
+        visible={feedbackTarget !== null}
+        exerciseName={feedbackTarget?.exerciseName ?? ""}
+        onSubmit={handleFeedbackSubmit}
+        onSkip={handleFeedbackSkip}
+      />
 
       {/* Floating pause bar */}
       {session.isActive && (

@@ -647,7 +647,8 @@ function MuscleHeatmapInner({
       (hasStrained   ? 1 : 0) +
       (hasOverloaded ? 1 : 0) +
       (hasPulse      ? 1 : 0);
-    if (nodeCount > 5) {
+    // Max valid: 1 ambient + 5 state groups = 6
+    if (nodeCount > 6) {
       console.warn(
         `[MuscleHeatmap] ${nodeCount} animated wrapper nodes active. ` +
         'Expected ≤5 state-group nodes. Verify muscles are grouped by state, not per-muscle.',

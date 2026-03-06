@@ -560,13 +560,13 @@ export default function OrmTestScreen() {
                         },
                       ]}
                       onPress={() => {
-                        if (!set.completed && !isFuture && !restTimer) {
+                        if (!set.completed && !isFuture && !restTimer && set.reps?.trim()) {
                           ormTest.completeSet(liftIndex, i);
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                           startRestTimer(i);
                         }
                       }}
-                      disabled={set.completed || isFuture || !!restTimer}
+                      disabled={set.completed || isFuture || !!restTimer || !set.reps?.trim()}
                     >
                       <Text
                         style={{
@@ -796,10 +796,10 @@ export default function OrmTestScreen() {
             size={240}
             mood={allLiftsComplete ? "celebrating" : "encouraging"}
           />
-          {!allLiftsComplete && currentLift && LIFT_TIPS[currentLift.liftLabel] && (
+          {!allLiftsComplete && setsVisible && currentLift && LIFT_TIPS[currentLift.liftLabel] && (
             <Pressable
               onPress={() => setTipExpanded((v) => !v)}
-              style={{ marginTop: -70, paddingHorizontal: 32, alignItems: "center" }}
+              style={{ marginTop: -4, paddingHorizontal: 32, alignItems: "center" }}
             >
               <Text style={{ fontSize: 13, fontWeight: "600", color: theme.colors.primary }}>
                 {tipExpanded ? "Hide how-to ▲" : "How do I do this? ▼"}

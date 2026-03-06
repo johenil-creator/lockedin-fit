@@ -19,7 +19,14 @@
       "icon": "./assets/icons/icon_default.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSHealthShareUsageDescription": "LockedIn FIT reads your body weight from Apple Health to auto-fill your profile."
+        "NSHealthShareUsageDescription": "LockedIn FIT reads your body weight from Apple Health to auto-fill your profile.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.177992048804-gukij19ltkpa66qkao4j5d8ud0lkds46"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -35,7 +42,7 @@
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
-    "scheme": ["lockedinfit", "com.googleusercontent.apps.177992048804-gukij19ltkpa66qkao4j5d8ud0lkds46"],
+    "scheme": "lockedinfit",
     "plugins": [
       "expo-router",
       "./plugins/withAlternateIcons",
