@@ -66,6 +66,7 @@ import { computeMuscleReadiness, type MuscleReadinessResult } from '../../lib/mu
 import { getRecoveryCommentary, type RecoveryCommentary, type RecoveryCommentaryTone } from '../../lib/lockeRecoveryCommentary';
 import { useXP } from '../../hooks/useXP';
 import { DevFatiguePanel } from '../../components/recovery/DevFatiguePanel';
+import { ProfileButton } from '../../components/ProfileButton';
 
 // ── Readiness gauge helpers ───────────────────────────────────────────────────
 const GAUGE_START_DEG = 135;
@@ -104,7 +105,7 @@ const GAUGE_BG_PATH = (() => {
 })();
 
 function readinessColor(score: number): string {
-  if (score >= 80) return '#00E85C';
+  if (score >= 80) return '#00875A';
   if (score >= 60) return '#58A6FF';
   if (score >= 40) return '#FF9800';
   return '#F44336';
@@ -112,11 +113,11 @@ function readinessColor(score: number): string {
 
 // ── Commentary tone color map ─────────────────────────────────────────────────
 const TONE_COLOR: Record<RecoveryCommentaryTone, string> = {
-  nurturing:  '#00E85C',
+  nurturing:  '#00875A',
   coaching:   '#58A6FF',
   intense:    '#FF9800',
   savage:     '#F44336',
-  welcoming:  '#00E85C',
+  welcoming:  '#00875A',
 };
 
 // ── Mini gauge constants (score explanation sheet) ────────────────────────────
@@ -405,7 +406,7 @@ const ReadinessHero = React.memo(function ReadinessHero({
         <BreakdownPill
           label="Freshness"
           value={Math.round(readiness.components.muscleFreshness)}
-          color="#00E85C"
+          color="#00875A"
           onPress={() => onPillPress('Freshness')}
           enterDelay={0}
         />
@@ -478,9 +479,9 @@ const BreakdownPill = React.memo(function BreakdownPill({
 
 // Mascot glow color map
 const MOOD_GLOW: Record<string, string> = {
-  celebrating: '#00E85C',
-  savage: '#00E85C',
-  encouraging: '#00E85C',
+  celebrating: '#00875A',
+  savage: '#00875A',
+  encouraging: '#00875A',
   focused: '#58A6FF',
   concerned: '#FF9800',
   rest_day: '#9DA5B0',
@@ -723,7 +724,7 @@ const PlateauCard = React.memo(function PlateauCard({
 // Zone definitions for ACWR bar
 const ACWR_ZONES = [
   { label: 'Under-trained', color: '#58A6FF', pctStart: 0, pctEnd: 40 },
-  { label: 'Sweet Spot', color: '#00E85C', pctStart: 40, pctEnd: 65 },
+  { label: 'Sweet Spot', color: '#00875A', pctStart: 40, pctEnd: 65 },
   { label: 'Caution', color: '#FF9800', pctStart: 65, pctEnd: 75 },
   { label: 'Danger Zone', color: '#F44336', pctStart: 75, pctEnd: 100 },
 ] as const;
@@ -1389,7 +1390,7 @@ export default function RecoveryScreen() {
 
   const selectedPillInfo = useMemo(() => {
     if (!selectedPill || !data) return { value: 0, color: '#fff' };
-    const colorMap: Record<PillKey, string> = { Freshness: '#00E85C', 'Block Fit': '#58A6FF', Workload: '#FF9800' };
+    const colorMap: Record<PillKey, string> = { Freshness: '#00875A', 'Block Fit': '#58A6FF', Workload: '#FF9800' };
     const valueMap: Record<PillKey, number> = {
       Freshness: Math.round(data.readiness.components.muscleFreshness),
       'Block Fit': Math.round(data.readiness.components.blockContext),
@@ -1426,7 +1427,7 @@ export default function RecoveryScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 80 },
+          { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 80 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -1452,15 +1453,18 @@ export default function RecoveryScreen() {
               </View>
             )}
           </View>
-          {data?.blockContext && (
-            <View style={[styles.blockBadge, { backgroundColor: theme.colors.mutedBg }]}>
-              <Text style={[styles.blockBadgeText, { color: theme.colors.muted }]}>
-                {data.blockContext.blockType.charAt(0).toUpperCase() +
-                  data.blockContext.blockType.slice(1)}{' '}
-                · {data.blockContext.weekPosition}
-              </Text>
-            </View>
-          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            {data?.blockContext && (
+              <View style={[styles.blockBadge, { backgroundColor: theme.colors.mutedBg }]}>
+                <Text style={[styles.blockBadgeText, { color: theme.colors.muted }]}>
+                  {data.blockContext.blockType.charAt(0).toUpperCase() +
+                    data.blockContext.blockType.slice(1)}{' '}
+                  · {data.blockContext.weekPosition}
+                </Text>
+              </View>
+            )}
+            <ProfileButton />
+          </View>
         </View>
 
         {/* DEV fatigue panel */}
@@ -1584,14 +1588,14 @@ export default function RecoveryScreen() {
                         <Circle cx={18} cy={18} r={14} fill="none" stroke={theme.colors.mutedBg} strokeWidth={3} />
                         <Circle
                           cx={18} cy={18} r={14} fill="none"
-                          stroke={data.trainingLoad.adaptationScore >= 70 ? '#00E85C' : data.trainingLoad.adaptationScore >= 45 ? '#58A6FF' : '#FF9800'}
+                          stroke={data.trainingLoad.adaptationScore >= 70 ? '#00875A' : data.trainingLoad.adaptationScore >= 45 ? '#58A6FF' : '#FF9800'}
                           strokeWidth={3} strokeLinecap="round"
                           strokeDasharray={[2 * Math.PI * 14, 2 * Math.PI * 14]}
                           strokeDashoffset={2 * Math.PI * 14 * (1 - data.trainingLoad.adaptationScore / 100)}
                           transform="rotate(-90, 18, 18)"
                         />
                       </Svg>
-                      <Text style={[styles.adaptGaugeText, { color: data.trainingLoad.adaptationScore >= 70 ? '#00E85C' : data.trainingLoad.adaptationScore >= 45 ? '#58A6FF' : '#FF9800' }]}>
+                      <Text style={[styles.adaptGaugeText, { color: data.trainingLoad.adaptationScore >= 70 ? '#00875A' : data.trainingLoad.adaptationScore >= 45 ? '#58A6FF' : '#FF9800' }]}>
                         {data.trainingLoad.adaptationScore}
                       </Text>
                     </View>
@@ -1657,7 +1661,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs + 2,
   },
   screenTitle: {
-    ...typography.heading,
+    fontSize: 28,
+    fontWeight: '700' as const,
   },
   devToggle: {
     fontSize: 10,
@@ -2298,7 +2303,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
     borderRadius: radius.full,
     marginTop: spacing.sm,
-    shadowColor: '#00E85C',
+    shadowColor: '#00875A',
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,

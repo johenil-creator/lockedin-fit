@@ -190,7 +190,7 @@ const BACK_PATHS: Partial<Record<MuscleGroup, string[]>> = {
 };
 
 // ── Feedback overlay stroke colors (no blur — stroke + opacity for glow) ──────
-const RECOVERY_STROKE  = '#00E85C';
+const RECOVERY_STROKE  = '#00875A';
 const OVERTRAIN_STROKE = '#FF9800';
 
 // ── Internal types ────────────────────────────────────────────────────────────
@@ -570,22 +570,24 @@ function MuscleHeatmapInner({
 
   // Stable handler ref — keeps SVG onPress closures fresh without re-renders
   const handlePressRef = useRef<(m: MuscleGroup) => void>(null!);
-  handlePressRef.current = (muscle: MuscleGroup) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (selectedMuscle === muscle) {
-      // Deselect — restore all layer opacities
-      setSelectedMuscle(null);
-      dimValue.value       = withTiming(1.0, { duration: 240 });
-      selectionScale.value = withTiming(1.0, { duration: 240 });
-    } else {
-      // Select — dim all layers, spring-pop the highlight overlay
-      setSelectedMuscle(muscle);
-      dimValue.value       = withTiming(0.4, { duration: 240 });
-      selectionScale.value = 1.0;
-      selectionScale.value = withSpring(1.02, { damping: 12, stiffness: 300 });
-    }
-    onPressRef.current?.(muscle);
-  };
+  useEffect(() => {
+    handlePressRef.current = (muscle: MuscleGroup) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (selectedMuscle === muscle) {
+        // Deselect — restore all layer opacities
+        setSelectedMuscle(null);
+        dimValue.value       = withTiming(1.0, { duration: 240 });
+        selectionScale.value = withTiming(1.0, { duration: 240 });
+      } else {
+        // Select — dim all layers, spring-pop the highlight overlay
+        setSelectedMuscle(muscle);
+        dimValue.value       = withTiming(0.4, { duration: 240 });
+        selectionScale.value = 1.0;
+        selectionScale.value = withSpring(1.02, { damping: 12, stiffness: 300 });
+      }
+      onPressRef.current?.(muscle);
+    };
+  });
 
   // ── Recovery improved: sparkle pop (scale 0→1.2→1 + opacity flash) ────────
   const prevRecoveryImproved = useRef<MuscleGroup[] | undefined>(undefined);

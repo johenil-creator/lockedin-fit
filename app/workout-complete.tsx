@@ -642,6 +642,11 @@ export default function WorkoutCompleteScreen() {
               <Text style={[styles.badgeDesc, { color: theme.colors.muted }]}>{badge.description}</Text>
             </View>
           ))}
+          <Pressable onPress={() => router.push("/badges")} style={styles.viewAllBadges}>
+            <Text style={[styles.viewAllBadgesText, { color: theme.colors.primary }]}>
+              View All Badges →
+            </Text>
+          </Pressable>
         </Animated.View>
       )}
 
@@ -810,5 +815,13 @@ const styles = StyleSheet.create({
   },
   badgeDesc: {
     fontSize: 12,
+  },
+  viewAllBadges: {
+    marginTop: 8,
+    paddingVertical: 6,
+  },
+  viewAllBadgesText: {
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

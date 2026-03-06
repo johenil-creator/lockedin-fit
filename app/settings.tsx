@@ -15,6 +15,7 @@ import {
   cancelAllReminders,
 } from "../lib/notifications";
 import { isSignedIn, signOut, signInWithGoogle, getStoredEmail } from "../lib/googleAuth";
+import { useAuth } from "../contexts/AuthContext";
 
 const KG_TO_LBS = 2.20462;
 const LBS_TO_KG = 0.453592;
@@ -36,6 +37,7 @@ export default function SettingsScreen() {
   const { profile, updateProfile } = useProfileContext();
   const [exporting, setExporting] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const { user, signOut: authSignOut } = useAuth();
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
 
@@ -260,6 +262,40 @@ export default function SettingsScreen() {
           <Text style={[typography.body, { color: theme.colors.text }]}>Retake 1RM Setup</Text>
           <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
         </Pressable>
+      </Card>
+
+      {/* LockedInFIT Account */}
+      <Card>
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          LockedInFIT Account
+        </Text>
+        {user ? (
+          <>
+            <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: spacing.sm }]}>
+              {user.email}
+            </Text>
+            <Pressable
+              style={styles.row}
+              onPress={() => {
+                Alert.alert("Sign Out?", "You can sign back in any time.", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Sign Out",
+                    style: "destructive",
+                    onPress: () => authSignOut(),
+                  },
+                ]);
+              }}
+            >
+              <Text style={[typography.body, { color: theme.colors.danger }]}>Sign Out</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Pressable style={styles.row} onPress={() => router.push("/auth")}>
+            <Text style={[typography.body, { color: theme.colors.primary }]}>Sign In / Sign Up</Text>
+            <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
+          </Pressable>
+        )}
       </Card>
 
       {/* Google Account */}

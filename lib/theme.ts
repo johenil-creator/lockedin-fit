@@ -48,44 +48,44 @@ export const iceBlueLightColors: AppThemeColors = {
   success:     "#1A7F37",   successText: "#ffffff",
 };
 
-// ── Viridian Premium Dark ─────────────────────────────────────────────────────
+// ── Phthalo Green Premium Dark ────────────────────────────────────────────────
 export const lockdInColors: AppThemeColors = {
   bg:          "#0D1117",   // rich dark charcoal (GitHub dark-inspired)
   surface:     "#161B22",   // elevated card surface with subtle warmth
-  primary:     "#00E85C",   // slightly toned-down viridian — still punchy for CTAs
-  primaryText: "#000000",
+  primary:     "#00875A",   // deep phthalo green — premium CTA
+  primaryText: "#FFFFFF",
   text:        "#E6EDF3",   // soft off-white, easy on the eyes
   muted:       "#9DA5B0",   // lifted grey — passes AA on all dark surfaces
   mutedBg:     "#242C38",   // visible lift from surface for inputs
   border:      "#3D444D",   // clearly visible border
   danger:      "#F85149",   dangerText: "#ffffff",
-  accent:      "#3FB68B",   accentText: "#0D1117",  // dark text on green for readability
-  success:     "#3FB950",   successText: "#000000",  // GitHub-style muted green
+  accent:      "#006B47",   accentText: "#FFFFFF",   // deep phthalo accent
+  success:     "#00875A",   successText: "#FFFFFF",   // phthalo success
 };
 export const lightViridianColors: AppThemeColors = {
   bg:          "#F6F8FA",   // soft warm grey-white
   surface:     "#FFFFFF",
-  primary:     "#1A7F37",   // deep forest viridian
+  primary:     "#005C3A",   // deep phthalo for light mode
   primaryText: "#FFFFFF",
   text:        "#1F2328",   // near-black warm
   muted:       "#656D76",   // neutral grey
   mutedBg:     "#EFF2F5",   // soft grey for inputs
   border:      "#D0D7DE",   // light neutral border
   danger:      "#CF222E",   dangerText: "#ffffff",
-  accent:      "#2D6A4F",   accentText: "#ffffff",
-  success:     "#1A7F37",   successText: "#ffffff",
+  accent:      "#004D31",   accentText: "#ffffff",
+  success:     "#005C3A",   successText: "#ffffff",
 };
 
 // ── Evolution Path glow tokens ────────────────────────────────────────────────
 export const glowColors = {
-  viridian:       "#00E85C",
-  viridianMuted:  "#00E85C60",
-  viridianDim:    "#00E85C25",
+  viridian:       "#00875A",
+  viridianMuted:  "#00875A60",
+  viridianDim:    "#00875A25",
   lockedOverlay:  "#0D111780",
-  pathLine:       "#00E85C40",
-  pathLineLit:    "#00E85C",
+  pathLine:       "#00875A40",
+  pathLineLit:    "#00875A",
   nodeBg:         "#161B22",
-  currentPulse:   "#00E85CCC",
+  currentPulse:   "#00875ACC",
 } as const;
 
 // ── Workout-specific metric colors (always pure black bg, ignores theme) ──

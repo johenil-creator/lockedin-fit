@@ -15,7 +15,7 @@ const LOWER_MUSCLES: readonly MuscleGroup[] = [
 
 const THRESHOLDS: readonly { min: number; label: string; color: string }[] = [
   { min: 80, label: 'Fresh',     color: '#4CAF50' },
-  { min: 60, label: 'Ready',     color: '#00E85C' },
+  { min: 60, label: 'Ready',     color: '#00875A' },
   { min: 40, label: 'Moderate',  color: '#FFEB3B' },
   { min: 20, label: 'Fatigued',  color: '#FF9800' },
   { min: 0,  label: 'Exhausted', color: '#F44336' },

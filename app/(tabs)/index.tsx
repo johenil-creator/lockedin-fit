@@ -28,6 +28,7 @@ import type { LockeMascotMood } from "../../components/Locke/LockeMascot";
 import { useLocke } from "../../contexts/LockeContext";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import Logo from "../../components/Logo";
+import { ProfileButton } from "../../components/ProfileButton";
 import { usePlanContext } from "../../contexts/PlanContext";
 import { clearAllData } from "../../lib/storage";
 import { pickMessage, pickMessageWithMood } from "../../lib/lockeMessages";
@@ -48,36 +49,39 @@ function HeaderSection({ topInset, onCycleSpeech, onReset }: HeaderSectionProps)
     <View
       style={[
         styles.stickyHeader,
-        { backgroundColor: theme.colors.bg, paddingTop: topInset + 8 },
+        { backgroundColor: theme.colors.bg, paddingTop: topInset + 12 },
       ]}
     >
       <Logo />
-      {__DEV__ && onCycleSpeech && onReset && (
-        <View style={{ alignItems: "flex-end" }}>
-          <Pressable onPress={() => setDevOpen((v) => !v)}>
-            <Text style={{ fontSize: 10, fontWeight: "700", color: theme.colors.muted, opacity: 0.6 }}>
-              {devOpen ? "DEV ▲" : "DEV ▼"}
-            </Text>
-          </Pressable>
-          {devOpen && (
-            <View style={{ position: "absolute", top: 20, right: 0, backgroundColor: theme.colors.surface, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border, padding: 10, gap: 10, zIndex: 99, minWidth: 130 }}>
-              <Pressable onPress={onCycleSpeech}>
-                <Text style={{ fontSize: 11, fontWeight: "600", color: theme.colors.primary }} numberOfLines={1}>
-                  Cycle Speech
-                </Text>
-              </Pressable>
-              <Pressable onPress={() => Alert.alert("Reset Data", "Wipe all data and start fresh?", [
-                { text: "Cancel", style: "cancel" },
-                { text: "Reset", style: "destructive", onPress: onReset },
-              ])}>
-                <Text style={{ fontSize: 11, fontWeight: "600", color: theme.colors.danger }} numberOfLines={1}>
-                  Reset All Data
-                </Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-      )}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        {__DEV__ && onCycleSpeech && onReset && (
+          <View style={{ alignItems: "flex-end" }}>
+            <Pressable onPress={() => setDevOpen((v) => !v)}>
+              <Text style={{ fontSize: 10, fontWeight: "700", color: theme.colors.muted, opacity: 0.6 }}>
+                {devOpen ? "DEV ▲" : "DEV ▼"}
+              </Text>
+            </Pressable>
+            {devOpen && (
+              <View style={{ position: "absolute", top: 20, right: 0, backgroundColor: theme.colors.surface, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border, padding: 10, gap: 10, zIndex: 99, minWidth: 130 }}>
+                <Pressable onPress={onCycleSpeech}>
+                  <Text style={{ fontSize: 11, fontWeight: "600", color: theme.colors.primary }} numberOfLines={1}>
+                    Cycle Speech
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => Alert.alert("Reset Data", "Wipe all data and start fresh?", [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Reset", style: "destructive", onPress: onReset },
+                ])}>
+                  <Text style={{ fontSize: 11, fontWeight: "600", color: theme.colors.danger }} numberOfLines={1}>
+                    Reset All Data
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+        <ProfileButton />
+      </View>
     </View>
   );
 }

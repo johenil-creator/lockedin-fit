@@ -1,5 +1,5 @@
 import type { ExerciseClassification, LoadModifier } from "../types";
-import { exerciseCatalog, type ExerciseCatalogEntry } from "./exerciseCatalog";
+import { exerciseCatalog, type ExerciseCatalogEntry, type Equipment } from "./exerciseCatalog";
 
 const DEFAULT_MODIFIER: LoadModifier = { fraction: 1.0, label: "No 1RM anchor" };
 
@@ -114,4 +114,14 @@ export function classifyExercise(name: string): ExerciseClassification {
     modifier: DEFAULT_MODIFIER,
     confidence: 0,
   };
+}
+
+/**
+ * Look up the catalog equipment type for an exercise by name.
+ * Uses the pre-built nameIndex for O(1) lookup.
+ * Returns null if the exercise isn't found in the catalog.
+ */
+export function getExerciseEquipment(name: string): Equipment | null {
+  const entry = nameIndex.get(name.toLowerCase().trim());
+  return entry?.equipment ?? null;
 }

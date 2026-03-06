@@ -30,6 +30,7 @@ export type SessionExercise = {
   matchedPattern?: string;
   matchedAnchor?: string;
   matchedModifier?: number;
+  equipment?: string;  // catalog equipment type (barbell, bodyweight, etc.)
   feedback?: ExerciseFeedback;  // user-reported post-exercise feedback
 };
 

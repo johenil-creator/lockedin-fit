@@ -57,14 +57,14 @@ const MODALITIES: ModalityDef[] = [
 // ── Intensity helpers ────────────────────────────────────────────────────────
 
 function intensityTag(rpe: number): { label: string; color: string } {
-  if (rpe <= 3) return { label: "Easy", color: "#3FB950" };
+  if (rpe <= 3) return { label: "Easy", color: "#00875A" };
   if (rpe <= 5) return { label: "Moderate", color: "#D9A100" };
   if (rpe <= 7) return { label: "Hard", color: "#E07A3F" };
   return { label: "Very Hard", color: "#E63946" };
 }
 
 const RPE_OPTIONS: { rpe: number; label: string; color: string }[] = [
-  { rpe: 3,  label: "Easy",      color: "#3FB950" },
+  { rpe: 3,  label: "Easy",      color: "#00875A" },
   { rpe: 5,  label: "Moderate",  color: "#D9A100" },
   { rpe: 7,  label: "Hard",      color: "#E07A3F" },
   { rpe: 9,  label: "Very Hard", color: "#E63946" },

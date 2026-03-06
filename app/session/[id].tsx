@@ -29,6 +29,7 @@ import { useIconMood } from "../../hooks/useIconMood";
 import { awardSessionXP, buildWorkoutCompleteParams } from "../../lib/xpService";
 import { checkBadges } from "../../lib/badgeService";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
+import { getExerciseEquipment } from "../../lib/loadEngine/classifier";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
 import {
@@ -473,6 +474,7 @@ export default function SessionScreen() {
       matchedPattern:  load.classification.pattern,
       matchedAnchor:   load.classification.baseLift ?? undefined,
       matchedModifier: load.classification.modifier.fraction,
+      equipment:       getExerciseEquipment(name) ?? undefined,
     };
     update({ ...session, exercises: [...session.exercises, newEx] });
     setPickerVisible(false);
@@ -574,24 +576,48 @@ export default function SessionScreen() {
         const setData = { ...ex.sets[setIdx], ...patch };
         const w = parseFloat(setData.weight);
         const r = parseFloat(setData.reps);
-        if (!isNaN(w) && !isNaN(r) && r > 0 && !setData.isWarmUp) {
-          const current1RM = w * (1 + r / 30);
-          let prevBest = 0;
-          for (const pw of workouts) {
-            if (pw.id === session.id || !pw.completedAt) continue;
-            for (const pe of pw.exercises) {
-              if (pe.name !== ex.name) continue;
-              for (const ps of pe.sets) {
-                if (!ps.completed) continue;
-                const pw2 = parseFloat(ps.weight);
-                const pr2 = parseFloat(ps.reps);
-                if (!isNaN(pw2) && !isNaN(pr2) && pr2 > 0) {
-                  prevBest = Math.max(prevBest, pw2 * (1 + pr2 / 30));
+        const isBodyweight = ex.equipment === "bodyweight";
+
+        if (!setData.isWarmUp && !isNaN(r) && r > 0) {
+          let prDetected = false;
+
+          if (!isNaN(w) && w > 0) {
+            // Weighted PR: compare Epley 1RM
+            const current1RM = w * (1 + r / 30);
+            let prevBest = 0;
+            for (const pw of workouts) {
+              if (pw.id === session.id || !pw.completedAt) continue;
+              for (const pe of pw.exercises) {
+                if (pe.name !== ex.name) continue;
+                for (const ps of pe.sets) {
+                  if (!ps.completed) continue;
+                  const pw2 = parseFloat(ps.weight);
+                  const pr2 = parseFloat(ps.reps);
+                  if (!isNaN(pw2) && !isNaN(pr2) && pr2 > 0) {
+                    prevBest = Math.max(prevBest, pw2 * (1 + pr2 / 30));
+                  }
                 }
               }
             }
+            if (prevBest > 0 && current1RM > prevBest) prDetected = true;
+          } else if (isBodyweight) {
+            // Bodyweight PR: compare max reps directly
+            let prevBestReps = 0;
+            for (const pw of workouts) {
+              if (pw.id === session.id || !pw.completedAt) continue;
+              for (const pe of pw.exercises) {
+                if (pe.name !== ex.name) continue;
+                for (const ps of pe.sets) {
+                  if (!ps.completed || ps.isWarmUp) continue;
+                  const pr2 = parseFloat(ps.reps);
+                  if (!isNaN(pr2)) prevBestReps = Math.max(prevBestReps, pr2);
+                }
+              }
+            }
+            if (prevBestReps > 0 && r > prevBestReps) prDetected = true;
           }
-          if (prevBest > 0 && current1RM > prevBest) {
+
+          if (prDetected) {
             if (prFlashTimer.current) clearTimeout(prFlashTimer.current);
             setPrFlash(ex.name);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -737,14 +763,17 @@ export default function SessionScreen() {
     const startMs = session.startedAt ? new Date(session.startedAt).getTime() : 0;
     const endMs = new Date(session.completedAt).getTime();
     const durationSec = startMs > 0 ? Math.max(0, Math.floor((endMs - startMs) / 1000)) : 0;
-    const totalVolume = session.exercises.reduce((vol, ex) =>
-      vol + ex.sets.reduce((v, s) => {
+    const profileBW = parseFloat(profile.weight) || 0;
+    const totalVolume = session.exercises.reduce((vol, ex) => {
+      const isBW = ex.equipment === "bodyweight";
+      return vol + ex.sets.reduce((v, s) => {
         if (!s.completed) return v;
         const w = parseFloat(s.weight) || 0;
+        const effectiveW = w > 0 ? w : (isBW ? profileBW : 0);
         const r = parseFloat(s.reps) || 0;
-        return v + w * r;
-      }, 0), 0
-    );
+        return v + effectiveW * r;
+      }, 0);
+    }, 0);
     const completionRate = totalSets > 0 ? Math.round((completedSets / totalSets) * 100) : 0;
 
     const planCtx = session.planWeek && session.planDay
@@ -902,6 +931,7 @@ export default function SessionScreen() {
                 const locked = isSetLocked(activeExercise, i);
                 const isFutureSet = i > getCurrentSetIndex(activeExercise);
                 const isCurrentIncomplete = isCurrent && !s.completed;
+                const isBWExercise = activeExercise.equipment === "bodyweight";
                 const setContent = (
                   <View>
                     <View style={[
@@ -919,13 +949,18 @@ export default function SessionScreen() {
                           <View style={[styles.warmUpBadge, { backgroundColor: isFutureSet ? theme.colors.muted : theme.colors.accent }]}>
                             <Text style={[styles.warmUpBadgeText, { color: theme.colors.accentText }]}>W{warmUpIndex}</Text>
                           </View>
+                        ) : isBWExercise && !isWarmUp ? (
+                          <View style={{ alignItems: "center" }}>
+                            <Text style={[styles.setNum, { color: isCurrent && !s.completed ? theme.colors.primary : theme.colors.text }]}>{workingIndex}</Text>
+                            <Text style={{ color: theme.colors.accent, fontSize: 8, fontWeight: "700" }}>BW</Text>
+                          </View>
                         ) : (
                           <Text style={[styles.setNum, { color: isCurrent && !s.completed ? theme.colors.primary : theme.colors.text }]}>{workingIndex}</Text>
                         )}
                       </View>
                       <TextInput
                         style={[styles.setInput, styles.setColWeight, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
-                        placeholder={sessionUnit}
+                        placeholder={isBWExercise ? "BW" : sessionUnit}
                         placeholderTextColor="#B0B8C4"
                         value={s.weight}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { weight: v })}
@@ -1164,11 +1199,14 @@ export default function SessionScreen() {
                             // ── Streak ──────────────────────────────────────────
                             const { streak: newStreak } = await recordActivity();
 
-                            // ── PR detection (Epley 1RM vs prior sessions) ─────
+                            // ── PR detection (Epley 1RM + bodyweight reps vs prior sessions) ─────
                             const prevSessions = workouts.filter(
                               (w) => w.id !== session.id && !!w.completedAt
                             );
                             const isPR = prevSessions.length > 0 && session.exercises.some((ex) => {
+                              const isBW = ex.equipment === "bodyweight";
+
+                              // Weighted PR: Epley 1RM comparison
                               let current = 0;
                               for (const s of ex.sets) {
                                 if (!s.completed) continue;
@@ -1178,22 +1216,48 @@ export default function SessionScreen() {
                                   current = Math.max(current, w * (1 + r / 30));
                                 }
                               }
-                              if (current <= 0) return false;
-                              let prevBest = 0;
-                              for (const prev of prevSessions) {
-                                for (const pe of prev.exercises) {
-                                  if (pe.name !== ex.name) continue;
-                                  for (const s of pe.sets) {
-                                    if (!s.completed) continue;
-                                    const w = parseFloat(s.weight);
-                                    const r = parseFloat(s.reps);
-                                    if (!isNaN(w) && !isNaN(r) && r > 0) {
-                                      prevBest = Math.max(prevBest, w * (1 + r / 30));
+                              if (current > 0) {
+                                let prevBest = 0;
+                                for (const prev of prevSessions) {
+                                  for (const pe of prev.exercises) {
+                                    if (pe.name !== ex.name) continue;
+                                    for (const s of pe.sets) {
+                                      if (!s.completed) continue;
+                                      const w = parseFloat(s.weight);
+                                      const r = parseFloat(s.reps);
+                                      if (!isNaN(w) && !isNaN(r) && r > 0) {
+                                        prevBest = Math.max(prevBest, w * (1 + r / 30));
+                                      }
                                     }
                                   }
                                 }
+                                if (current > prevBest) return true;
                               }
-                              return current > prevBest;
+
+                              // Bodyweight PR: max reps comparison
+                              if (isBW) {
+                                let currentMaxReps = 0;
+                                for (const s of ex.sets) {
+                                  if (!s.completed || s.isWarmUp) continue;
+                                  const r = parseFloat(s.reps);
+                                  if (!isNaN(r)) currentMaxReps = Math.max(currentMaxReps, r);
+                                }
+                                if (currentMaxReps <= 0) return false;
+                                let prevBestReps = 0;
+                                for (const prev of prevSessions) {
+                                  for (const pe of prev.exercises) {
+                                    if (pe.name !== ex.name) continue;
+                                    for (const s of pe.sets) {
+                                      if (!s.completed || s.isWarmUp) continue;
+                                      const r = parseFloat(s.reps);
+                                      if (!isNaN(r)) prevBestReps = Math.max(prevBestReps, r);
+                                    }
+                                  }
+                                }
+                                if (prevBestReps > 0 && currentMaxReps > prevBestReps) return true;
+                              }
+
+                              return false;
                             });
 
                             // ── XP award ────────────────────────────────────────

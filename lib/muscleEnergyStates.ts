@@ -45,7 +45,7 @@ const THRESHOLDS = {
 const DARK_FILLS = {
   dormant: '#2A3340',
   primed: '#4CAF50',
-  chargedGreen: '#00E85C',
+  chargedGreen: '#00875A',
   chargedBlue: '#58A6FF',
   strained: '#FFEB3B',
   overloaded: '#FF9800',
@@ -56,7 +56,7 @@ const DARK_FILLS = {
 const LIGHT_FILLS = {
   dormant: '#C8BFB6', // slightly darker than light skin tone (#EDE8E2)
   primed: '#4CAF50',
-  chargedGreen: '#00E85C',
+  chargedGreen: '#00875A',
   chargedBlue: '#58A6FF',
   strained: '#FFEB3B',
   overloaded: '#FF9800',

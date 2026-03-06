@@ -37,7 +37,7 @@ export const PATTERN_BODYWEIGHT_DEFAULTS: Record<MovementPattern, number> = {
   vertical_pull:    0.30,
   isolation_upper:  0.10,
   isolation_lower:  0.15,
-  core:             0.08, // e.g. cable crunch ~8% BW
+  core:             0,    // core exercises are reps/time-based, no weight needed
   conditioning:     0.00, // time/distance-based — no weight default
   carry:            0.30,
   unknown:          0.00, // unclassified — no default weight

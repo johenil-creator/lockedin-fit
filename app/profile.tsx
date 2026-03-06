@@ -12,19 +12,20 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useAppTheme } from "../../contexts/ThemeContext";
-import { useProfileContext } from "../../contexts/ProfileContext";
-import { useWorkouts } from "../../hooks/useWorkouts";
-import { useXP } from "../../hooks/useXP";
-import { clearAllData } from "../../lib/storage";
-import { spacing, radius, typography } from "../../lib/theme";
-import { RankEvolutionPath } from "../../components/RankEvolutionPath";
-import { Button } from "../../components/Button";
-import { Skeleton } from "../../components/Skeleton";
-import { useHealthKit } from "../../hooks/useHealthKit";
-import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import type { Friend } from "../../lib/types";
+import { useAppTheme } from "../contexts/ThemeContext";
+import { useProfileContext } from "../contexts/ProfileContext";
+import { useWorkouts } from "../hooks/useWorkouts";
+import { useXP } from "../hooks/useXP";
+import { clearAllData } from "../lib/storage";
+import { spacing, radius, typography } from "../lib/theme";
+import { RankEvolutionPath } from "../components/RankEvolutionPath";
+import { Button } from "../components/Button";
+import { Skeleton } from "../components/Skeleton";
+import { useHealthKit } from "../hooks/useHealthKit";
+import * as Haptics from "expo-haptics";
+import { BADGE_DEFINITIONS } from "../lib/badgeService";
+import type { Friend } from "../lib/types";
 
 const BIG_4 = [
   { key: "deadlift" as const, label: "Deadlift" },
@@ -226,7 +227,10 @@ export default function ProfileScreen() {
       contentContainerStyle={styles.content}
     >
       <View style={styles.profileHeader}>
-        <Text style={[typography.title, { color: theme.colors.text }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+          <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
+        </Pressable>
+        <Text style={[typography.title, { color: theme.colors.text, flex: 1 }]}>
           Profile
         </Text>
         <Pressable onPress={() => router.push("/settings")} style={styles.gearBtn}>
@@ -277,7 +281,38 @@ export default function ProfileScreen() {
         progress={progress}
       />
 
-      {/* Section 3: Friends */}
+      {/* Section 3: Badges */}
+      <Pressable
+        style={[styles.card, { backgroundColor: theme.colors.surface }]}
+        onPress={() => router.push("/badges")}
+      >
+        <View style={styles.badgeCardHeader}>
+          <Text style={[typography.subheading, { color: theme.colors.text }]}>Badges</Text>
+          <Text style={[typography.caption, { color: theme.colors.accent, fontWeight: "700" }]}>
+            {(profile.badges ?? []).length} / {BADGE_DEFINITIONS.length}
+          </Text>
+        </View>
+        {(profile.badges ?? []).length > 0 && (
+          <View style={styles.badgeIconRow}>
+            {(profile.badges ?? []).slice(-4).map((b) => (
+              <View key={b.id} style={styles.badgeIconCircle}>
+                <Ionicons
+                  name={
+                    ({ footprint: "footsteps-outline", flag: "flag-outline", fire: "flame-outline", zap: "flash-outline", heart: "heart-outline", dumbbell: "barbell-outline", layers: "layers-outline", trophy: "trophy-outline", flame: "flame-outline", award: "ribbon-outline", calendar: "calendar-outline", map: "map-outline", stopwatch: "stopwatch-outline", body: "body-outline", fitness: "fitness-outline", "swap-horizontal": "swap-horizontal-outline", star: "star-outline", diamond: "diamond-outline", medal: "medal-outline" } as Record<string, any>)[b.icon] ?? "help-circle-outline"
+                  }
+                  size={18}
+                  color={theme.colors.accent}
+                />
+              </View>
+            ))}
+          </View>
+        )}
+        <Text style={[typography.caption, { color: theme.colors.muted, marginTop: spacing.sm }]}>
+          Tap to view all badges
+        </Text>
+      </Pressable>
+
+      {/* Section 4: Friends */}
       <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
         <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
           Friends
@@ -477,9 +512,12 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: spacing.lg,
+  },
+  backBtn: {
+    padding: 4,
+    marginRight: 8,
   },
   gearBtn: {
     padding: 12,
@@ -524,5 +562,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  badgeCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  badgeIconRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  badgeIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 135, 90, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

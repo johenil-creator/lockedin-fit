@@ -26,6 +26,7 @@ import { Badge } from "../../components/Badge";
 import { Skeleton } from "../../components/Skeleton";
 import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { ProfileButton } from "../../components/ProfileButton";
 import { useToast } from "../../contexts/ToastContext";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { spacing, radius } from "../../lib/theme";
@@ -51,7 +52,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 const BLOCK_LABELS: BlockName[] = ["Accumulation", "Intensification", "Realization"];
 
 const BLOCK_COLORS: Record<BlockName, { color: string; bg: string }> = {
-  Accumulation:    { color: "#3FB68B", bg: "#3FB68B22" },
+  Accumulation:    { color: "#006B47", bg: "#006B4722" },
   Intensification: { color: "#FF9F0A", bg: "#FF9F0A22" },
   Realization:     { color: "#F85149", bg: "#F8514922" },
 };
@@ -353,7 +354,7 @@ function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart }:
 
 const dcStyles = StyleSheet.create({
   container:    { flexDirection: "row", borderRadius: 14, overflow: "hidden" },
-  nextUpShadow: { shadowColor: "#00E85C", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
+  nextUpShadow: { shadowColor: "#00875A", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
   accentBar:    { width: 3 },
   inner:        { flex: 1, padding: 12 },
   header:       { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -481,7 +482,8 @@ const banStyles = StyleSheet.create({
 
 // ── EmptyPlanState ────────────────────────────────────────────────────────────
 
-function EmptyPlanState({ onCatalog, onImport }: {
+function EmptyPlanState({ onCreate, onCatalog, onImport }: {
+  onCreate: () => void;
   onCatalog: () => void;
   onImport: () => void;
 }) {
@@ -508,24 +510,37 @@ function EmptyPlanState({ onCatalog, onImport }: {
 
       <RNAnimated.View
         entering={FadeInDown.delay(350).duration(350)}
-        style={epStyles.cards}
+        style={epStyles.cardsWrap}
       >
         <Pressable
-          style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + "55" }]}
-          onPress={onCatalog}
+          style={[epStyles.featuredCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + "55" }]}
+          onPress={onCreate}
         >
-          <Ionicons name="library-outline" size={26} color={theme.colors.primary} style={{ marginBottom: 8 }} />
-          <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Browse Catalog</Text>
-          <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Ready-to-use plans</Text>
+          <Ionicons name="create-outline" size={26} color={theme.colors.primary} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Create Plan</Text>
+            <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Build your own program</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
         </Pressable>
-        <Pressable
-          style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-          onPress={onImport}
-        >
-          <Ionicons name="cloud-upload-outline" size={26} color={theme.colors.muted} style={{ marginBottom: 8 }} />
-          <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Import Plan</Text>
-          <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>CSV, Excel or Sheets</Text>
-        </Pressable>
+        <View style={epStyles.cards}>
+          <Pressable
+            style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+            onPress={onCatalog}
+          >
+            <Ionicons name="library-outline" size={26} color={theme.colors.muted} style={{ marginBottom: 8 }} />
+            <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Browse Catalog</Text>
+            <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Ready-to-use plans</Text>
+          </Pressable>
+          <Pressable
+            style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+            onPress={onImport}
+          >
+            <Ionicons name="cloud-upload-outline" size={26} color={theme.colors.muted} style={{ marginBottom: 8 }} />
+            <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Import Plan</Text>
+            <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>CSV, Excel or Sheets</Text>
+          </Pressable>
+        </View>
       </RNAnimated.View>
     </View>
   );
@@ -556,6 +571,8 @@ const epStyles = StyleSheet.create({
   },
   bubbleText: { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 4 },
   bubbleSub:  { fontSize: 13, textAlign: "center", lineHeight: 18 },
+  cardsWrap:  { gap: 12, width: "100%", paddingHorizontal: 4 },
+  featuredCard: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: 1.5, padding: 16 },
   cards:      { flexDirection: "row", gap: 12 },
   card:       { flex: 1, borderRadius: 14, borderWidth: 1, padding: 16, alignItems: "center" },
   cardLabel:  { fontSize: 14, fontWeight: "700", textAlign: "center" },
@@ -840,7 +857,7 @@ export default function PlanScreen() {
       <View style={styles.header}>
         <View style={styles.headerTitle}>
           <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>
-            {planName || "Workout Plan"}
+            {planName || "Plan"}
           </Text>
           {currentBlockName && exercises.length > 0 && (
             <Text style={[styles.phaseSubtitle, { color: BLOCK_COLORS[currentBlockName].color }]}>
@@ -870,11 +887,13 @@ export default function PlanScreen() {
               <Ionicons name="trash-outline" size={16} color={theme.colors.muted} />
             </Pressable>
           )}
+          <ProfileButton />
         </View>
       </View>
 
       {exercises.length === 0 ? (
         <EmptyPlanState
+          onCreate={() => router.push("/plan-builder")}
           onCatalog={() => router.push("/catalog")}
           onImport={showImportPicker}
         />
@@ -1076,16 +1095,16 @@ export default function PlanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: spacing.md,
+    alignItems: "center",
+    marginBottom: spacing.sm,
   },
   headerTitle:   { flex: 1, marginRight: spacing.sm },
-  title:         { fontSize: 22, fontWeight: "700", letterSpacing: -0.3 },
+  title:         { fontSize: 28, fontWeight: "700" },
   phaseSubtitle: { fontSize: 12, fontWeight: "600", marginTop: 2 },
   headerActions: { flexDirection: "row", gap: 8, marginTop: 2 },
   iconBtn: {

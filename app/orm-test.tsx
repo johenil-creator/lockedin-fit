@@ -90,7 +90,9 @@ export default function OrmTestScreen() {
   const [unit, setUnit] = useState<"kg" | "lbs">(
     profile.weightUnit ?? "kg"
   );
-  const [unitChosen, setUnitChosen] = useState(false);
+  const [unitChosen, setUnitChosen] = useState(
+    source !== "onboarding" && !!profile.onboardingComplete && !!profile.weightUnit
+  );
   const [exitModalVisible, setExitModalVisible] = useState(false);
   const [setsVisible, setSetsVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -150,6 +152,9 @@ export default function OrmTestScreen() {
       }
       setUnit(ormTest.session.unit);
       setUnitChosen(true);
+    } else if (unitChosen && !ormTest.session) {
+      // Auto-skipped unit picker (onboarding already done) — start test
+      ormTest.startTest(unit);
     }
   }, [ormTest.loading]);
 

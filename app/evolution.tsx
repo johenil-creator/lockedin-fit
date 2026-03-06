@@ -151,7 +151,8 @@ function PathNode({
         </Animated.View>
       </View>
 
-      {/* Label */}
+      {/* Label — offset right by half the connector width for non-first nodes
+           so the text stays centered under the circle */}
       <Text
         style={[
           styles.nodeLabel,
@@ -163,6 +164,7 @@ function PathNode({
                 ? glowColors.viridian
                 : theme.colors.text,
             fontWeight: state === "current" ? "800" : "600",
+            marginLeft: isFirst ? 0 : CONNECTOR_WIDTH,
           },
         ]}
       >
@@ -179,6 +181,7 @@ function PathNode({
                 : state === "current"
                 ? glowColors.viridian
                 : theme.colors.muted,
+            marginLeft: isFirst ? 0 : CONNECTOR_WIDTH,
           },
         ]}
       >
@@ -186,7 +189,7 @@ function PathNode({
       </Text>
 
       {state === "current" && (
-        <View style={styles.currentDot} />
+        <View style={[styles.currentDot, { marginLeft: isFirst ? 0 : CONNECTOR_WIDTH }]} />
       )}
     </View>
   );

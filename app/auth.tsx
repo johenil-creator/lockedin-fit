@@ -1,0 +1,229 @@
+import { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
+import { useProfileContext } from "../contexts/ProfileContext";
+import { useXP } from "../hooks/useXP";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { auth as firebaseAuth } from "../lib/firebase";
+import { BackButton } from "../components/BackButton";
+import { Card } from "../components/Card";
+import { spacing, typography, radius } from "../lib/theme";
+
+export default function AuthScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { theme } = useAppTheme();
+  const { signUp, signIn } = useAuth();
+  const { profile } = useProfileContext();
+  const { rank } = useXP();
+
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const isSignUp = mode === "signup";
+
+  async function handleSubmit() {
+    setError(null);
+    if (!email.trim() || !password.trim()) {
+      setError("Email and password are required.");
+      return;
+    }
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        const { error: err } = await signUp(email.trim(), password);
+        if (err) { setError(err); return; }
+
+        // Sync profile to Firestore users collection
+        const user = firebaseAuth.currentUser;
+        if (user) {
+          await setDoc(doc(db, "users", user.uid), {
+            friendCode: profile.friendCode ?? "",
+            displayName: profile.name,
+            rank: rank,
+            createdAt: serverTimestamp(),
+          });
+        }
+      } else {
+        const { error: err } = await signIn(email.trim(), password);
+        if (err) { setError(err); return; }
+      }
+      router.back();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: theme.colors.bg }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        style={[styles.container, { paddingTop: insets.top }]}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <BackButton />
+          <Text style={[typography.title, { color: theme.colors.text }]}>
+            {isSignUp ? "Create Account" : "Sign In"}
+          </Text>
+        </View>
+
+        {/* Mode Toggle */}
+        <View style={[styles.toggleRow, { backgroundColor: theme.colors.mutedBg, borderRadius: radius.full }]}>
+          {(["signin", "signup"] as const).map((m) => {
+            const active = mode === m;
+            return (
+              <Pressable
+                key={m}
+                style={[
+                  styles.toggleSegment,
+                  { backgroundColor: active ? theme.colors.primary : "transparent" },
+                ]}
+                onPress={() => { setMode(m); setError(null); }}
+              >
+                <Text
+                  style={[
+                    styles.toggleText,
+                    { color: active ? theme.colors.primaryText : theme.colors.muted },
+                  ]}
+                >
+                  {m === "signin" ? "Sign In" : "Sign Up"}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Form */}
+        <Card>
+          <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+            Email
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.colors.mutedBg,
+                color: theme.colors.text,
+                borderColor: theme.colors.border,
+              },
+            ]}
+            placeholder="you@example.com"
+            placeholderTextColor={theme.colors.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm, marginTop: spacing.md }]}>
+            Password
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.colors.mutedBg,
+                color: theme.colors.text,
+                borderColor: theme.colors.border,
+              },
+            ]}
+            placeholder="Min. 6 characters"
+            placeholderTextColor={theme.colors.muted}
+            secureTextEntry
+            textContentType={isSignUp ? "newPassword" : "password"}
+            value={password}
+            onChangeText={setPassword}
+          />
+
+          {error && (
+            <Text style={[typography.small, { color: theme.colors.danger, marginTop: spacing.sm }]}>
+              {error}
+            </Text>
+          )}
+
+          <Pressable
+            style={[
+              styles.submitButton,
+              { backgroundColor: theme.colors.primary, opacity: loading ? 0.7 : 1 },
+            ]}
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={theme.colors.primaryText} />
+            ) : (
+              <Text style={[styles.submitText, { color: theme.colors.primaryText }]}>
+                {isSignUp ? "Create Account" : "Sign In"}
+              </Text>
+            )}
+          </Pressable>
+        </Card>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { padding: spacing.md, paddingBottom: spacing.xl },
+  header: { marginBottom: spacing.lg },
+  toggleRow: {
+    flexDirection: "row",
+    padding: 3,
+    marginBottom: spacing.md,
+  },
+  toggleSegment: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: radius.full,
+    alignItems: "center",
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    fontSize: 15,
+  },
+  submitButton: {
+    marginTop: spacing.lg,
+    borderRadius: radius.md,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submitText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+});

@@ -82,7 +82,7 @@ export default function OnboardingScreen() {
   const { showToast } = useToast();
 
   const [step, setStep] = useState<StepKey>(
-    startStep === "manual" ? "unit" : retake === "1" ? "explain" : "welcome"
+    startStep === "manual" ? "manual" : retake === "1" ? "explain" : "welcome"
   );
   useEffect(() => {
     fire({ trigger: "onboarding" }, 12000);

@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { loadXP, saveXP } from "../lib/storage";
 import { defaultXPRecord, applyXP } from "../lib/xpService";
 import { rankForXP, nextRank, rankProgress, xpToNextRank } from "../lib/rankService";
+import { getCurrentWeekKey } from "../lib/leagueService";
+import { syncWeeklyXP } from "../lib/xpSync";
+import { auth } from "../lib/firebase";
 import type { XPRecord, RankLevel } from "../lib/types";
 
 export function useXP() {
@@ -18,23 +21,39 @@ export function useXP() {
     }).catch(() => { setLoading(false); });
   }, []);
 
-  /** Award XP and persist. Returns the updated record. */
+  /** Award XP and persist. Returns the updated record. Syncs to Firebase fire-and-forget. */
   const awardXP = useCallback(
     async (amount: number, reason: string): Promise<XPRecord> => {
       const updated = applyXP(xpRef.current, amount, reason);
       xpRef.current = updated;
       setXP(updated);
       await saveXP(updated);
+
+      // Fire-and-forget sync to Firebase
+      const user = auth.currentUser;
+      if (user && amount > 0) {
+        syncWeeklyXP(user.uid, getCurrentWeekKey(), amount).catch(() => {});
+      }
+
       return updated;
     },
     []
   );
 
-  /** Replace the entire XP record (used after session-end bulk award). */
+  /** Replace the entire XP record (used after session-end bulk award). Syncs delta to Firebase. */
   const setXPRecord = useCallback(async (record: XPRecord): Promise<void> => {
+    const delta = record.total - xpRef.current.total;
     xpRef.current = record;
     await saveXP(record);
     setXP(record);
+
+    // Fire-and-forget sync the delta XP to Firebase
+    if (delta > 0) {
+      const user = auth.currentUser;
+      if (user) {
+        syncWeeklyXP(user.uid, getCurrentWeekKey(), delta).catch(() => {});
+      }
+    }
   }, []);
 
   // Derived values — computed from current xp state

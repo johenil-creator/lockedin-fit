@@ -74,6 +74,63 @@ export const BADGE_DEFINITIONS: BadgeDef[] = [
     description: "Train 100 days in a row",
     icon: "award",
   },
+  {
+    id: "streak_365",
+    name: "365 Day Streak",
+    description: "Train every day for a year",
+    icon: "calendar",
+  },
+  // Cardio (advanced)
+  {
+    id: "10k_finisher",
+    name: "10K Finisher",
+    description: "Run 10km in a single session",
+    icon: "map",
+  },
+  {
+    id: "marathon_prep",
+    name: "Marathon Prep",
+    description: "Complete a 45-minute cardio session",
+    icon: "stopwatch",
+  },
+  // Strength (advanced)
+  {
+    id: "iron_regular",
+    name: "Iron Regular",
+    description: "Complete 10 strength sessions",
+    icon: "body",
+  },
+  {
+    id: "500_sets_club",
+    name: "500 Sets Club",
+    description: "Complete 500 total sets",
+    icon: "fitness",
+  },
+  // Milestones
+  {
+    id: "double_threat",
+    name: "Double Threat",
+    description: "Complete both a cardio and strength session",
+    icon: "swap-horizontal",
+  },
+  {
+    id: "quarter_century",
+    name: "Quarter Century",
+    description: "Complete 25 total workouts",
+    icon: "star",
+  },
+  {
+    id: "half_century",
+    name: "Half Century",
+    description: "Complete 50 total workouts",
+    icon: "diamond",
+  },
+  {
+    id: "centurion",
+    name: "Centurion",
+    description: "Complete 100 total workouts",
+    icon: "medal",
+  },
 ];
 
 // ── Badge unlock engine ───────────────────────────────────────────────────────
@@ -145,6 +202,15 @@ export function checkBadges(input: {
     streak_7:          () => streakDays >= 7,
     streak_30:         () => streakDays >= 30,
     streak_100:        () => streakDays >= 100,
+    streak_365:        () => streakDays >= 365,
+    "10k_finisher":    () => isCardio && cardioSessions.some((w) => (w.cardioDistanceKm ?? 0) >= 10),
+    marathon_prep:     () => isCardio && cardioSessions.some((w) => Math.floor((w.cardioDurationMs ?? 0) / 60000) >= 45),
+    iron_regular:      () => !isCardio && strengthSessions.length >= 10,
+    "500_sets_club":   () => totalCompletedSets >= 500,
+    double_threat:     () => cardioSessions.length >= 1 && strengthSessions.length >= 1,
+    quarter_century:   () => allWorkouts.length >= 25,
+    half_century:      () => allWorkouts.length >= 50,
+    centurion:         () => allWorkouts.length >= 100,
   };
 
   const now = new Date().toISOString();

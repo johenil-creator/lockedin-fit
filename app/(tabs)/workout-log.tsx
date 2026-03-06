@@ -24,6 +24,7 @@ import { LockeMascot } from "../../components/Locke/LockeMascot";
 import { CalendarGrid } from "../../components/CalendarGrid";
 import { Skeleton } from "../../components/Skeleton";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { ProfileButton } from "../../components/ProfileButton";
 import { spacing, radius } from "../../lib/theme";
 import type { WorkoutSession } from "../../lib/types";
 
@@ -87,7 +88,8 @@ export default function WorkoutLogScreen() {
   return (
       <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 12 }]}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Workout Log</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Log</Text>
+          <ProfileButton />
         </View>
 
         {/* Segmented toggle */}
@@ -329,7 +331,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 0,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   header: {
     flexDirection: "row",
@@ -337,7 +339,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.sm,
   },
-  title: { fontSize: 32, fontWeight: "700" },
+  title: { fontSize: 28, fontWeight: "700" },
   segmentRow: {
     flexDirection: "row",
     borderRadius: radius.md,
