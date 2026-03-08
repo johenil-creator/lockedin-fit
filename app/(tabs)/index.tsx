@@ -30,6 +30,7 @@ import { useLocke } from "../../contexts/LockeContext";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import Logo from "../../components/Logo";
 import { ProfileButton } from "../../components/ProfileButton";
+import { SectionLabel } from "../../components/SectionLabel";
 import { usePlanContext } from "../../contexts/PlanContext";
 import { clearAllData } from "../../lib/storage";
 import { pickMessage, pickMessageWithMood } from "../../lib/lockeMessages";
@@ -132,7 +133,7 @@ const RankXPRow = React.memo(function RankXPRow({
       <Text style={[styles.greeting, { color: theme.colors.text }]}>
         Hey, {name || "there"}
       </Text>
-      <View style={[styles.rankXPRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+      <View style={[styles.rankXPRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 }]}>
         <RankBadge rank={rank} />
         <View style={styles.xpBarWrap}>
           <XPBar
@@ -181,7 +182,7 @@ const LockePanel = React.memo(function LockePanel({ mood, microcopy }: LockePane
     <View
       style={[
         styles.lockePanel,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 },
       ]}
     >
       <LockeMascot size={120} mood={mood} />
@@ -238,12 +239,10 @@ const TodayWorkoutCard = React.memo(function TodayWorkoutCard({
     <View
       style={[
         styles.workoutCard,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 },
       ]}
     >
-      <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
-        TODAY'S WORKOUT
-      </Text>
+      <SectionLabel label="TODAY'S WORKOUT" />
 
       <View style={styles.workoutCardHeader}>
         <View style={styles.workoutCardMeta}>
@@ -315,9 +314,7 @@ const NoPlanCard = React.memo(function NoPlanCard({
         { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
       ]}
     >
-      <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
-        TODAY'S WORKOUT
-      </Text>
+      <SectionLabel label="TODAY'S WORKOUT" />
       <Text style={[styles.workoutPlanName, { color: theme.colors.text }]}>
         No plan loaded
       </Text>
@@ -443,9 +440,7 @@ const ProgressSnapshot = React.memo(function ProgressSnapshot({
 
   return (
     <View style={styles.progressSection}>
-      <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
-        PROGRESS
-      </Text>
+      <SectionLabel label="PROGRESS" />
 
       {/* 3-column stats */}
       <View
@@ -479,11 +474,7 @@ const ProgressSnapshot = React.memo(function ProgressSnapshot({
       {/* Recent activity */}
       {recentWorkouts.length > 0 && (
         <>
-          <Text
-            style={[styles.sectionLabel, { color: theme.colors.muted, marginTop: 24 }]}
-          >
-            RECENT ACTIVITY
-          </Text>
+          <SectionLabel label="RECENT ACTIVITY" style={{ marginTop: 24 }} />
           {recentWorkouts.map((w) => (
             <Pressable key={w.id} onPress={() => onWorkoutPress(w.id)}>
               <Card style={styles.recentCard}>
@@ -971,14 +962,7 @@ export default function HomeScreen() {
         )}
 
         {/* 6. QUICK ACTIONS ROW */}
-        <Text
-          style={[
-            styles.sectionLabel,
-            { color: theme.colors.muted, marginTop: 24, marginBottom: 8 },
-          ]}
-        >
-          QUICK ACTIONS
-        </Text>
+        <SectionLabel label="QUICK ACTIONS" style={{ marginTop: 24 }} />
         <QuickActionsRow actions={quickActions} />
 
         {/* 7. PROGRESS SNAPSHOT */}

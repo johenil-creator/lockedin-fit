@@ -58,7 +58,7 @@ export const lockdInColors: AppThemeColors = {
   text:        "#E6EDF3",   // soft off-white, easy on the eyes
   muted:       "#9DA5B0",   // lifted grey — passes AA on all dark surfaces
   mutedBg:     "#242C38",   // visible lift from surface for inputs
-  border:      "#3D444D",   // clearly visible border
+  border:      "#243D35",   // green-tinted border (brand identity)
   danger:      "#F85149",   dangerText: "#ffffff",
   accent:      "#006B47",   accentText: "#FFFFFF",   // deep phthalo accent
   success:     "#00875A",   successText: "#FFFFFF",   // phthalo success
@@ -137,11 +137,20 @@ export type ShadowPreset = {
   shadowRadius: number;
   elevation: number;
 };
-export type ShadowElevation = 'light' | 'medium' | 'heavy';
+export const shadowGlow = {
+  shadowColor: '#00875A',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.3,
+  shadowRadius: 12,
+  elevation: 6,
+} as const;
+
+export type ShadowElevation = 'light' | 'medium' | 'heavy' | 'glow';
 export const shadowPresets: Record<ShadowElevation, ShadowPreset> = {
   light: shadowLight,
   medium: shadowMedium,
   heavy: shadowHeavy,
+  glow: shadowGlow,
 };
 
 // ── Gradient color tokens ───────────────────────────────────────────────────
