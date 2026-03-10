@@ -218,6 +218,17 @@ const PATTERN_CUES: Record<string, string> = {
   isolation:         "Slow and controlled, feel every rep.",
   bodyweight:        "Bodyweight to failure, quality reps.",
   "grip-carry":      "Crush the handle, walk tall, brace everything.",
+  "bw-squat":        "Control the descent, drive through your heels, full depth.",
+  "bw-hinge":        "Push hips back, feel the hamstring stretch, squeeze at the top.",
+  "bw-push":         "Chest to floor, elbows at 45°, full lockout at the top.",
+  "bw-push-vertical": "Brace core, press overhead, full lockout.",
+  "bw-pull":         "Dead hang start, pull until chin clears, control the descent.",
+  "bw-pull-horizontal": "Body straight, pull chest to hands, squeeze shoulder blades.",
+  "bw-core-anterior": "Brace hard, keep lower back flat, controlled tempo.",
+  "bw-core-lateral": "Stack hips, stay rigid, breathe steadily.",
+  "bw-conditioning": "Explosive movement, maintain form as you fatigue.",
+  "bw-glute":        "Squeeze glutes hard at the top, pause briefly, control down.",
+  "bw-calf":         "Full range — deep stretch at the bottom, peak squeeze at the top.",
   "shoulder-acc":    "Accessory shoulder work — lighter, controlled.",
   "machine-push":    "Guided path, focus on the squeeze.",
   "main-squat":      "Your main squat variation — brace, descend with control, drive up.",
@@ -1528,5 +1539,312 @@ export const CATALOG_PLANS: CatalogPlan[] = [
       slot("rear-delt", ["Face Pull", "Reverse Pec Deck", "Band Pull-Apart", "Prone Y Raise"], "3", "15-20", "Day 5", "0", "60"),
       slot("arm-superset", ["EZ-Bar Curl + Skull Crusher", "Hammer Curl + Tricep Pushdown", "Cable Curl + Overhead Extension", "Preacher Curl + Dip"], "3", "10-12", "Day 5", "0", "60", "Superset arms"),
     ], 6, "percentage"),
+  },
+
+  // ─── Bodyweight Only ────────────────────────────────────────────────────────
+  {
+    id: "bodyweight-basics",
+    name: "Bodyweight Basics",
+    goal: "Full Body / Calisthenics",
+    description: "A zero-equipment full-body programme using only bodyweight movements. Train anywhere — at home, in a park, or while travelling.",
+    difficulty: "Beginner",
+    daysPerWeek: 3,
+    totalWeeks: 12,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Upper Push + Core
+      slot("bw-push", ["Push-Up", "Diamond Push-Up", "Decline Push-Up", "Push-Up"], "3", "10-15", "Day 1", "1", "75"),
+      slot("bw-push-vertical", ["Pike Push-Up", "Handstand Push-Up", "Pike Push-Up", "Handstand Push-Up"], "3", "8-12", "Day 1", "0", "90"),
+      slot("bw-push", ["Decline Push-Up", "Diamond Push-Up", "Push-Up", "Decline Push-Up"], "2", "AMRAP", "Day 1", "0", "60"),
+      slot("bw-core-anterior", ["Plank", "Hollow Hold", "Dead Bug", "L-Sit"], "3", "30-45s", "Day 1", "0", "60"),
+      slot("bw-core-lateral", ["Side Plank", "Back Extension Hold", "Side Plank", "Back Extension Hold"], "3", "20-30s each", "Day 1", "0", "60"),
+
+      // Day 2 — Lower Body + Glutes
+      slot("bw-squat", ["Sissy Squat", "Reverse Lunge", "Cossack Squat", "Curtsy Lunge"], "3", "10-12", "Day 2", "1", "90"),
+      slot("bw-squat", ["Reverse Lunge", "Curtsy Lunge", "Sissy Squat", "Cossack Squat"], "3", "12 each", "Day 2", "0", "75"),
+      slot("bw-glute", ["Frog Pump", "Skater Hop", "Frog Pump", "Skater Hop"], "3", "15-20", "Day 2", "0", "75"),
+      slot("bw-conditioning", ["Bear Crawl", "Mountain Climber", "Inchworm", "Bear Crawl"], "3", "30-45s", "Day 2", "0", "60"),
+      slot("bw-core-anterior", ["Dead Bug", "Bird Dog", "Reverse Crunch", "Hollow Hold"], "3", "30-45s", "Day 2", "0", "60"),
+
+      // Day 3 — Full Body + Conditioning
+      slot("bw-push", ["Diamond Push-Up", "Push-Up", "Decline Push-Up", "Diamond Push-Up"], "3", "AMRAP", "Day 3", "0", "75"),
+      slot("bw-push-vertical", ["Handstand Push-Up", "Pike Push-Up", "Handstand Push-Up", "Pike Push-Up"], "3", "6-10", "Day 3", "0", "90"),
+      slot("bw-squat", ["Cossack Squat", "Sissy Squat", "Curtsy Lunge", "Reverse Lunge"], "3", "10-12 each", "Day 3", "0", "75"),
+      slot("bw-conditioning", ["Burpees", "Sprawl", "Burpees", "Sprawl"], "3", "10-15", "Day 3", "0", "60"),
+      slot("bw-core-anterior", ["Reverse Crunch", "L-Sit", "Plank", "Bird Dog"], "3", "12-15", "Day 3", "0", "60"),
+    ], 12, "percentage"),
+  },
+
+  // ─── Bodyweight HIIT ──────────────────────────────────────────────────────
+  {
+    id: "bodyweight-hiit",
+    name: "Bodyweight HIIT",
+    goal: "Conditioning / Fat Loss",
+    description: "High-intensity circuit-style training with zero equipment. Short rest, big effort — torch calories anywhere.",
+    difficulty: "Intermediate",
+    daysPerWeek: 4,
+    totalWeeks: 6,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Upper HIIT
+      slot("bw-push", ["Push-Up", "Diamond Push-Up", "Decline Push-Up", "Push-Up"], "4", "AMRAP", "Day 1", "0", "30"),
+      slot("bw-push-vertical", ["Pike Push-Up", "Handstand Push-Up", "Pike Push-Up", "Handstand Push-Up"], "3", "8-12", "Day 1", "0", "30"),
+      slot("bw-conditioning", ["Burpees", "Sprawl", "Burpees", "Sprawl"], "4", "12-15", "Day 1", "0", "30"),
+      slot("bw-core-anterior", ["Mountain Climber", "Dead Bug", "Mountain Climber", "Hollow Hold"], "3", "30-40s", "Day 1", "0", "20"),
+      slot("bw-core-lateral", ["Side Plank", "Back Extension Hold", "Side Plank", "Back Extension Hold"], "3", "20-30s each", "Day 1", "0", "20"),
+
+      // Day 2 — Lower HIIT
+      slot("bw-squat", ["Sissy Squat", "Cossack Squat", "Reverse Lunge", "Curtsy Lunge"], "4", "12-15 each", "Day 2", "0", "30"),
+      slot("bw-glute", ["Skater Hop", "Frog Pump", "Skater Hop", "Frog Pump"], "4", "15-20", "Day 2", "0", "30"),
+      slot("bw-squat", ["Curtsy Lunge", "Reverse Lunge", "Cossack Squat", "Sissy Squat"], "3", "AMRAP", "Day 2", "0", "30"),
+      slot("bw-conditioning", ["Inchworm", "Bear Crawl", "Inchworm", "Bear Crawl"], "3", "30-45s", "Day 2", "0", "20"),
+      slot("bw-core-anterior", ["Plank", "L-Sit", "Reverse Crunch", "Bird Dog"], "3", "30-40s", "Day 2", "0", "20"),
+
+      // Day 3 — Full Body Blast
+      slot("bw-push", ["Decline Push-Up", "Push-Up", "Diamond Push-Up", "Decline Push-Up"], "3", "AMRAP", "Day 3", "0", "30"),
+      slot("bw-squat", ["Reverse Lunge", "Sissy Squat", "Curtsy Lunge", "Cossack Squat"], "3", "12 each", "Day 3", "0", "30"),
+      slot("bw-conditioning", ["Sprawl", "Burpees", "Sprawl", "Burpees"], "4", "10-15", "Day 3", "0", "30"),
+      slot("bw-glute", ["Frog Pump", "Skater Hop", "Frog Pump", "Skater Hop"], "3", "15-20", "Day 3", "0", "30"),
+      slot("bw-core-anterior", ["Hollow Hold", "Plank", "Dead Bug", "L-Sit"], "3", "30-45s", "Day 3", "0", "20"),
+
+      // Day 4 — Conditioning + Core
+      slot("bw-conditioning", ["Burpees", "Inchworm", "Sprawl", "Bear Crawl"], "4", "12-15", "Day 4", "0", "30"),
+      slot("bw-push", ["Diamond Push-Up", "Decline Push-Up", "Push-Up", "Diamond Push-Up"], "3", "AMRAP", "Day 4", "0", "30"),
+      slot("bw-squat", ["Cossack Squat", "Curtsy Lunge", "Sissy Squat", "Reverse Lunge"], "3", "10-12 each", "Day 4", "0", "30"),
+      slot("bw-core-anterior", ["Reverse Crunch", "Mountain Climber", "Bird Dog", "Dead Bug"], "4", "30-40s", "Day 4", "0", "20"),
+      slot("bw-core-lateral", ["Back Extension Hold", "Side Plank", "Back Extension Hold", "Side Plank"], "3", "20-30s each", "Day 4", "0", "20"),
+    ], 6, "percentage"),
+  },
+
+  // ─── Bodyweight Strength ──────────────────────────────────────────────────
+  {
+    id: "bodyweight-strength",
+    name: "Bodyweight Strength",
+    goal: "Strength / Calisthenics",
+    description: "Low-rep, high-difficulty bodyweight progressions. Build real strength with harder variations and longer rest.",
+    difficulty: "Intermediate",
+    daysPerWeek: 4,
+    totalWeeks: 12,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Push Strength
+      slot("bw-push-vertical", ["Handstand Push-Up", "Pike Push-Up", "Handstand Push-Up", "Pike Push-Up"], "4", "5-8", "Day 1", "1", "120"),
+      slot("bw-push", ["Diamond Push-Up", "Decline Push-Up", "Diamond Push-Up", "Decline Push-Up"], "4", "6-10", "Day 1", "0", "90"),
+      slot("bw-push", ["Push-Up", "Diamond Push-Up", "Decline Push-Up", "Push-Up"], "3", "AMRAP", "Day 1", "0", "90"),
+      slot("bw-core-anterior", ["L-Sit", "Hollow Hold", "L-Sit", "Hollow Hold"], "4", "20-40s", "Day 1", "0", "60"),
+      slot("bw-core-lateral", ["Side Plank", "Back Extension Hold", "Side Plank", "Back Extension Hold"], "3", "30-45s each", "Day 1", "0", "60"),
+
+      // Day 2 — Leg Strength
+      slot("bw-squat", ["Sissy Squat", "Cossack Squat", "Sissy Squat", "Cossack Squat"], "4", "6-10", "Day 2", "1", "120"),
+      slot("bw-squat", ["Reverse Lunge", "Curtsy Lunge", "Reverse Lunge", "Curtsy Lunge"], "4", "8-10 each", "Day 2", "0", "90"),
+      slot("bw-glute", ["Frog Pump", "Skater Hop", "Frog Pump", "Skater Hop"], "4", "12-15", "Day 2", "0", "75"),
+      slot("bw-squat", ["Cossack Squat", "Sissy Squat", "Curtsy Lunge", "Reverse Lunge"], "3", "AMRAP", "Day 2", "0", "90"),
+      slot("bw-core-anterior", ["Dead Bug", "Bird Dog", "Plank", "Reverse Crunch"], "3", "30-45s", "Day 2", "0", "60"),
+
+      // Day 3 — Push Volume
+      slot("bw-push", ["Decline Push-Up", "Diamond Push-Up", "Push-Up", "Decline Push-Up"], "4", "8-12", "Day 3", "0", "90"),
+      slot("bw-push-vertical", ["Pike Push-Up", "Handstand Push-Up", "Pike Push-Up", "Handstand Push-Up"], "4", "6-10", "Day 3", "0", "90"),
+      slot("bw-push", ["Push-Up", "Decline Push-Up", "Diamond Push-Up", "Push-Up"], "3", "AMRAP", "Day 3", "0", "75"),
+      slot("bw-core-anterior", ["Hollow Hold", "L-Sit", "Plank", "Dead Bug"], "3", "30-45s", "Day 3", "0", "60"),
+      slot("bw-conditioning", ["Bear Crawl", "Inchworm", "Bear Crawl", "Inchworm"], "3", "30-45s", "Day 3", "0", "60"),
+
+      // Day 4 — Leg Volume + Conditioning
+      slot("bw-squat", ["Curtsy Lunge", "Reverse Lunge", "Cossack Squat", "Sissy Squat"], "4", "10-12 each", "Day 4", "0", "90"),
+      slot("bw-squat", ["Sissy Squat", "Cossack Squat", "Reverse Lunge", "Curtsy Lunge"], "3", "AMRAP", "Day 4", "0", "90"),
+      slot("bw-glute", ["Skater Hop", "Frog Pump", "Skater Hop", "Frog Pump"], "4", "12-15", "Day 4", "0", "75"),
+      slot("bw-conditioning", ["Burpees", "Sprawl", "Burpees", "Sprawl"], "3", "10-12", "Day 4", "0", "60"),
+      slot("bw-core-anterior", ["Reverse Crunch", "Mountain Climber", "Bird Dog", "Hollow Hold"], "3", "12-15", "Day 4", "0", "60"),
+    ], 12, "percentage"),
+  },
+
+  // ─── Bodyweight Mobility ──────────────────────────────────────────────────
+  {
+    id: "bodyweight-mobility",
+    name: "Bodyweight Mobility",
+    goal: "Full Body / Calisthenics",
+    description: "Combine flexibility and strength in one programme. Controlled tempos, deep ranges of motion, and flow-style circuits.",
+    difficulty: "Beginner",
+    daysPerWeek: 3,
+    totalWeeks: 6,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Upper Body Flow
+      slot("bw-push", ["Push-Up", "Diamond Push-Up", "Push-Up", "Diamond Push-Up"], "3", "8-12", "Day 1", "1", "60"),
+      slot("bw-push-vertical", ["Pike Push-Up", "Pike Push-Up", "Handstand Push-Up", "Pike Push-Up"], "3", "6-10", "Day 1", "0", "60"),
+      slot("bw-conditioning", ["Inchworm", "Bear Crawl", "Inchworm", "Bear Crawl"], "3", "30-45s", "Day 1", "0", "45"),
+      slot("bw-core-anterior", ["Dead Bug", "Bird Dog", "Dead Bug", "Bird Dog"], "3", "10-12 each", "Day 1", "0", "45"),
+      slot("bw-core-lateral", ["Side Plank", "Back Extension Hold", "Side Plank", "Back Extension Hold"], "3", "20-30s each", "Day 1", "0", "45"),
+
+      // Day 2 — Lower Body Flow
+      slot("bw-squat", ["Cossack Squat", "Reverse Lunge", "Cossack Squat", "Reverse Lunge"], "3", "8-10 each", "Day 2", "1", "60"),
+      slot("bw-squat", ["Curtsy Lunge", "Sissy Squat", "Curtsy Lunge", "Sissy Squat"], "3", "10-12 each", "Day 2", "0", "60"),
+      slot("bw-glute", ["Frog Pump", "Frog Pump", "Skater Hop", "Frog Pump"], "3", "12-15", "Day 2", "0", "45"),
+      slot("bw-core-anterior", ["Hollow Hold", "Plank", "L-Sit", "Hollow Hold"], "3", "20-30s", "Day 2", "0", "45"),
+      slot("bw-conditioning", ["Bear Crawl", "Inchworm", "Bear Crawl", "Inchworm"], "3", "30-45s", "Day 2", "0", "45"),
+
+      // Day 3 — Full Body Flow
+      slot("bw-push", ["Decline Push-Up", "Push-Up", "Diamond Push-Up", "Decline Push-Up"], "3", "8-12", "Day 3", "0", "60"),
+      slot("bw-squat", ["Reverse Lunge", "Cossack Squat", "Sissy Squat", "Curtsy Lunge"], "3", "10-12 each", "Day 3", "0", "60"),
+      slot("bw-glute", ["Skater Hop", "Frog Pump", "Skater Hop", "Frog Pump"], "3", "12-15", "Day 3", "0", "45"),
+      slot("bw-core-anterior", ["Reverse Crunch", "Dead Bug", "Bird Dog", "Plank"], "3", "12-15", "Day 3", "0", "45"),
+      slot("bw-conditioning", ["Sprawl", "Mountain Climber", "Burpees", "Inchworm"], "3", "10-12", "Day 3", "0", "45"),
+    ], 6, "percentage"),
+  },
+
+  // ─── Calisthenics ─────────────────────────────────────────────────────────
+  {
+    id: "calisthenics",
+    name: "Calisthenics",
+    goal: "Strength / Calisthenics",
+    description: "Bodyweight strength using a pull-up bar, dip bars, and a bench. No added weight — just you and the apparatus.",
+    difficulty: "Intermediate",
+    daysPerWeek: 4,
+    totalWeeks: 12,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Upper Push
+      slot("bw-push", ["Dip", "Ring Dip", "Dip", "Ring Dip"], "4", "8-12", "Day 1", "1", "90"),
+      slot("bw-push-vertical", ["Handstand Push-Up", "Pike Push-Up", "Handstand Push-Up", "Pike Push-Up"], "4", "6-10", "Day 1", "0", "90"),
+      slot("bw-push", ["Diamond Push-Up", "Decline Push-Up", "Diamond Push-Up", "Decline Push-Up"], "3", "AMRAP", "Day 1", "0", "75"),
+      slot("bw-push", ["Tricep Dip (Bench)", "Push-Up", "Tricep Dip (Bench)", "Push-Up"], "3", "12-15", "Day 1", "0", "60"),
+      slot("bw-core-anterior", ["Hanging Leg Raise", "L-Sit", "Hanging Leg Raise", "L-Sit"], "3", "10-15", "Day 1", "0", "60"),
+
+      // Day 2 — Upper Pull
+      slot("bw-pull", ["Pull-Up", "Chin-Up", "Wide-Grip Pull-Up", "Neutral-Grip Pull-Up"], "4", "6-10", "Day 2", "1", "120"),
+      slot("bw-pull", ["Chin-Up", "Pull-Up", "Neutral-Grip Pull-Up", "Wide-Grip Pull-Up"], "4", "8-12", "Day 2", "0", "90"),
+      slot("bw-pull-horizontal", ["Inverted Row", "Inverted Row", "Inverted Row", "Inverted Row"], "3", "10-15", "Day 2", "0", "75"),
+      slot("bw-core-anterior", ["Hollow Hold", "Dead Bug", "Plank", "Hollow Hold"], "3", "30-45s", "Day 2", "0", "60"),
+      slot("bw-core-lateral", ["Side Plank", "Back Extension Hold", "Side Plank", "Back Extension Hold"], "3", "20-30s each", "Day 2", "0", "60"),
+
+      // Day 3 — Lower Body
+      slot("bw-squat", ["Sissy Squat", "Cossack Squat", "Sissy Squat", "Cossack Squat"], "4", "8-12", "Day 3", "1", "90"),
+      slot("bw-squat", ["Reverse Lunge", "Curtsy Lunge", "Reverse Lunge", "Curtsy Lunge"], "4", "10-12 each", "Day 3", "0", "75"),
+      slot("bw-hinge", ["Back Extension", "Back Extension", "Back Extension", "Back Extension"], "3", "12-15", "Day 3", "0", "75"),
+      slot("bw-glute", ["Frog Pump", "Skater Hop", "Frog Pump", "Skater Hop"], "3", "15-20", "Day 3", "0", "60"),
+      slot("bw-core-anterior", ["Hanging Leg Raise", "Reverse Crunch", "Hanging Leg Raise", "Reverse Crunch"], "3", "12-15", "Day 3", "0", "60"),
+
+      // Day 4 — Full Body
+      slot("bw-pull", ["Wide-Grip Pull-Up", "Neutral-Grip Pull-Up", "Chin-Up", "Pull-Up"], "4", "AMRAP", "Day 4", "0", "90"),
+      slot("bw-push", ["Dip", "Ring Dip", "Dip", "Ring Dip"], "4", "AMRAP", "Day 4", "0", "90"),
+      slot("bw-squat", ["Cossack Squat", "Sissy Squat", "Curtsy Lunge", "Reverse Lunge"], "3", "10-12 each", "Day 4", "0", "75"),
+      slot("bw-conditioning", ["Burpees", "Sprawl", "Burpees", "Sprawl"], "3", "10-15", "Day 4", "0", "60"),
+      slot("bw-core-anterior", ["L-Sit", "Hollow Hold", "Bird Dog", "Dead Bug"], "3", "30-45s", "Day 4", "0", "60"),
+    ], 12, "percentage"),
+  },
+
+  // ─── Calisthenics Beginner ────────────────────────────────────────────────
+  {
+    id: "calisthenics-beginner",
+    name: "Calisthenics Beginner",
+    goal: "Full Body / Calisthenics",
+    description: "Learn the fundamentals of bar and bodyweight training. Easier progressions, moderate volume, and full-body sessions.",
+    difficulty: "Beginner",
+    daysPerWeek: 3,
+    totalWeeks: 12,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Push + Core
+      slot("bw-push", ["Push-Up", "Diamond Push-Up", "Push-Up", "Decline Push-Up"], "3", "8-12", "Day 1", "1", "90"),
+      slot("bw-push", ["Tricep Dip (Bench)", "Dip", "Tricep Dip (Bench)", "Dip"], "3", "6-10", "Day 1", "0", "90"),
+      slot("bw-push-vertical", ["Pike Push-Up", "Pike Push-Up", "Handstand Push-Up", "Pike Push-Up"], "3", "6-10", "Day 1", "0", "90"),
+      slot("bw-core-anterior", ["Plank", "Dead Bug", "Hollow Hold", "Plank"], "3", "20-30s", "Day 1", "0", "60"),
+      slot("bw-core-lateral", ["Side Plank", "Back Extension Hold", "Side Plank", "Back Extension Hold"], "3", "20-30s each", "Day 1", "0", "60"),
+
+      // Day 2 — Pull + Lower
+      slot("bw-pull", ["Chin-Up", "Pull-Up", "Chin-Up", "Neutral-Grip Pull-Up"], "3", "4-8", "Day 2", "1", "120"),
+      slot("bw-pull-horizontal", ["Inverted Row", "Inverted Row", "Inverted Row", "Inverted Row"], "3", "8-12", "Day 2", "0", "90"),
+      slot("bw-squat", ["Reverse Lunge", "Sissy Squat", "Cossack Squat", "Curtsy Lunge"], "3", "10-12 each", "Day 2", "0", "75"),
+      slot("bw-glute", ["Frog Pump", "Skater Hop", "Frog Pump", "Skater Hop"], "3", "12-15", "Day 2", "0", "60"),
+      slot("bw-core-anterior", ["Hanging Leg Raise", "Reverse Crunch", "Hanging Leg Raise", "Bird Dog"], "3", "8-12", "Day 2", "0", "60"),
+
+      // Day 3 — Full Body
+      slot("bw-pull", ["Pull-Up", "Chin-Up", "Neutral-Grip Pull-Up", "Pull-Up"], "3", "AMRAP", "Day 3", "0", "90"),
+      slot("bw-push", ["Dip", "Push-Up", "Diamond Push-Up", "Dip"], "3", "AMRAP", "Day 3", "0", "90"),
+      slot("bw-squat", ["Cossack Squat", "Curtsy Lunge", "Reverse Lunge", "Sissy Squat"], "3", "10-12 each", "Day 3", "0", "75"),
+      slot("bw-hinge", ["Back Extension", "Back Extension", "Back Extension", "Back Extension"], "3", "12-15", "Day 3", "0", "60"),
+      slot("bw-core-anterior", ["L-Sit", "Hollow Hold", "Dead Bug", "Plank"], "3", "20-30s", "Day 3", "0", "60"),
+    ], 12, "percentage"),
+  },
+
+  // ─── Calisthenics Hypertrophy ─────────────────────────────────────────────
+  {
+    id: "calisthenics-hypertrophy",
+    name: "Calisthenics Hypertrophy",
+    goal: "Hypertrophy / Calisthenics",
+    description: "High-volume bodyweight training for muscle growth. Slow tempos, AMRAP finishers, and short rest to maximise time under tension.",
+    difficulty: "Intermediate",
+    daysPerWeek: 4,
+    totalWeeks: 12,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Push Hypertrophy
+      slot("bw-push", ["Dip", "Ring Dip", "Dip", "Ring Dip"], "4", "10-15", "Day 1", "1", "75"),
+      slot("bw-push", ["Diamond Push-Up", "Decline Push-Up", "Push-Up", "Diamond Push-Up"], "4", "12-15", "Day 1", "0", "60"),
+      slot("bw-push-vertical", ["Pike Push-Up", "Handstand Push-Up", "Pike Push-Up", "Handstand Push-Up"], "3", "8-12", "Day 1", "0", "75"),
+      slot("bw-push", ["Tricep Dip (Bench)", "Push-Up", "Tricep Dip (Bench)", "Decline Push-Up"], "3", "AMRAP", "Day 1", "0", "60"),
+      slot("bw-core-anterior", ["Hanging Leg Raise", "Hanging Crunch", "Hanging Leg Raise", "Hanging Crunch"], "3", "12-15", "Day 1", "0", "60"),
+
+      // Day 2 — Pull Hypertrophy
+      slot("bw-pull", ["Pull-Up", "Wide-Grip Pull-Up", "Chin-Up", "Neutral-Grip Pull-Up"], "4", "8-12", "Day 2", "1", "90"),
+      slot("bw-pull", ["Chin-Up", "Neutral-Grip Pull-Up", "Wide-Grip Pull-Up", "Underhand Pull-Up"], "4", "10-12", "Day 2", "0", "75"),
+      slot("bw-pull-horizontal", ["Inverted Row", "Inverted Row", "Inverted Row", "Inverted Row"], "4", "12-15", "Day 2", "0", "60"),
+      slot("bw-pull", ["Scap Pull-Up", "Pull-Up", "Scap Pull-Up", "Chin-Up"], "3", "AMRAP", "Day 2", "0", "60"),
+      slot("bw-core-lateral", ["Side Plank", "Back Extension Hold", "Side Plank", "Back Extension Hold"], "3", "30-45s each", "Day 2", "0", "60"),
+
+      // Day 3 — Legs + Core
+      slot("bw-squat", ["Sissy Squat", "Cossack Squat", "Sissy Squat", "Cossack Squat"], "4", "10-15", "Day 3", "1", "90"),
+      slot("bw-squat", ["Curtsy Lunge", "Reverse Lunge", "Curtsy Lunge", "Reverse Lunge"], "4", "12-15 each", "Day 3", "0", "75"),
+      slot("bw-hinge", ["Back Extension", "Back Extension", "Back Extension", "Back Extension"], "3", "15-20", "Day 3", "0", "75"),
+      slot("bw-glute", ["Frog Pump", "Skater Hop", "Frog Pump", "Skater Hop"], "4", "15-20", "Day 3", "0", "60"),
+      slot("bw-core-anterior", ["Hollow Hold", "L-Sit", "Reverse Crunch", "Dead Bug"], "3", "30-45s", "Day 3", "0", "60"),
+
+      // Day 4 — Full Body Volume
+      slot("bw-pull", ["Neutral-Grip Pull-Up", "Chin-Up", "Pull-Up", "Wide-Grip Pull-Up"], "3", "AMRAP", "Day 4", "0", "75"),
+      slot("bw-push", ["Ring Dip", "Dip", "Ring Dip", "Dip"], "3", "AMRAP", "Day 4", "0", "75"),
+      slot("bw-squat", ["Reverse Lunge", "Sissy Squat", "Cossack Squat", "Curtsy Lunge"], "3", "12-15 each", "Day 4", "0", "60"),
+      slot("bw-push", ["Push-Up", "Decline Push-Up", "Diamond Push-Up", "Push-Up"], "3", "AMRAP", "Day 4", "0", "60"),
+      slot("bw-core-anterior", ["Hanging Leg Raise", "Bird Dog", "Plank", "Mountain Climber"], "3", "12-15", "Day 4", "0", "60"),
+    ], 12, "percentage"),
+  },
+
+  // ─── Calisthenics Upper / Lower ──────────────────────────────────────────
+  {
+    id: "calisthenics-upper-lower",
+    name: "Calisthenics Upper / Lower",
+    goal: "Full Body / Calisthenics",
+    description: "A classic upper/lower split using only bodyweight and a pull-up bar. Four balanced sessions per week for steady progress.",
+    difficulty: "Intermediate",
+    daysPerWeek: 4,
+    totalWeeks: 12,
+    weeklyProgression: PERCENTAGE_HYPERTROPHY,
+    exercises: expandSlotsWithProgression([
+      // Day 1 — Upper A (Push emphasis)
+      slot("bw-push", ["Dip", "Ring Dip", "Dip", "Ring Dip"], "4", "8-12", "Day 1", "1", "90"),
+      slot("bw-push-vertical", ["Handstand Push-Up", "Pike Push-Up", "Handstand Push-Up", "Pike Push-Up"], "3", "6-10", "Day 1", "0", "90"),
+      slot("bw-pull", ["Pull-Up", "Chin-Up", "Wide-Grip Pull-Up", "Neutral-Grip Pull-Up"], "4", "6-10", "Day 1", "0", "90"),
+      slot("bw-pull-horizontal", ["Inverted Row", "Inverted Row", "Inverted Row", "Inverted Row"], "3", "10-12", "Day 1", "0", "75"),
+      slot("bw-core-anterior", ["Hanging Leg Raise", "L-Sit", "Hanging Leg Raise", "L-Sit"], "3", "10-15", "Day 1", "0", "60"),
+
+      // Day 2 — Lower A (Strength emphasis)
+      slot("bw-squat", ["Sissy Squat", "Cossack Squat", "Sissy Squat", "Cossack Squat"], "4", "8-12", "Day 2", "1", "90"),
+      slot("bw-squat", ["Reverse Lunge", "Curtsy Lunge", "Reverse Lunge", "Curtsy Lunge"], "4", "10-12 each", "Day 2", "0", "75"),
+      slot("bw-hinge", ["Back Extension", "Back Extension", "Back Extension", "Back Extension"], "3", "12-15", "Day 2", "0", "75"),
+      slot("bw-glute", ["Frog Pump", "Skater Hop", "Frog Pump", "Skater Hop"], "3", "15-20", "Day 2", "0", "60"),
+      slot("bw-core-anterior", ["Plank", "Dead Bug", "Hollow Hold", "Bird Dog"], "3", "30-45s", "Day 2", "0", "60"),
+
+      // Day 3 — Upper B (Pull emphasis)
+      slot("bw-pull", ["Chin-Up", "Wide-Grip Pull-Up", "Neutral-Grip Pull-Up", "Underhand Pull-Up"], "4", "6-10", "Day 3", "1", "90"),
+      slot("bw-pull-horizontal", ["Inverted Row", "Inverted Row", "Inverted Row", "Inverted Row"], "4", "10-15", "Day 3", "0", "75"),
+      slot("bw-push", ["Diamond Push-Up", "Decline Push-Up", "Push-Up", "Diamond Push-Up"], "4", "10-12", "Day 3", "0", "75"),
+      slot("bw-push", ["Tricep Dip (Bench)", "Dip", "Tricep Dip (Bench)", "Ring Dip"], "3", "AMRAP", "Day 3", "0", "75"),
+      slot("bw-core-lateral", ["Side Plank", "Back Extension Hold", "Side Plank", "Back Extension Hold"], "3", "30-45s each", "Day 3", "0", "60"),
+
+      // Day 4 — Lower B (Volume emphasis)
+      slot("bw-squat", ["Curtsy Lunge", "Reverse Lunge", "Cossack Squat", "Sissy Squat"], "4", "12-15 each", "Day 4", "0", "75"),
+      slot("bw-squat", ["Cossack Squat", "Sissy Squat", "Curtsy Lunge", "Reverse Lunge"], "3", "AMRAP", "Day 4", "0", "75"),
+      slot("bw-glute", ["Skater Hop", "Frog Pump", "Skater Hop", "Frog Pump"], "4", "15-20", "Day 4", "0", "60"),
+      slot("bw-conditioning", ["Burpees", "Sprawl", "Mountain Climber", "Burpees"], "3", "12-15", "Day 4", "0", "60"),
+      slot("bw-core-anterior", ["Reverse Crunch", "Hanging Leg Raise", "Hollow Hold", "Reverse Crunch"], "3", "12-15", "Day 4", "0", "60"),
+    ], 12, "percentage"),
   },
 ];

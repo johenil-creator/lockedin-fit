@@ -12,14 +12,18 @@ import {
   Platform,
 } from "react-native";
 import Animated, {
+  FadeIn,
   FadeInDown,
+  FadeOut,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { CATALOG_PLANS } from "../lib/catalog";
 import { usePlanContext } from "../contexts/PlanContext";
 import { useWorkouts } from "../hooks/useWorkouts";
@@ -31,6 +35,8 @@ import { AppBottomSheet } from "../components/AppBottomSheet";
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { spacing, radius } from "../lib/theme";
 import type { CatalogPlan } from "../lib/types";
+import { exerciseCatalog } from "../src/data/exerciseCatalog";
+import type { Equipment } from "../src/data/catalogTypes";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -64,6 +70,14 @@ const WHO_ITS_FOR: Record<string, string> = {
   "5d-body-recomp":     "Intermediate lifters looking to build muscle and lose fat with a balanced 5-day split",
   "5d-peak-week":       "Advanced lifters wanting a 3-week peaking cycle before a meet or max-out day",
   "5d-hypertrophy":     "Intermediate lifters who want dedicated volume for each muscle group across five days",
+  "bodyweight-basics":  "Anyone who wants to train anywhere with zero equipment — at home, in a park, or while travelling",
+  "bodyweight-hiit":    "Intermediate trainees who want high-intensity circuit training with zero equipment and short rest",
+  "bodyweight-strength": "Intermediate trainees ready for harder bodyweight progressions with low reps and longer rest",
+  "bodyweight-mobility": "Beginners who want to build flexibility and strength together with controlled, flow-style sessions",
+  "calisthenics":              "Intermediate trainees who want to build serious bodyweight strength using a pull-up bar, dip station, and bench",
+  "calisthenics-beginner":     "Beginners learning pull-ups, dips, and bodyweight fundamentals with approachable progressions",
+  "calisthenics-hypertrophy":  "Intermediate trainees chasing muscle growth with high-volume bodyweight work and slow tempos",
+  "calisthenics-upper-lower":  "Intermediate trainees who want a balanced upper/lower split using only a bar and bodyweight",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -164,7 +178,7 @@ function DifficultyChip({ difficulty }: { difficulty: CatalogPlan["difficulty"] 
   const { theme } = useAppTheme();
   const colorMap: Record<CatalogPlan["difficulty"], { bg: string; text: string }> = {
     Beginner:     { bg: theme.colors.success + "22", text: theme.colors.success },
-    Intermediate: { bg: theme.colors.accent  + "22", text: theme.colors.accent },
+    Intermediate: { bg: "#FF9F0A" + "22", text: "#FF9F0A" },
     Advanced:     { bg: theme.colors.danger  + "22", text: theme.colors.danger },
   };
   const { bg, text } = colorMap[difficulty];
@@ -382,31 +396,145 @@ const PlanCard = React.memo(function PlanCard({ plan, startSessionFromPlan, getA
 
 // ── Filter chip (reusable) ───────────────────────────────────────────────────
 
-function FilterChip({ label, active, onPress, theme }: {
+function FilterChip({ label, active, onPress, theme, multiSelect }: {
   label: string;
   active: boolean;
   onPress: () => void;
   theme: ReturnType<typeof useAppTheme>["theme"];
+  multiSelect?: boolean;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={[
+          styles.filterChip,
+          {
+            backgroundColor: active ? theme.colors.primary : theme.colors.mutedBg,
+            borderColor: active ? theme.colors.primary : theme.colors.border,
+          },
+        ]}
+        onPressIn={() => { scale.value = withSpring(0.93, { damping: 15, stiffness: 400 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 400 }); }}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+      >
+        {multiSelect && active && (
+          <Ionicons name="checkmark" size={14} color={theme.colors.primaryText} style={{ marginRight: 4 }} />
+        )}
+        <Text style={[styles.filterChipText, { color: active ? theme.colors.primaryText : theme.colors.text }]}>
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ── Active filter pill (dismissible) ────────────────────────────────────────
+
+function ActiveFilterPill({ label, onRemove, theme }: {
+  label: string;
+  onRemove: () => void;
+  theme: ReturnType<typeof useAppTheme>["theme"];
 }) {
   return (
-    <Pressable
-      style={[
-        styles.filterChip,
-        {
-          backgroundColor: active ? theme.colors.accent : theme.colors.mutedBg,
-          borderColor: active ? theme.colors.accent : theme.colors.border,
-        },
-      ]}
-      onPress={onPress}
-    >
-      <Text style={[styles.filterChipText, { color: active ? theme.colors.accentText : theme.colors.muted }]}>
-        {label}
-      </Text>
-    </Pressable>
+    <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
+      <Pressable
+        style={[styles.activePill, { backgroundColor: theme.colors.accent }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onRemove();
+        }}
+        hitSlop={4}
+      >
+        <Text style={[styles.activePillText, { color: theme.colors.accentText }]}>{label}</Text>
+        <Ionicons name="close" size={14} color={theme.colors.accentText + "CC"} />
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ── Filter section header ───────────────────────────────────────────────────
+
+function FilterSectionLabel({ label, theme }: { label: string; theme: ReturnType<typeof useAppTheme>["theme"] }) {
+  return (
+    <View style={styles.filterSectionHeader}>
+      <View style={[styles.filterSectionDot, { backgroundColor: theme.colors.primary }]} />
+      <Text style={[styles.filterSectionLabel, { color: theme.colors.muted }]}>{label}</Text>
+    </View>
   );
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
+
+// ── Equipment lookup (built once at module load) ────────────────────────────
+
+const exerciseEquipmentMap = new Map<string, Equipment>();
+for (const e of exerciseCatalog) {
+  exerciseEquipmentMap.set(e.canonicalName.toLowerCase(), e.equipment);
+}
+
+function getPlanEquipment(plan: CatalogPlan): Set<Equipment> {
+  const equipSet = new Set<Equipment>();
+  const seen = new Set<string>();
+  for (const ex of plan.exercises) {
+    const key = ex.exercise.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const eq = exerciseEquipmentMap.get(key);
+    if (eq) equipSet.add(eq);
+  }
+  return equipSet;
+}
+
+const planEquipmentCache = new Map<string, Set<Equipment>>();
+const allUsedEquipment = new Set<Equipment>();
+for (const plan of CATALOG_PLANS) {
+  const equip = getPlanEquipment(plan);
+  planEquipmentCache.set(plan.id, equip);
+  for (const eq of equip) allUsedEquipment.add(eq);
+}
+
+const ALL_EQUIPMENT: { label: string; value: Equipment }[] = [
+  { label: "Barbell", value: "barbell" },
+  { label: "Dumbbell", value: "dumbbell" },
+  { label: "Bodyweight", value: "bodyweight" },
+  { label: "Cable", value: "cable" },
+  { label: "Machine", value: "machine" },
+  { label: "Kettlebell", value: "kettlebell" },
+  { label: "Smith", value: "smith" },
+  { label: "Band", value: "band" },
+];
+
+const EQUIPMENT_OPTIONS = ALL_EQUIPMENT.filter(e => allUsedEquipment.has(e.value));
+
+const bodyweightOnlyPlanIds = new Set(
+  CATALOG_PLANS.filter(p => {
+    const equip = planEquipmentCache.get(p.id);
+    return equip && equip.size === 1 && equip.has("bodyweight");
+  }).map(p => p.id)
+);
+// The bodyweight plan uses exercises that have multiple catalog entries (e.g.
+// "Reverse Lunge" exists as both dumbbell and bodyweight). Since the equipment
+// map only stores the first match, ensure the plan is always recognized.
+// Plans that are truly floor/wall only (no bars, benches, or apparatus)
+const NO_EQUIPMENT_IDS = ["bodyweight-basics", "bodyweight-hiit", "bodyweight-strength", "bodyweight-mobility"];
+// Plans that use bodyweight + infrastructure (pull-up bar, dip station, bench) but no added weight
+const BODYWEIGHT_INFRA_IDS = ["calisthenics", "calisthenics-beginner", "calisthenics-hypertrophy", "calisthenics-upper-lower"];
+for (const id of [...NO_EQUIPMENT_IDS, ...BODYWEIGHT_INFRA_IDS]) {
+  planEquipmentCache.set(id, new Set(["bodyweight" as Equipment]));
+}
+for (const id of NO_EQUIPMENT_IDS) {
+  bodyweightOnlyPlanIds.add(id);
+}
+// Remove infra plans from bodyweightOnlyPlanIds (auto-detection may add them)
+for (const id of BODYWEIGHT_INFRA_IDS) {
+  bodyweightOnlyPlanIds.delete(id);
+}
 
 const planKeyExtractor = (item: CatalogPlan) => item.id;
 const DAYS_OPTIONS = [3, 4, 5] as const;
@@ -422,22 +550,65 @@ export default function CatalogScreen() {
   const { planName: currentPlanName, exercises: currentExercises } = usePlanContext();
   const { profile } = useProfileContext();
 
-  const [daysFilter, setDaysFilter] = useState<number | null>(null);
-  const [durationFilter, setDurationFilter] = useState<number | null>(null);
-  const [difficultyFilter, setDifficultyFilter] = useState<string | null>(null);
-  const [goalFilter, setGoalFilter] = useState<string | null>(null);
+  const [daysFilter, setDaysFilter] = useState<Set<number>>(new Set());
+  const [durationFilter, setDurationFilter] = useState<Set<number>>(new Set());
+  const [difficultyFilter, setDifficultyFilter] = useState<Set<string>>(new Set());
+  const [goalFilter, setGoalFilter] = useState<Set<string>>(new Set());
+  const [equipmentFilter, setEquipmentFilter] = useState<Set<Equipment | "none">>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [ormPrompt, setOrmPrompt] = useState<{ startAnyway: () => void } | null>(null);
 
+  const activePills = useMemo(() => {
+    const pills: Array<{ id: string; label: string; onRemove: () => void }> = [];
+    for (const d of daysFilter) {
+      pills.push({ id: `days-${d}`, label: `${d}d/wk`, onRemove: () => setDaysFilter(prev => { const next = new Set(prev); next.delete(d); return next; }) });
+    }
+    for (const w of durationFilter) {
+      pills.push({ id: `dur-${w}`, label: `${w} wk`, onRemove: () => setDurationFilter(prev => { const next = new Set(prev); next.delete(w); return next; }) });
+    }
+    for (const l of difficultyFilter) {
+      pills.push({ id: `diff-${l}`, label: l, onRemove: () => setDifficultyFilter(prev => { const next = new Set(prev); next.delete(l); return next; }) });
+    }
+    for (const g of goalFilter) {
+      pills.push({ id: `goal-${g}`, label: g, onRemove: () => setGoalFilter(prev => { const next = new Set(prev); next.delete(g); return next; }) });
+    }
+    for (const eq of equipmentFilter) {
+      const eqLabel = eq === "none" ? "No Equipment" : (EQUIPMENT_OPTIONS.find(e => e.value === eq)?.label ?? eq);
+      pills.push({
+        id: `eq-${eq}`,
+        label: eqLabel,
+        onRemove: () => setEquipmentFilter(prev => { const next = new Set(prev); next.delete(eq); return next; }),
+      });
+    }
+    return pills;
+  }, [daysFilter, durationFilter, difficultyFilter, goalFilter, equipmentFilter]);
+
   const filtered = useMemo(
     () => CATALOG_PLANS.filter(p => {
-      if (daysFilter !== null && p.daysPerWeek !== daysFilter) return false;
-      if (durationFilter !== null && (p.totalWeeks ?? 12) !== durationFilter) return false;
-      if (difficultyFilter !== null && p.difficulty !== difficultyFilter) return false;
-      if (goalFilter !== null && getGoalCategory(p) !== goalFilter) return false;
+      if (daysFilter.size > 0 && !daysFilter.has(p.daysPerWeek)) return false;
+      if (durationFilter.size > 0 && !durationFilter.has(p.totalWeeks ?? 12)) return false;
+      if (difficultyFilter.size > 0 && !difficultyFilter.has(p.difficulty)) return false;
+      if (goalFilter.size > 0 && !goalFilter.has(getGoalCategory(p))) return false;
+      if (equipmentFilter.size > 0) {
+        const equip = planEquipmentCache.get(p.id);
+        if (!equip) return false;
+        let matches = false;
+        // "No Equipment" → floor/wall only (zero equipment, not even benches or bars)
+        if (equipmentFilter.has("none") && bodyweightOnlyPlanIds.has(p.id)) matches = true;
+        // "Bodyweight" → plans that ONLY use bodyweight (no weighted equipment like barbells, dumbbells, etc.)
+        if (equipmentFilter.has("bodyweight" as Equipment)) {
+          const hasWeighted = [...equip].some(e => e !== "bodyweight" && e !== "other");
+          if (!hasWeighted) matches = true;
+        }
+        // Other chips → plan contains that equipment type
+        for (const eq of equipmentFilter) {
+          if (eq !== "none" && eq !== "bodyweight" && equip.has(eq as Equipment)) { matches = true; break; }
+        }
+        if (!matches) return false;
+      }
       return true;
     }),
-    [daysFilter, durationFilter, difficultyFilter, goalFilter]
+    [daysFilter, durationFilter, difficultyFilter, goalFilter, equipmentFilter]
   );
 
   const sorted = useMemo(() => {
@@ -454,20 +625,39 @@ export default function CatalogScreen() {
     return new Set(nonActive.slice(0, 3).map(p => p.id));
   }, [sorted, currentPlanName, currentExercises.length]);
 
-  const activeFilterCount = [daysFilter, durationFilter, difficultyFilter, goalFilter].filter(v => v !== null).length;
+  const activeFilterCount = daysFilter.size + durationFilter.size + difficultyFilter.size + goalFilter.size + equipmentFilter.size;
   const hasAnyFilter = activeFilterCount > 0;
 
   const clearAll = useCallback(() => {
-    setDaysFilter(null);
-    setDurationFilter(null);
-    setDifficultyFilter(null);
-    setGoalFilter(null);
+    setDaysFilter(new Set());
+    setDurationFilter(new Set());
+    setDifficultyFilter(new Set());
+    setGoalFilter(new Set());
+    setEquipmentFilter(new Set());
   }, []);
 
-  function toggleFilters() {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setFiltersOpen(!filtersOpen);
-  }
+  const filterSheetRef = React.useRef<BottomSheet>(null);
+
+  const openFilters = useCallback(() => {
+    setFiltersOpen(true);
+    setTimeout(() => filterSheetRef.current?.expand(), 50);
+  }, []);
+
+  const closeFilters = useCallback(() => {
+    setFiltersOpen(false);
+    filterSheetRef.current?.close();
+  }, []);
+
+  const handleFilterSheetClose = useCallback(() => {
+    setFiltersOpen(false);
+  }, []);
+
+  const renderFilterBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" opacity={0.4} />
+    ),
+    []
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 8 }]}>
@@ -483,20 +673,14 @@ export default function CatalogScreen() {
 
       {/* ── Filter bar ── */}
       <View style={[styles.filterBar, { borderColor: theme.colors.border }]}>
-        <Pressable style={styles.filterBarLeft} onPress={toggleFilters} hitSlop={4}>
-          <Ionicons name="options-outline" size={16} color={theme.colors.text} />
+        <Pressable style={styles.filterBarLeft} onPress={openFilters} hitSlop={4}>
+          <Ionicons name="options-outline" size={18} color={theme.colors.text} />
           <Text style={[styles.filterBarText, { color: theme.colors.text }]}>Filters</Text>
           {hasAnyFilter && (
-            <View style={[styles.filterBadge, { backgroundColor: theme.colors.accent }]}>
-              <Text style={[styles.filterBadgeText, { color: theme.colors.accentText }]}>{activeFilterCount}</Text>
+            <View style={[styles.filterBadge, { backgroundColor: theme.colors.primary }]}>
+              <Text style={[styles.filterBadgeText, { color: theme.colors.primaryText }]}>{activeFilterCount}</Text>
             </View>
           )}
-          <Ionicons
-            name={filtersOpen ? "chevron-up" : "chevron-down"}
-            size={14}
-            color={theme.colors.muted}
-            style={{ marginLeft: 2 }}
-          />
         </Pressable>
         <View style={styles.filterBarRight}>
           <Text style={[styles.resultCount, { color: theme.colors.muted }]}>
@@ -504,52 +688,24 @@ export default function CatalogScreen() {
           </Text>
           {hasAnyFilter && (
             <Pressable onPress={clearAll} hitSlop={8} style={{ marginLeft: 10 }}>
-              <Text style={[styles.clearAll, { color: theme.colors.accent }]}>Clear</Text>
+              <Text style={[styles.clearAll, { color: theme.colors.primary }]}>Clear all</Text>
             </Pressable>
           )}
         </View>
       </View>
 
-      {/* ── Expandable filter grid ── */}
-      {filtersOpen && (
-        <View style={styles.filterGrid}>
-          {/* Days */}
-          <View style={styles.filterRow}>
-            <Text style={[styles.filterLabel, { color: theme.colors.muted }]}>DAYS</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
-              {DAYS_OPTIONS.map(d => (
-                <FilterChip key={d} label={`${d}d`} active={daysFilter === d} onPress={() => setDaysFilter(daysFilter === d ? null : d)} theme={theme} />
-              ))}
-            </ScrollView>
-          </View>
-          {/* Duration */}
-          <View style={styles.filterRow}>
-            <Text style={[styles.filterLabel, { color: theme.colors.muted }]}>WKS</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
-              {DURATION_OPTIONS.map(w => (
-                <FilterChip key={w} label={`${w} wk`} active={durationFilter === w} onPress={() => setDurationFilter(durationFilter === w ? null : w)} theme={theme} />
-              ))}
-            </ScrollView>
-          </View>
-          {/* Level */}
-          <View style={styles.filterRow}>
-            <Text style={[styles.filterLabel, { color: theme.colors.muted }]}>LEVEL</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
-              {LEVEL_OPTIONS.map(l => (
-                <FilterChip key={l} label={l} active={difficultyFilter === l} onPress={() => setDifficultyFilter(difficultyFilter === l ? null : l)} theme={theme} />
-              ))}
-            </ScrollView>
-          </View>
-          {/* Goal */}
-          <View style={styles.filterRow}>
-            <Text style={[styles.filterLabel, { color: theme.colors.muted }]}>GOAL</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
-              {GOAL_OPTIONS.map(g => (
-                <FilterChip key={g} label={g} active={goalFilter === g} onPress={() => setGoalFilter(goalFilter === g ? null : g)} theme={theme} />
-              ))}
-            </ScrollView>
-          </View>
-        </View>
+      {/* ── Active filter pills ── */}
+      {hasAnyFilter && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.activePillsStrip}
+          style={styles.activePillsContainer}
+        >
+          {activePills.map(pill => (
+            <ActiveFilterPill key={pill.id} label={pill.label} onRemove={pill.onRemove} theme={theme} />
+          ))}
+        </ScrollView>
       )}
 
       {/* ── Plan list ── */}
@@ -586,6 +742,96 @@ export default function CatalogScreen() {
           removeClippedSubviews={Platform.OS === "android"}
         />
       )}
+
+      {/* ── Filter bottom sheet ── */}
+      <BottomSheet
+        ref={filterSheetRef}
+        index={-1}
+        snapPoints={["75%"]}
+        enablePanDownToClose
+        onClose={handleFilterSheetClose}
+        backdropComponent={renderFilterBackdrop}
+        backgroundStyle={{ backgroundColor: theme.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
+        handleIndicatorStyle={{ backgroundColor: theme.colors.muted }}
+      >
+        <View style={filterSheetStyles.header}>
+          <Text style={[filterSheetStyles.title, { color: theme.colors.text }]}>Filters</Text>
+          {hasAnyFilter && (
+            <Pressable onPress={clearAll} hitSlop={8}>
+              <Text style={[filterSheetStyles.resetText, { color: theme.colors.primary }]}>Reset all</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <BottomSheetScrollView contentContainerStyle={filterSheetStyles.sections}>
+          {/* Days per week */}
+          <View style={filterSheetStyles.section}>
+            <FilterSectionLabel label="DAYS PER WEEK" theme={theme} />
+            <View style={filterSheetStyles.chipWrap}>
+              {DAYS_OPTIONS.map(d => (
+                <FilterChip key={d} label={`${d} days`} active={daysFilter.has(d)} multiSelect onPress={() => setDaysFilter(prev => {
+                    const next = new Set(prev); if (next.has(d)) next.delete(d); else next.add(d); return next;
+                  })} theme={theme} />
+              ))}
+            </View>
+          </View>
+
+          {/* Duration */}
+          <View style={filterSheetStyles.section}>
+            <FilterSectionLabel label="PROGRAMME LENGTH" theme={theme} />
+            <View style={filterSheetStyles.chipWrap}>
+              {DURATION_OPTIONS.map(w => (
+                <FilterChip key={w} label={`${w} weeks`} active={durationFilter.has(w)} multiSelect onPress={() => setDurationFilter(prev => {
+                    const next = new Set(prev); if (next.has(w)) next.delete(w); else next.add(w); return next;
+                  })} theme={theme} />
+              ))}
+            </View>
+          </View>
+
+          {/* Level */}
+          <View style={filterSheetStyles.section}>
+            <FilterSectionLabel label="DIFFICULTY" theme={theme} />
+            <View style={filterSheetStyles.chipWrap}>
+              {LEVEL_OPTIONS.map(l => (
+                <FilterChip key={l} label={l} active={difficultyFilter.has(l)} multiSelect onPress={() => setDifficultyFilter(prev => {
+                    const next = new Set(prev); if (next.has(l)) next.delete(l); else next.add(l); return next;
+                  })} theme={theme} />
+              ))}
+            </View>
+          </View>
+
+          {/* Goal */}
+          <View style={filterSheetStyles.section}>
+            <FilterSectionLabel label="TRAINING GOAL" theme={theme} />
+            <View style={filterSheetStyles.chipWrap}>
+              {GOAL_OPTIONS.map(g => (
+                <FilterChip key={g} label={g} active={goalFilter.has(g)} multiSelect onPress={() => setGoalFilter(prev => {
+                    const next = new Set(prev); if (next.has(g)) next.delete(g); else next.add(g); return next;
+                  })} theme={theme} />
+              ))}
+            </View>
+          </View>
+
+          {/* Equipment */}
+          <View style={filterSheetStyles.section}>
+            <FilterSectionLabel label="EQUIPMENT" theme={theme} />
+            <View style={filterSheetStyles.chipWrap}>
+              <FilterChip label="No Equipment" active={equipmentFilter.has("none")} multiSelect onPress={() => setEquipmentFilter(prev => {
+                const next = new Set(prev);
+                if (next.has("none")) next.delete("none"); else next.add("none");
+                return next;
+              })} theme={theme} />
+              {EQUIPMENT_OPTIONS.map(e => (
+                <FilterChip key={e.value} label={e.label} active={equipmentFilter.has(e.value)} multiSelect onPress={() => setEquipmentFilter(prev => {
+                  const next = new Set(prev);
+                  if (next.has(e.value)) next.delete(e.value); else next.add(e.value);
+                  return next;
+                })} theme={theme} />
+              ))}
+            </View>
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
 
       {/* 1RM setup prompt bottom sheet */}
       <AppBottomSheet
@@ -653,24 +899,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderBottomWidth: 1,
-    paddingBottom: 10,
     marginBottom: 10,
   },
   filterBarLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
-  filterBarText: { fontSize: 14, fontWeight: "600" },
+  filterBarText: { fontSize: 15, fontWeight: "600" },
   filterBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  filterBadgeText: { fontSize: 10, fontWeight: "700" },
+  filterBadgeText: { fontSize: 11, fontWeight: "700" },
   filterBarRight: {
     flexDirection: "row",
     alignItems: "center",
@@ -678,36 +922,61 @@ const styles = StyleSheet.create({
   resultCount: { fontSize: 13, fontWeight: "500" },
   clearAll: { fontSize: 13, fontWeight: "600" },
 
-  // Filter grid
-  filterGrid: {
-    gap: 10,
-    paddingBottom: 14,
-    marginBottom: 6,
+  // Active filter pills strip
+  activePillsContainer: {
+    flexGrow: 0,
+    overflow: "visible",
+    marginBottom: 14,
+    minHeight: 40,
   },
-  filterRow: {
+  activePillsStrip: {
+    gap: 8,
+    paddingRight: 8,
+    alignItems: "center",
+  },
+  activePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-  },
-  filterLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    width: 42,
-    flexShrink: 0,
-  },
-  filterChips: {
-    gap: 6,
-    paddingRight: 8,
-  },
-  filterChip: {
+    paddingHorizontal: 14,
+    height: 34,
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+  },
+  activePillText: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+
+  // Filter chips (used inside bottom sheet)
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderWidth: 1,
   },
-  filterChipText: { fontSize: 12, fontWeight: "600" },
+  filterChipText: { fontSize: 14, fontWeight: "600" },
+
+  // Filter section header
+  filterSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterSectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  filterSectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+  },
 
   // Plan card
   planCard: {
@@ -810,4 +1079,38 @@ const ormStyles = StyleSheet.create({
   optionHint:  { fontSize: 12, marginTop: 2 },
   skipBtn:     { marginTop: 14, paddingVertical: 8 },
   skipText:    { fontSize: 14, fontWeight: "600" },
+});
+
+const filterSheetStyles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  resetText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  sections: {
+    gap: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 60,
+  },
+  section: {},
+  chipWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  hint: {
+    fontSize: 12,
+    marginBottom: 8,
+    marginTop: -4,
+  },
 });
