@@ -19,7 +19,8 @@
       "icon": "./assets/icons/icon_default.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSHealthShareUsageDescription": "LockedIn FIT reads your body weight from Apple Health to auto-fill your profile.",
+        "NSHealthShareUsageDescription": "LockedIn FIT reads your body weight, workouts, heart rate, resting heart rate, HRV, step count, active energy, and sleep data from Apple Health to improve your readiness scoring, detect external workouts, and provide personalized recovery insights.",
+        "NSHealthUpdateUsageDescription": "LockedIn FIT saves your completed workouts to Apple Health so all your training is tracked in one place.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [

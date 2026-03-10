@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users — only owner can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Weekly XP — users can only access their own XP docs
+    match /weeklyXp/{docId} {
+      allow read:   if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    // Friendships — read if either party, create if userId, delete if either party
+    match /friendships/{docId} {
+      allow read:   if request.auth != null
+                    && (resource.data.userId == request.auth.uid
+                        || resource.data.friendId == request.auth.uid);
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+                    && (resource.data.userId == request.auth.uid
+                        || resource.data.friendId == request.auth.uid);
+      allow update: if false;
+    }
+
+    // League Members — any authed user can read (standings), own docs only for writes
+    match /leagueMembers/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    // Leagues — authed users can read and create; updates/deletes via Cloud Functions only
+    match /leagues/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}

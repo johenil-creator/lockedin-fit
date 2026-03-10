@@ -18,7 +18,7 @@ export const GOOGLE_CLIENT_ID = "177992048804-gukij19ltkpa66qkao4j5d8ud0lkds46.a
 const REVERSED_CLIENT_ID = "com.googleusercontent.apps.177992048804-gukij19ltkpa66qkao4j5d8ud0lkds46";
 
 const SCOPES = [
-  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/spreadsheets.readonly",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",

@@ -229,6 +229,15 @@ export type ReadinessParams = {
   forecastRisk: number;
   /** Acute:Chronic Workload Ratio from the adaptation model. */
   acwr: number;
+  /**
+   * Optional health signal from Apple Health data (0–100).
+   * When provided with sufficient confidence, the weight allocation shifts:
+   *   muscleFreshness: 35%, blockContext: 17%, streakModifier: 13%,
+   *   forecastScore: 13%, acwrScore: 8%, healthSignal: 14%
+   *
+   * When absent or confidence < 0.3, original weights are preserved.
+   */
+  healthSignal?: { score: number; confidence: number };
 };
 
 /**
@@ -245,10 +254,13 @@ export type ReadinessParams = {
  * @param params - Pre-loaded training state (all computed outside this function)
  */
 export function computeReadiness(params: ReadinessParams): ReadinessScore {
-  const { fatigueMap, blockType, streakDays, forecastRisk, acwr } = params;
+  const { fatigueMap, blockType, streakDays, forecastRisk, acwr, healthSignal } = params;
 
   // ── Cache lookup ──────────────────────────────────────────────────────────
-  const key = buildCacheKey(fatigueMap, blockType, streakDays, forecastRisk, acwr);
+  const healthKey = healthSignal
+    ? `:hs${Math.round(healthSignal.score)}c${Math.round(healthSignal.confidence * 100)}`
+    : '';
+  const key = buildCacheKey(fatigueMap, blockType, streakDays, forecastRisk, acwr) + healthKey;
   const cached = scoreCache.get(key);
   if (cached) return cached;
 
@@ -260,12 +272,28 @@ export function computeReadiness(params: ReadinessParams): ReadinessScore {
   const acwrScore       = acwrContribScore(acwr);
 
   // ── Weighted composite ────────────────────────────────────────────────────
-  const rawScore =
-    muscleFreshness * 0.40 +
-    blockContext    * 0.20 +
-    streakModifier  * 0.15 +
-    forecastScore   * 0.15 +
-    acwrScore       * 0.10;
+  // When health signal is available with sufficient confidence (≥ 0.3),
+  // reallocate weights to include the health component at 14%.
+  const useHealthSignal =
+    healthSignal != null && healthSignal.confidence >= 0.3;
+
+  let rawScore: number;
+  if (useHealthSignal) {
+    rawScore =
+      muscleFreshness       * 0.35 +
+      blockContext          * 0.17 +
+      streakModifier        * 0.13 +
+      forecastScore         * 0.13 +
+      acwrScore             * 0.08 +
+      healthSignal!.score   * 0.14;
+  } else {
+    rawScore =
+      muscleFreshness * 0.40 +
+      blockContext    * 0.20 +
+      streakModifier  * 0.15 +
+      forecastScore   * 0.15 +
+      acwrScore       * 0.10;
+  }
 
   const score = Math.round(Math.max(0, Math.min(100, rawScore)));
 
@@ -278,6 +306,7 @@ export function computeReadiness(params: ReadinessParams): ReadinessScore {
       streakModifier,
       forecastScore,
       acwrScore,
+      ...(useHealthSignal ? { healthSignal: healthSignal!.score } : {}),
     },
   };
 

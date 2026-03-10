@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { loadOrmTest, saveOrmTest, clearOrmTest } from '../lib/storage';
 import { makeId } from '../lib/helpers';
+import { sanitizeWeight } from '../lib/sanitizeWeight';
 import type {
   UserProfile,
   OrmLiftKey,
@@ -120,7 +121,7 @@ export function useOrmTest(
   }, []);
 
   const setEstimatedInput = useCallback((liftIndex: number, value: string) => {
-    const capped = value.replace(/[^0-9]/g, "").slice(0, 3);
+    const capped = sanitizeWeight(value);
     setSession((prev) => {
       if (!prev) return prev;
       const lifts = [...prev.lifts];
@@ -162,7 +163,7 @@ export function useOrmTest(
   }, []);
 
   const updateSetWeight = useCallback((liftIndex: number, setIndex: number, value: string) => {
-    const capped = value.replace(/[^0-9]/g, "").slice(0, 3);
+    const capped = sanitizeWeight(value);
     setSession((prev) => {
       if (!prev) return prev;
       const lift = prev.lifts[liftIndex];

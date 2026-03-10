@@ -498,55 +498,6 @@ const ProgressSnapshot = React.memo(function ProgressSnapshot({
   );
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Daily XP progress bar — shows today's earned XP vs daily goal. */
-const DailyGoalCard = React.memo(function DailyGoalCard({
-  todayXP,
-  dailyGoal,
-}: {
-  todayXP: number;
-  dailyGoal: number;
-}) {
-  const { theme } = useAppTheme();
-  const pct = Math.min(todayXP / dailyGoal, 1);
-  const done = todayXP >= dailyGoal;
-
-  return (
-    <View
-      style={[
-        styles.dailyGoalCard,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-      ]}
-    >
-      <View style={styles.dailyGoalHeader}>
-        <Text style={[styles.dailyGoalLabel, { color: theme.colors.muted }]}>
-          DAILY XP
-        </Text>
-        <Text style={[styles.dailyGoalValues, { color: done ? theme.colors.primary : theme.colors.text }]}>
-          {todayXP}/{dailyGoal}
-        </Text>
-      </View>
-      <View style={[styles.dailyGoalTrack, { backgroundColor: theme.colors.mutedBg }]}>
-        <View
-          style={[
-            styles.dailyGoalFill,
-            {
-              backgroundColor: done ? theme.colors.primary : theme.colors.primary + "B3",
-              width: `${Math.round(pct * 100)}%`,
-            },
-          ]}
-        />
-      </View>
-      {done && (
-        <Text style={[styles.dailyGoalDone, { color: theme.colors.primary }]}>
-          Daily goal reached!
-        </Text>
-      )}
-    </View>
-  );
-});
-
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
 /** Determine Locke mood, incorporating PR detection. */
@@ -605,7 +556,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [streakSheetOpen, setStreakSheetOpen] = useState(false);
   const { hydrated, profileRef } = useProfileContext();
-  const { xp, rank, progress, toNext, nextTier, bandCurrent, bandTotal, todayXP } = useXP();
+  const { xp, rank, progress, toNext, nextTier, bandCurrent, bandTotal } = useXP();
   const { streak, daysSinceActivity } = useStreak();
   const { fire } = useLocke();
   const {
@@ -904,14 +855,6 @@ export default function HomeScreen() {
           onStreakPress={() => setStreakSheetOpen(true)}
         />
 
-        {/* 1b. DAILY XP GOAL */}
-        {(profileRef.current.dailyXPGoal ?? 30) > 0 && (
-          <DailyGoalCard
-            todayXP={todayXP}
-            dailyGoal={profileRef.current.dailyXPGoal ?? 30}
-          />
-        )}
-
         {/* 2. ACTIVE SESSION BANNER — above primary CTA */}
         {activeSession && (
           <Pressable
@@ -927,11 +870,13 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* 3. LOCKE PANEL — always visible */}
-        <LockePanel
-          mood={has1RM ? lockeMood : "encouraging"}
-          microcopy={has1RM ? microcopy : "Set up your lifts and I'll handle the rest."}
-        />
+        {/* 3. LOCKE PANEL — hidden when BaselineCTA is showing (avoids double Locke) */}
+        {has1RM && (
+          <LockePanel
+            mood={lockeMood}
+            microcopy={microcopy}
+          />
+        )}
 
         {/* Locke banner from session-end events */}
         <LockeBanner />
@@ -1211,24 +1156,4 @@ const styles = StyleSheet.create({
   recentCard:  { marginBottom: 8, padding: 14 },
   recentName:  { fontSize: 15, fontWeight: "600" },
   recentMeta:  { fontSize: 12, marginTop: 2 },
-
-  // Daily XP goal
-  dailyGoalCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 12,
-  },
-  dailyGoalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  dailyGoalLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
-  dailyGoalValues: { fontSize: 13, fontWeight: "700" },
-  dailyGoalTrack: { height: 6, borderRadius: 999, overflow: "hidden" },
-  dailyGoalFill: { height: "100%", borderRadius: 999, minWidth: 4 },
-  dailyGoalDone: { fontSize: 11, fontWeight: "600", marginTop: 4, textAlign: "center" },
 });

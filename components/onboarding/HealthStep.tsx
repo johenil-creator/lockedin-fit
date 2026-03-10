@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LockeMascot } from "../Locke/LockeMascot";
@@ -6,6 +6,7 @@ import { Button } from "../Button";
 import { BackButton } from "../BackButton";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { useHealthKit } from "../../hooks/useHealthKit";
+import { useHealthPermissions } from "../../hooks/useHealthPermissions";
 import { onboardingStyles as styles } from "./shared";
 
 type Props = {
@@ -15,11 +16,21 @@ type Props = {
   onBack: () => void;
 };
 
+/**
+ * Single-screen Apple Health onboarding step.
+ *
+ * One tap requests ALL useful permissions (weight + workouts + HR + steps + etc.)
+ * and auto-reads weight. No second "expand" screen — the benefits are shown
+ * upfront so the user understands the value before connecting.
+ */
 export function HealthStep({ unit, onSynced, onSkip, onBack }: Props) {
   const { theme } = useAppTheme();
   const { weight, loading, error, fetchWeight } = useHealthKit();
+  const { requestEnhancedPermissions } = useHealthPermissions();
+  const [connecting, setConnecting] = useState(false);
   const autoAdvanced = useRef(false);
 
+  // Auto-advance once weight is synced
   useEffect(() => {
     if (weight && !autoAdvanced.current) {
       autoAdvanced.current = true;
@@ -28,12 +39,24 @@ export function HealthStep({ unit, onSynced, onSkip, onBack }: Props) {
     }
   }, [weight]);
 
-  async function handleSync() {
+  async function handleConnect() {
+    setConnecting(true);
+    // Request enhanced permissions (weight + workouts + HR + steps + active energy)
+    // in a single dialog — no second screen needed
+    await requestEnhancedPermissions();
+    // Then fetch weight (uses the permissions we just requested)
     const w = await fetchWeight(unit);
-    // success/error states handled via hook — auto-advance in useEffect
+    setConnecting(false);
+    // If weight fetch failed (denied or no data), auto-advance anyway
+    // since the enhanced permissions may still have been granted
+    if (!w && !error) {
+      onSynced("");
+    }
+    // If weight was fetched, useEffect above handles the advance
   }
 
   const synced = !!weight;
+  const isLoading = loading || connecting;
   const mood = synced ? "celebrating" : error ? "disappointed" : "neutral";
 
   return (
@@ -42,7 +65,7 @@ export function HealthStep({ unit, onSynced, onSkip, onBack }: Props) {
         <BackButton onPress={onBack} />
       </View>
       <View style={healthStyles.inner}>
-        <LockeMascot size={240} mood={mood} />
+        <LockeMascot size={200} mood={mood} />
 
         {synced ? (
           <>
@@ -55,11 +78,35 @@ export function HealthStep({ unit, onSynced, onSkip, onBack }: Props) {
           </>
         ) : (
           <>
-            <Text style={[healthStyles.microcopy, { color: theme.colors.muted }]}>
-              We only read your body weight — nothing is written to Health.
-            </Text>
             <Text style={[healthStyles.heading, { color: theme.colors.text }]}>
-              Sync with Apple Health?
+              Connect Apple Health
+            </Text>
+
+            <View style={healthStyles.benefitsList}>
+              <BenefitRow
+                icon="scale-outline"
+                text="Auto-fill your body weight"
+                theme={theme}
+              />
+              <BenefitRow
+                icon="barbell-outline"
+                text="Detect workouts done outside this app"
+                theme={theme}
+              />
+              <BenefitRow
+                icon="heart-outline"
+                text="Use heart rate to improve readiness scoring"
+                theme={theme}
+              />
+              <BenefitRow
+                icon="footsteps-outline"
+                text="Factor in your daily activity level"
+                theme={theme}
+              />
+            </View>
+
+            <Text style={[healthStyles.privacy, { color: theme.colors.muted }]}>
+              Your health data stays on your device and is never uploaded or shared.
             </Text>
           </>
         )}
@@ -74,15 +121,34 @@ export function HealthStep({ unit, onSynced, onSkip, onBack }: Props) {
       {!synced && (
         <View style={styles.bottom}>
           <Button
-            label="Sync with Apple Health"
-            onPress={handleSync}
-            loading={loading}
-            disabled={loading}
+            label="Connect Apple Health"
+            onPress={handleConnect}
+            loading={isLoading}
+            disabled={isLoading}
           />
           <View style={{ height: 12 }} />
           <Button label="Skip" onPress={onSkip} variant="secondary" />
         </View>
       )}
+    </View>
+  );
+}
+
+function BenefitRow({
+  icon,
+  text,
+  theme,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  text: string;
+  theme: any;
+}) {
+  return (
+    <View style={healthStyles.benefitRow}>
+      <Ionicons name={icon} size={20} color={theme.colors.primary} />
+      <Text style={[healthStyles.benefitText, { color: theme.colors.text }]}>
+        {text}
+      </Text>
     </View>
   );
 }
@@ -98,17 +164,11 @@ const healthStyles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
   },
-  microcopy: {
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 24,
-  },
   heading: {
     fontSize: 22,
     fontWeight: "700",
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   badge: {
     marginBottom: 8,
@@ -116,7 +176,27 @@ const healthStyles = StyleSheet.create({
   error: {
     fontSize: 13,
     textAlign: "center",
-    marginTop: -12,
+    marginTop: -8,
     marginBottom: 12,
+  },
+  benefitsList: {
+    alignSelf: "stretch",
+    gap: 14,
+    marginBottom: 20,
+  },
+  benefitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 8,
+  },
+  benefitText: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  privacy: {
+    fontSize: 12,
+    textAlign: "center",
   },
 });

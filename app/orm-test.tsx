@@ -97,6 +97,7 @@ export default function OrmTestScreen() {
   const [setsVisible, setSetsVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [tipExpanded, setTipExpanded] = useState(false);
+  const [safetyExpanded, setSafetyExpanded] = useState(false);
 
   // Rest timer
   const REST_DURATION = 120; // 2 minutes between 1RM sets
@@ -430,8 +431,8 @@ export default function OrmTestScreen() {
                 borderColor: theme.colors.border,
               },
             ]}
-            keyboardType="numeric"
-            maxLength={3}
+            keyboardType="decimal-pad"
+            maxLength={6}
             placeholder="0"
             placeholderTextColor={theme.colors.muted}
             value={currentLift.estimatedInput}
@@ -527,8 +528,8 @@ export default function OrmTestScreen() {
                           color: theme.colors.text,
                         },
                       ]}
-                      keyboardType="numeric"
-                      maxLength={3}
+                      keyboardType="decimal-pad"
+                      maxLength={6}
                       value={set.weight}
                       onChangeText={(v) =>
                         ormTest.updateSetWeight(liftIndex, i, v)
@@ -634,8 +635,8 @@ export default function OrmTestScreen() {
                       color: theme.colors.text,
                     },
                   ]}
-                  keyboardType="numeric"
-                  maxLength={3}
+                  keyboardType="decimal-pad"
+                  maxLength={6}
                   value={set.weight}
                   onChangeText={(v) =>
                     ormTest.updateSetWeight(liftIndex, i, v)
@@ -819,6 +820,34 @@ export default function OrmTestScreen() {
             </Pressable>
           )}
         </View>
+
+        {/* Safety warning — collapsible, shown before user starts any lift */}
+        {completedCount === 0 && !setsVisible && (
+          <Pressable
+            onPress={() => setSafetyExpanded((v) => !v)}
+            style={{
+              marginHorizontal: 20, marginTop: 12, padding: 12, borderRadius: 12,
+              backgroundColor: "#FF9F0A15", borderWidth: 1, borderColor: "#FF9F0A40",
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#FF9F0A" }}>
+                ⚠️  Safety Warning
+              </Text>
+              <Text style={{ fontSize: 12, color: "#FF9F0A" }}>
+                {safetyExpanded ? "▲" : "▼"}
+              </Text>
+            </View>
+            {safetyExpanded && (
+              <Text style={{ fontSize: 13, color: theme.colors.muted, lineHeight: 20, marginTop: 8 }}>
+                {"\u2022"} This test involves lifting near your maximum capacity.{"\n"}
+                {"\u2022"} Always use a spotter for barbell exercises.{"\n"}
+                {"\u2022"} Stop immediately if you feel pain or dizziness.{"\n"}
+                {"\u2022"} Do not attempt if you are new to barbell training, have cardiovascular conditions, recent injuries, or are pregnant.
+              </Text>
+            )}
+          </Pressable>
+        )}
 
         {/* Content — rendered inline (no nested ScrollView/KAV) */}
         <View style={{ marginTop: 40 }} />

@@ -1609,6 +1609,9 @@ export default function RecoveryScreen() {
           /* Empty state — first time, no sessions logged yet */
           <EmptyState />
         )}
+        <Text style={{ fontSize: 11, color: theme.colors.muted, textAlign: "center", opacity: 0.6, paddingHorizontal: 24, paddingVertical: 16 }}>
+          Recovery estimates are based on workout data and general exercise science. They are not medical advice.
+        </Text>
       </ScrollView>
 
       {/* Muscle detail bottom sheet */}

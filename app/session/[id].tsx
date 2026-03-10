@@ -32,7 +32,9 @@ import { buildPerformanceWeek, upsertPerformanceWeek, isoWeekKey } from "../../l
 import { useIconMood } from "../../hooks/useIconMood";
 import { awardSessionXP, buildWorkoutCompleteParams } from "../../lib/xpService";
 import { checkBadges } from "../../lib/badgeService";
+import { syncCompletedSession } from "../../lib/healthkit/integration";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
+import { sanitizeWeight } from "../../lib/sanitizeWeight";
 import { getExerciseEquipment } from "../../lib/loadEngine/classifier";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
@@ -597,7 +599,7 @@ export default function SessionScreen() {
       patch = { ...patch, reps: patch.reps.replace(/[^0-9]/g, "").slice(0, 2) };
     }
     if (patch.weight !== undefined && typeof patch.weight === "string") {
-      patch = { ...patch, weight: patch.weight.replace(/[^0-9]/g, "").slice(0, 3) };
+      patch = { ...patch, weight: sanitizeWeight(patch.weight) };
     }
 
     const ex = session.exercises.find((e) => e.exerciseId === exId);
@@ -1009,8 +1011,8 @@ export default function SessionScreen() {
                         placeholderTextColor="#B0B8C4"
                         value={s.weight}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { weight: v })}
-                        keyboardType="numeric"
-                        maxLength={3}
+                        keyboardType="decimal-pad"
+                        maxLength={6}
                         editable={!isFutureSet}
                       />
                       <TextInput
@@ -1374,6 +1376,10 @@ export default function SessionScreen() {
                               completed,
                               [...workouts.filter((w) => w.id !== completed.id), completed],
                             );
+
+                            // ── Sync to Apple Health (fire-and-forget) ─────────
+                            // Respects auto-sync preference from user settings.
+                            void syncCompletedSession(completed);
 
                             // ── Cancel streak-at-risk notification ───────────────
                             void cancelStreakRiskReminder();

@@ -144,7 +144,6 @@ export type UserProfile = {
   badges?: Badge[];
   friendCode?: string;
   friends?: Friend[];
-  dailyXPGoal?: number;  // daily XP target (default 30)
 };
 
 // ── Friends ─────────────────────────────────────────────────────────────────
@@ -447,6 +446,12 @@ export type ReadinessScore = {
      * Weight: 10%.
      */
     acwrScore: number;
+    /**
+     * Optional health signal from Apple Health (resting HR, HRV, sleep, activity).
+     * Present only when health data is available with confidence ≥ 0.3.
+     * Weight: 14% (reallocated from other components when active).
+     */
+    healthSignal?: number;
   };
 };
 

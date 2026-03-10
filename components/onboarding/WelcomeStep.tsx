@@ -25,6 +25,12 @@ export function WelcomeStep({ onContinue }: Props) {
         </View>
 
         <View style={styles.bottom}>
+          <Text style={{ fontSize: 12, color: theme.colors.muted, textAlign: "center", lineHeight: 17, marginBottom: 12, paddingHorizontal: 24 }}>
+            LockedInFIT is a fitness tracking tool, not a substitute for professional medical advice. Always consult a physician before beginning any exercise programme and listen to your body.
+          </Text>
+          <Text style={{ fontSize: 11, color: theme.colors.muted, textAlign: "center", opacity: 0.7, marginBottom: 16, paddingHorizontal: 24 }}>
+            By continuing, you agree to our Terms of Service and Privacy Policy.
+          </Text>
           <Button label="Let's Go" onPress={onContinue} />
         </View>
       </View>

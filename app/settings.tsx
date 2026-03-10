@@ -17,13 +17,13 @@ import {
 } from "../lib/notifications";
 import { isSignedIn, signOut, signInWithGoogle, getStoredEmail } from "../lib/googleAuth";
 import { useAuth } from "../contexts/AuthContext";
+import { deleteAccount, clearLocalData as deleteLocalData } from "../lib/accountDeletion";
 
 const KG_TO_LBS = 2.20462;
 const LBS_TO_KG = 0.453592;
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const REST_TIMER_OPTIONS = [30, 60, 90, 120] as const;
-const DAILY_XP_GOAL_OPTIONS = [15, 30, 50, 75] as const;
 const REMINDER_TIME_OPTIONS = [
   { label: "Morning", hour: 8, sublabel: "8 AM" },
   { label: "Noon", hour: 12, sublabel: "12 PM" },
@@ -56,7 +56,6 @@ export default function SettingsScreen() {
   const restDays = profile.restDays ?? [];
   const defaultRestTimer = profile.defaultRestTimer ?? 90;
   const hapticsEnabled = profile.hapticsEnabled !== false; // default true
-  const dailyXPGoal = profile.dailyXPGoal ?? 30;
   const notificationsEnabled = profile.notificationsEnabled ?? false;
   const reminderHour = profile.reminderHour ?? 18;
 
@@ -199,32 +198,6 @@ export default function SettingsScreen() {
             );
           })}
         </View>
-      </Card>
-
-      {/* Daily XP Goal */}
-      <Card>
-        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
-          Daily XP Goal
-        </Text>
-        <View style={styles.timerRow}>
-          {DAILY_XP_GOAL_OPTIONS.map((val) => {
-            const active = dailyXPGoal === val;
-            return (
-              <Pressable
-                key={val}
-                style={[styles.timerChip, { backgroundColor: active ? theme.colors.primary : theme.colors.mutedBg, borderColor: active ? theme.colors.primary : theme.colors.border }]}
-                onPress={() => updateProfile({ dailyXPGoal: val })}
-              >
-                <Text style={[styles.timerChipText, { color: active ? theme.colors.primaryText : theme.colors.text }]}>
-                  {val}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text style={[typography.caption, { color: theme.colors.muted, marginTop: spacing.sm }]}>
-          XP target shown on home screen
-        </Text>
       </Card>
 
       {/* Rest Days */}
@@ -454,6 +427,57 @@ export default function SettingsScreen() {
             <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
           </Pressable>
         )}
+      </Card>
+
+      {/* Legal */}
+      <Text style={[typography.subheading, { color: theme.colors.muted, marginTop: spacing.lg, marginBottom: spacing.xs }]}>Legal</Text>
+      <Card style={{ marginTop: spacing.xs }}>
+        <Pressable style={styles.row} onPress={() => router.push("/legal?doc=privacy")}>
+          <Text style={[typography.body, { color: theme.colors.text }]}>Privacy Policy</Text>
+          <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
+        </Pressable>
+        <Pressable style={styles.row} onPress={() => router.push("/legal?doc=tos")}>
+          <Text style={[typography.body, { color: theme.colors.text }]}>Terms of Service</Text>
+          <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
+        </Pressable>
+      </Card>
+
+      {/* Danger Zone */}
+      <Text style={[typography.subheading, { color: theme.colors.danger, marginTop: spacing.lg, marginBottom: spacing.xs }]}>Danger Zone</Text>
+      <Card style={{ marginTop: spacing.xs }}>
+        <Pressable
+          style={styles.row}
+          onPress={() => {
+            Alert.alert(
+              user ? "Delete Account?" : "Delete All Data?",
+              user
+                ? "This will permanently delete your account and all associated data. This action cannot be undone."
+                : "This will permanently delete all your local data including workouts, plans, and progress. This action cannot be undone.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      if (user) {
+                        await deleteAccount(user.uid);
+                      } else {
+                        await deleteLocalData();
+                      }
+                      router.replace("/onboarding");
+                    } catch (e: any) {
+                      Alert.alert("Error", e?.message ?? "Failed to delete data. Try again.");
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+        >
+          <Text style={[typography.body, { color: theme.colors.danger }]}>{user ? "Delete Account" : "Delete All Data"}</Text>
+          <Text style={[typography.caption, { color: theme.colors.muted }]}>→</Text>
+        </Pressable>
       </Card>
 
       {/* Version */}

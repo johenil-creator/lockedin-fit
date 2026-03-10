@@ -25,6 +25,7 @@ import { UnitStep } from "../components/onboarding/UnitStep";
 import { ExplainStep } from "../components/onboarding/ExplainStep";
 import { HealthStep } from "../components/onboarding/HealthStep";
 import { StepSlide, onboardingStyles as styles } from "../components/onboarding/shared";
+import { sanitizeWeight } from "../lib/sanitizeWeight";
 
 const LIFTS = ["Deadlift", "Squat", "Bench Press", "Overhead Press"] as const;
 type LiftKey = "deadlift" | "squat" | "bench" | "ohp";
@@ -38,7 +39,7 @@ const LIFT_KEY_MAP: Record<string, LiftKey> = {
 
 type StepKey = "welcome" | "name" | "unit" | "explain" | "health" | "manual";
 
-const STEP_ORDER: StepKey[] = ["welcome", "name", "unit", "health", "explain", "manual"];
+const STEP_ORDER: StepKey[] = ["welcome", "unit", "health", "name", "explain", "manual"];
 const VISIBLE_STEPS: StepKey[] = Platform.OS === "ios"
   ? STEP_ORDER
   : STEP_ORDER.filter((s) => s !== "health");
@@ -95,8 +96,7 @@ export default function OnboardingScreen() {
 
   async function skip() {
     await updateProfile({ name: userName.trim(), weightUnit: unit, onboardingComplete: true });
-    // Send new users to catalog so they pick a plan immediately
-    router.replace(exercises.length > 0 ? "/" : "/catalog");
+    router.replace("/");
   }
 
   async function handleManualSave() {
@@ -144,7 +144,7 @@ export default function OnboardingScreen() {
       <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
         <ProgressDots current={currentStepIdx} total={VISIBLE_STEPS.length} />
         <WelcomeStep
-          onContinue={() => setStep("name")}
+          onContinue={() => setStep("unit")}
         />
       </View>
     );
@@ -159,8 +159,9 @@ export default function OnboardingScreen() {
           onChangeUserName={setUserName}
           onContinue={() => {
             updateProfile({ name: userName.trim() });
-            setStep("unit");
+            setStep("explain");
           }}
+          onBack={() => setStep(Platform.OS === "ios" ? "health" : "unit")}
         />
       </View>
     );
@@ -173,8 +174,11 @@ export default function OnboardingScreen() {
         <UnitStep
           unit={unit}
           onSelectUnit={setUnit}
-          onContinue={() => setStep(Platform.OS === "ios" ? "health" : "explain")}
-          onBack={() => setStep("name")}
+          onContinue={() => {
+            updateProfile({ weightUnit: unit });
+            setStep(Platform.OS === "ios" ? "health" : "name");
+          }}
+          onBack={() => setStep("welcome")}
         />
       </View>
     );
@@ -186,8 +190,8 @@ export default function OnboardingScreen() {
         <ProgressDots current={currentStepIdx} total={VISIBLE_STEPS.length} />
         <HealthStep
           unit={unit}
-          onSynced={(w) => { updateProfile({ weight: w }); setStep("explain"); }}
-          onSkip={() => setStep("explain")}
+          onSynced={(w) => { updateProfile({ weight: w }); setStep("name"); }}
+          onSkip={() => setStep("name")}
           onBack={() => setStep("unit")}
         />
       </View>
@@ -201,7 +205,7 @@ export default function OnboardingScreen() {
         <ExplainStep
           onManual={() => setStep("manual")}
           onSkip={skip}
-          onBack={() => setStep(Platform.OS === "ios" ? "health" : "unit")}
+          onBack={() => setStep("name")}
         />
       </View>
     );
@@ -241,13 +245,14 @@ export default function OnboardingScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.inputLabel, { color: theme.colors.muted }]}>1RM ({unit})</Text>
                   <TextInput
+                    testID={`orm-input-${lift.toLowerCase().replace(/\s+/g, "-")}`}
                     style={[styles.numInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
-                    keyboardType="numeric"
-                    maxLength={3}
+                    keyboardType="decimal-pad"
+                    maxLength={6}
                     placeholder="e.g. 100"
                     placeholderTextColor={theme.colors.muted}
                     value={manualInputs[lift] ?? ""}
-                    onChangeText={(v) => setManualInputs((prev) => ({ ...prev, [lift]: v.replace(/[^0-9]/g, "").slice(0, 3) }))}
+                    onChangeText={(v) => setManualInputs((prev) => ({ ...prev, [lift]: sanitizeWeight(v) }))}
                   />
                 </View>
               </View>

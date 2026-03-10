@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "../contexts/ThemeContext";
@@ -36,6 +38,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const isSignUp = mode === "signup";
 
@@ -44,6 +47,16 @@ export default function AuthScreen() {
     if (!email.trim() || !password.trim()) {
       setError("Email and password are required.");
       return;
+    }
+    if (isSignUp) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        setError("Please enter a valid email address.");
+        return;
+      }
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters.");
+        return;
+      }
     }
     setLoading(true);
     try {
@@ -102,7 +115,7 @@ export default function AuthScreen() {
                   styles.toggleSegment,
                   { backgroundColor: active ? theme.colors.primary : "transparent" },
                 ]}
-                onPress={() => { setMode(m); setError(null); }}
+                onPress={() => { setMode(m); setError(null); setAgreedToTerms(false); }}
               >
                 <Text
                   style={[
@@ -153,7 +166,7 @@ export default function AuthScreen() {
                 borderColor: theme.colors.border,
               },
             ]}
-            placeholder="Min. 6 characters"
+            placeholder={isSignUp ? "Min. 8 characters" : "Password"}
             placeholderTextColor={theme.colors.muted}
             secureTextEntry
             textContentType={isSignUp ? "newPassword" : "password"}
@@ -167,13 +180,35 @@ export default function AuthScreen() {
             </Text>
           )}
 
+          {isSignUp && (
+            <Pressable
+              style={{ flexDirection: "row", alignItems: "flex-start", marginTop: spacing.md, gap: 10 }}
+              onPress={() => setAgreedToTerms((v) => !v)}
+            >
+              <View style={{
+                width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+                borderColor: agreedToTerms ? theme.colors.primary : theme.colors.border,
+                backgroundColor: agreedToTerms ? theme.colors.primary : "transparent",
+                alignItems: "center", justifyContent: "center", marginTop: 1,
+              }}>
+                {agreedToTerms && <Ionicons name="checkmark" size={15} color={theme.colors.primaryText} />}
+              </View>
+              <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: theme.colors.muted }}>
+                I am 13 years or older and agree to the{" "}
+                <Text style={{ color: theme.colors.primary, textDecorationLine: "underline" }} onPress={() => router.push("/legal?doc=tos")}>Terms of Service</Text>
+                {" "}and{" "}
+                <Text style={{ color: theme.colors.primary, textDecorationLine: "underline" }} onPress={() => router.push("/legal?doc=privacy")}>Privacy Policy</Text>.
+              </Text>
+            </Pressable>
+          )}
+
           <Pressable
             style={[
               styles.submitButton,
-              { backgroundColor: theme.colors.primary, opacity: loading ? 0.7 : 1 },
+              { backgroundColor: theme.colors.primary, opacity: loading || (isSignUp && !agreedToTerms) ? 0.5 : 1 },
             ]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || (isSignUp && !agreedToTerms)}
           >
             {loading ? (
               <ActivityIndicator color={theme.colors.primaryText} />

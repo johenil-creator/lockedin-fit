@@ -19,6 +19,7 @@ import { useWorkouts } from "../hooks/useWorkouts";
 import { useXP } from "../hooks/useXP";
 import { clearAllData } from "../lib/storage";
 import { spacing, radius, typography } from "../lib/theme";
+import { sanitizeWeight } from "../lib/sanitizeWeight";
 import { RankEvolutionPath } from "../components/RankEvolutionPath";
 import { Button } from "../components/Button";
 import { Skeleton } from "../components/Skeleton";
@@ -424,13 +425,13 @@ export default function ProfileScreen() {
                 style={[styles.input, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text, borderColor: theme.colors.border }]}
                 value={manualOverrides[lift.key] ?? ""}
                 onChangeText={(val) =>
-                  setManualOverrides((prev) => ({ ...prev, [lift.key]: val.replace(/[^0-9]/g, "").slice(0, 3) }))
+                  setManualOverrides((prev) => ({ ...prev, [lift.key]: sanitizeWeight(val) }))
                 }
                 onBlur={() => handleManualBlur(lift.key)}
                 placeholder={`Manual override (${profile.weightUnit})`}
                 placeholderTextColor="#BDC4CE"
-                keyboardType="numeric"
-                maxLength={3}
+                keyboardType="decimal-pad"
+                maxLength={6}
               />
             </View>
           );

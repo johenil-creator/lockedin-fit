@@ -55,7 +55,7 @@ export function UnitStep({ unit, onSelectUnit, onContinue, onBack }: Props) {
             <Text style={[unitStyles.cardLabel, { color: labelColor(unit === "kg") }]}>KG</Text>
             <Text style={[unitStyles.cardSub, { color: subtitleColor(unit === "kg") }]}>Kilograms</Text>
           </Pressable>
-          <Pressable style={cardStyle(unit === "lbs")} onPress={() => onSelectUnit("lbs")}>
+          <Pressable testID="unit-lbs" style={cardStyle(unit === "lbs")} onPress={() => onSelectUnit("lbs")}>
             <Text style={[unitStyles.cardLabel, { color: labelColor(unit === "lbs") }]}>LBS</Text>
             <Text style={[unitStyles.cardSub, { color: subtitleColor(unit === "lbs") }]}>Pounds</Text>
           </Pressable>
