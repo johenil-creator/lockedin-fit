@@ -68,8 +68,8 @@ const MASCOT_MOOD_MAP: Record<CoachMood, LockeMascotMood> = {
   celebrating: "celebrating",
   savage:      "savage",
   encouraging: "encouraging",
-  focused:     "intense",      // focused = dialed-in intensity expression
-  concerned:   "disappointed",
+  focused:     "focused",
+  concerned:   "concerned",
   rest_day:    "neutral",
 };
 

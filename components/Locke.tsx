@@ -21,6 +21,10 @@ function toMascotMood(state: LockeState): LockeMascotMood {
     case "encouraging":      return "encouraging";
     case "disappointed":     return "disappointed";
     case "savage":           return "savage";
+    case "focused":          return "focused";
+    case "concerned":        return "concerned";
+    case "proud":            return "proud";
+    case "analytical":       return "analytical";
     default:                 return "neutral";
   }
 }

@@ -3,12 +3,17 @@ import type { LockeState, LockeTrigger } from "./types";
 // ── Message bank ──────────────────────────────────────────────────────────────
 // Each entry is keyed by trigger, then state.
 //
-// Tone guide (6 states):
+// Tone guide (10 states):
 //   neutral          — direct, matter-of-fact. No hype, no mockery.
 //   encouraging      — confident warmth. Earned, not empty.
 //   celebrating      — terse acknowledgment of genuine achievement.
 //   disappointed     — sharp but not cruel. The truth.
 //   intense          — competitive, hard-edged, pushing.
+//   savage           — ruthless alpha energy. Brutal honesty.
+//   focused          — dialed-in precision. Calm but locked in.
+//   concerned        — worried but caring. Flags risk, suggests caution.
+//   proud            — quietly satisfied. Genuine respect for consistency.
+//   analytical       — data-driven, observing. Studying the numbers.
 //   onboarding_guide — clear, welcoming, no-nonsense orientation.
 
 type MessageSet = Partial<Record<LockeState, string[]>>;
@@ -46,6 +51,26 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
       "Mediocre is a choice. You made it.",
       "The work didn't wait for you.",
     ],
+    focused: [
+      "Controlled execution. That's how you peak.",
+      "Clean session. Every rep intentional.",
+      "Precision over volume. Smart work.",
+    ],
+    concerned: [
+      "You pushed through, but watch the fatigue.",
+      "Session done. But your body's flagging — listen to it.",
+      "Logged, but recovery needs to come first now.",
+    ],
+    proud: [
+      "Another one. The habit is the weapon.",
+      "Consistent as clockwork. Respect.",
+      "You keep showing up. That's the difference.",
+    ],
+    analytical: [
+      "Data captured. Trends are forming.",
+      "Volume tracked. Let's review the week.",
+      "Session logged. Numbers tell the story.",
+    ],
     onboarding_guide: [
       "First session done. Keep the momentum.",
       "That's a start. Build on it.",
@@ -81,6 +106,15 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
       "New floor. Now what?",
       "Good. Now do it again next week.",
     ],
+    proud: [
+      "PR earned through consistency. That's real.",
+      "The work paid off. Savor it.",
+      "That number reflects who you've become.",
+    ],
+    analytical: [
+      "PR confirmed. Updating your ceiling.",
+      "New data point. Trajectory is positive.",
+    ],
     onboarding_guide: [
       "New personal record. That's what calibration is for.",
       "PR already. Good start.",
@@ -114,6 +148,15 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
       "Don't confuse showing up with getting better.",
       "Numbers are easy to fake. Results aren't.",
     ],
+    proud: [
+      "That streak is built on discipline. Respect.",
+      "Day after day. That's character.",
+      "Consistency is your superpower now.",
+    ],
+    analytical: [
+      "Streak data trending positive.",
+      "Adherence rate is climbing. Keep it locked.",
+    ],
     onboarding_guide: [
       "You're building a habit. Keep going.",
       "Showing up. That's the first step.",
@@ -146,6 +189,11 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
       "Everyone else kept going.",
       "Absence isn't rest. It's retreat.",
     ],
+    concerned: [
+      "Haven't seen you. Everything alright?",
+      "Extended break. Let's ease back in carefully.",
+      "Your body detrains fast. The sooner you return, the less you lose.",
+    ],
     onboarding_guide: [
       "You've been away. Pick it back up.",
       "Come back. The log's waiting.",
@@ -173,6 +221,11 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
     intense: [
       "New rank. Higher standards now. Don't slide.",
       "Title changed. Work hasn't.",
+    ],
+    proud: [
+      "Rank earned. That's all you.",
+      "Every session brought you here. Remember that.",
+      "You leveled up through discipline. Not luck.",
     ],
     onboarding_guide: [
       "Rank unlocked. Keep climbing.",
@@ -251,6 +304,16 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
       "Weak output. No excuses.",
       "This is the floor. Don't stay here.",
     ],
+    concerned: [
+      "Numbers dropped. Could be fatigue — check your recovery.",
+      "Low output. Are you under-recovered or under-motivated?",
+      "Dip like this needs attention, not avoidance.",
+    ],
+    analytical: [
+      "Week-over-week performance declining. Review training load.",
+      "Data shows a drop. Identify the variable.",
+      "Numbers are below baseline. Let's course-correct.",
+    ],
     onboarding_guide: [
       "Rough week. Stay consistent and it evens out.",
     ],
@@ -278,6 +341,16 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
     intense: [
       "Strong week. Raise the bar.",
       "Good numbers. Now chase better ones.",
+    ],
+    proud: [
+      "Weeks like this are what legacy looks like.",
+      "High output, earned through discipline.",
+      "That's the version of you that wins.",
+    ],
+    analytical: [
+      "Performance metrics are elevated. Trend is strong.",
+      "Week-over-week improvement confirmed.",
+      "Training response is positive. Keep the stimulus.",
     ],
     onboarding_guide: [
       "Strong start. Build the habit.",

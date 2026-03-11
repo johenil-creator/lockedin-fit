@@ -37,6 +37,10 @@ export const RIM_GLOW = {
   disappointed:     { color: "#5BBCFF", opacity: 0.12 },
   intense:          { color: "#FF3B30", opacity: 0.28 },
   onboarding_guide: { color: "#00FF6A", opacity: 0.15 },
+  focused:          { color: "#FFD60A", opacity: 0.20 },
+  concerned:        { color: "#F0883E", opacity: 0.18 },
+  proud:            { color: "#00FF6A", opacity: 0.35 },
+  analytical:       { color: "#5BBCFF", opacity: 0.16 },
 } as const;
 
 // ── Rank config ───────────────────────────────────────────────────────────────
@@ -71,6 +75,10 @@ export const MOOD_POSE = {
   disappointed:     { browY: 5,  armY: 0,   tailAngle: -8  },
   intense:          { browY: 3,  armY: -18, tailAngle: 30  },
   onboarding_guide: { browY: -1, armY: -8,  tailAngle: 10  },
+  focused:          { browY: 2,  armY: 0,   tailAngle: 5   },
+  concerned:        { browY: 3,  armY: 0,   tailAngle: -5  },
+  proud:            { browY: -2, armY: -10, tailAngle: 25  },
+  analytical:       { browY: 1,  armY: 0,   tailAngle: 0   },
 } as const;
 
 // ── Size presets ──────────────────────────────────────────────────────────────

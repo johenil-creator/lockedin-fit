@@ -268,6 +268,10 @@ export type LockeState =
   | 'disappointed'
   | 'intense'
   | 'savage'
+  | 'focused'
+  | 'concerned'
+  | 'proud'
+  | 'analytical'
   | 'onboarding_guide';
 
 export type LockeTrigger =

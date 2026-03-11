@@ -22,7 +22,17 @@ import { useAppTheme } from "../../contexts/ThemeContext";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type LockeMascotMood = "neutral" | "encouraging" | "celebrating" | "disappointed" | "intense" | "savage";
+export type LockeMascotMood =
+  | "neutral"
+  | "encouraging"
+  | "celebrating"
+  | "disappointed"
+  | "intense"
+  | "savage"
+  | "focused"
+  | "concerned"
+  | "proud"
+  | "analytical";
 
 // ── Mood asset map ───────────────────────────────────────────────────────────
 
@@ -34,9 +44,16 @@ const MOOD_ASSETS: Record<LockeMascotMood, any> = {
   disappointed: require("../../assets/locke/disappointed.png"),
   intense:      require("../../assets/locke/intense.png"),
   savage:       require("../../assets/locke/savage.png"),
+  focused:      require("../../assets/locke/focused.png"),
+  concerned:    require("../../assets/locke/concerned.png"),
+  proud:        require("../../assets/locke/proud.png"),
+  analytical:   require("../../assets/locke/analytical.png"),
 };
 
-const ALL_MOODS: LockeMascotMood[] = ["neutral", "encouraging", "celebrating", "disappointed", "intense", "savage"];
+const ALL_MOODS: LockeMascotMood[] = [
+  "neutral", "encouraging", "celebrating", "disappointed", "intense", "savage",
+  "focused", "concerned", "proud", "analytical",
+];
 type Mood = LockeMascotMood;
 
 /** Call once at app startup to decode all Locke PNGs into memory. */
@@ -68,12 +85,16 @@ const CROSSFADE_MS = 280;
 // ── Idle loop config per mood ────────────────────────────────────────────────
 
 const IDLE: Record<Mood, { cycle: number; floatY: number; breatheScale: number }> = {
-  neutral:      { cycle: 3200, floatY: -1,   breatheScale: 1.01 },
-  encouraging:  { cycle: 3200, floatY: -1,   breatheScale: 1.01 },
-  celebrating:  { cycle: 2400, floatY: -1,   breatheScale: 1.01 },
+  neutral:      { cycle: 3200, floatY: -1,   breatheScale: 1.01  },
+  encouraging:  { cycle: 3200, floatY: -1,   breatheScale: 1.01  },
+  celebrating:  { cycle: 2400, floatY: -1,   breatheScale: 1.01  },
   disappointed: { cycle: 4800, floatY: 1.5,  breatheScale: 1.005 },
   intense:      { cycle: 3200, floatY: 0,    breatheScale: 1.005 },
   savage:       { cycle: 2800, floatY: -0.5, breatheScale: 1.015 },
+  focused:      { cycle: 3600, floatY: 0,    breatheScale: 1.005 },
+  concerned:    { cycle: 4200, floatY: 1.0,  breatheScale: 1.005 },
+  proud:        { cycle: 3000, floatY: -1.5, breatheScale: 1.012 },
+  analytical:   { cycle: 4000, floatY: -0.5, breatheScale: 1.008 },
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -98,6 +119,10 @@ function LockeMascotInner({
   const opDisappointed = useSharedValue(mood === "disappointed" ? 1 : 0);
   const opIntense      = useSharedValue(mood === "intense" ? 1 : 0);
   const opSavage       = useSharedValue(mood === "savage" ? 1 : 0);
+  const opFocused      = useSharedValue(mood === "focused" ? 1 : 0);
+  const opConcerned    = useSharedValue(mood === "concerned" ? 1 : 0);
+  const opProud        = useSharedValue(mood === "proud" ? 1 : 0);
+  const opAnalytical   = useSharedValue(mood === "analytical" ? 1 : 0);
 
   const moodOpacities: Record<Mood, { value: number }> = {
     neutral:      opNeutral,
@@ -106,6 +131,10 @@ function LockeMascotInner({
     disappointed: opDisappointed,
     intense:      opIntense,
     savage:       opSavage,
+    focused:      opFocused,
+    concerned:    opConcerned,
+    proud:        opProud,
+    analytical:   opAnalytical,
   };
 
   // Track previous mood to trigger crossfade only on actual changes
@@ -251,6 +280,55 @@ function LockeMascotInner({
         startIdleBreathe();
         break;
 
+      case "focused":
+        // Still and precise — minimal float, steady breathe
+        bodyOpacity.value = withTiming(1, { duration: 100 });
+        translateY.value = withTiming(0, { duration: 150 });
+        startIdleBreathe();
+        break;
+
+      case "concerned":
+        // Slight droop like disappointed but less dramatic
+        bodyOpacity.value = withTiming(0.95, { duration: 400, easing: EASE_SIN });
+        translateY.value = withSequence(
+          withTiming(idle.floatY, { duration: 500, easing: EASE_OUT_QUAD }),
+          withRepeat(
+            withSequence(
+              withTiming(idle.floatY + 0.3, { duration: half, easing: EASE_SIN }),
+              withTiming(idle.floatY - 0.3, { duration: half, easing: EASE_SIN }),
+            ),
+            -1,
+            false,
+          ),
+        );
+        startIdleBreathe();
+        break;
+
+      case "proud":
+        // Confident lift — slight rise then settle into float
+        bodyOpacity.value = withTiming(1, { duration: 100 });
+        translateY.value = withSequence(
+          withTiming(-3, { duration: 200, easing: EASE_OUT_QUAD }),
+          withTiming(0, { duration: 150, easing: EASE_SIN }),
+          withRepeat(
+            withSequence(
+              withTiming(idle.floatY, { duration: half, easing: EASE_SIN }),
+              withTiming(0, { duration: half, easing: EASE_SIN }),
+            ),
+            -1,
+            false,
+          ),
+        );
+        startIdleBreathe();
+        break;
+
+      case "analytical":
+        // Calm, observing — slow gentle float
+        bodyOpacity.value = withTiming(1, { duration: 200 });
+        startIdleFloat();
+        startIdleBreathe();
+        break;
+
       default:
         bodyOpacity.value = withTiming(1, { duration: 200 });
         startIdleFloat();
@@ -277,6 +355,10 @@ function LockeMascotInner({
   const disappointedStyle = useAnimatedStyle(() => ({ opacity: opDisappointed.value }));
   const intenseStyle      = useAnimatedStyle(() => ({ opacity: opIntense.value }));
   const savageStyle       = useAnimatedStyle(() => ({ opacity: opSavage.value }));
+  const focusedStyle      = useAnimatedStyle(() => ({ opacity: opFocused.value }));
+  const concernedStyle    = useAnimatedStyle(() => ({ opacity: opConcerned.value }));
+  const proudStyle        = useAnimatedStyle(() => ({ opacity: opProud.value }));
+  const analyticalStyle   = useAnimatedStyle(() => ({ opacity: opAnalytical.value }));
 
   const moodStyles: Record<Mood, ReturnType<typeof useAnimatedStyle>> = {
     neutral:      neutralStyle,
@@ -285,6 +367,10 @@ function LockeMascotInner({
     disappointed: disappointedStyle,
     intense:      intenseStyle,
     savage:       savageStyle,
+    focused:      focusedStyle,
+    concerned:    concernedStyle,
+    proud:        proudStyle,
+    analytical:   analyticalStyle,
   };
 
   // ── Foot shadow — scales inversely with float height ──────────────────

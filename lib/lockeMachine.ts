@@ -127,7 +127,7 @@ export function toLockeState(state: LockeStateMachineState): LockeState {
     case "encouraging":      return "encouraging";
     case "challenging":      return "intense";
     case "celebrating":      return "celebrating";
-    case "inactive_warning": return "disappointed";
+    case "inactive_warning": return "concerned";
   }
 }
 
