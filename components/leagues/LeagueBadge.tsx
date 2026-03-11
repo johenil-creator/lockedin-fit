@@ -4,23 +4,29 @@ import { radius } from "../../lib/theme";
 import type { RankLevel } from "../../lib/types";
 
 const TIER_ICONS: Record<RankLevel, string> = {
-  Runt:     "·",
-  Scout:    "›",
-  Stalker:  "»",
-  Hunter:   "◆",
-  Sentinel: "▲",
-  Alpha:    "★",
-  Apex:     "⬡",
+  Runt:        "·",
+  Scout:       "›",
+  Stalker:     "»",
+  Hunter:      "◆",
+  Sentinel:    "▲",
+  Alpha:       "★",
+  Apex:        "⬡",
+  Apex_Bronze: "⬡",
+  Apex_Silver: "⬡",
+  Apex_Gold:   "⬡",
 };
 
 const TIER_COLORS: Record<RankLevel, string> = {
-  Runt:     "#7D8590",
-  Scout:    "#58A6FF",
-  Stalker:  "#A371F7",
-  Hunter:   "#F0883E",
-  Sentinel: "#F85149",
-  Alpha:    "#FFD60A",
-  Apex:     "#00875A",
+  Runt:        "#7D8590",
+  Scout:       "#58A6FF",
+  Stalker:     "#A371F7",
+  Hunter:      "#F0883E",
+  Sentinel:    "#F85149",
+  Alpha:       "#FFD60A",
+  Apex:        "#00875A",
+  Apex_Bronze: "#CD7F32",
+  Apex_Silver: "#C0C0C0",
+  Apex_Gold:   "#FFD700",
 };
 
 type Props = {
@@ -42,7 +48,7 @@ export function LeagueBadge({ tier, groupNumber }: Props) {
       </View>
       <View>
         <Text style={[styles.tierName, { color }]}>
-          {tier} League
+          {tier.replace(/_/g, " ")} League
         </Text>
         {groupNumber != null && (
           <Text style={[styles.group, { color: theme.colors.muted }]}>

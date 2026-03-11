@@ -5,13 +5,16 @@ import type { RankLevel } from "./types";
 export type RankThreshold = { rank: RankLevel; xp: number };
 
 export const RANK_LADDER: RankThreshold[] = [
-  { rank: "Runt",     xp: 0    },
-  { rank: "Scout",    xp: 120  },
-  { rank: "Stalker",  xp: 200  },
-  { rank: "Hunter",   xp: 500  },
-  { rank: "Sentinel", xp: 1000 },
-  { rank: "Alpha",    xp: 1600 },
-  { rank: "Apex",     xp: 2400 },
+  { rank: "Runt",        xp: 0    },
+  { rank: "Scout",       xp: 120  },
+  { rank: "Stalker",     xp: 200  },
+  { rank: "Hunter",      xp: 500  },
+  { rank: "Sentinel",    xp: 1000 },
+  { rank: "Alpha",       xp: 1600 },
+  { rank: "Apex",        xp: 2400 },
+  { rank: "Apex_Bronze", xp: 3200 },
+  { rank: "Apex_Silver", xp: 4200 },
+  { rank: "Apex_Gold",   xp: 5400 },
 ];
 
 /** Return the rank earned for a given total XP amount. */
@@ -24,13 +27,13 @@ export function rankForXP(totalXP: number): RankLevel {
   return earned;
 }
 
-/** Return the next rank above the current one, or null if at Apex. */
+/** Return the next rank above the current one, or null if at Apex_Gold. */
 export function nextRank(current: RankLevel): RankThreshold | null {
   const idx = RANK_LADDER.findIndex((t) => t.rank === current);
   return idx >= 0 && idx < RANK_LADDER.length - 1 ? RANK_LADDER[idx + 1] : null;
 }
 
-/** XP needed to reach the next rank from current total, or 0 if at Apex. */
+/** XP needed to reach the next rank from current total, or 0 if at Apex_Gold. */
 export function xpToNextRank(totalXP: number): number {
   const current = rankForXP(totalXP);
   const next = nextRank(current);
@@ -40,7 +43,7 @@ export function xpToNextRank(totalXP: number): number {
 
 /**
  * Progress (0–1) within the current rank band.
- * Returns 1 if at Apex.
+ * Returns 1 if at Apex_Gold.
  */
 export function rankProgress(totalXP: number): number {
   const current = rankForXP(totalXP);
@@ -58,12 +61,17 @@ export function rankBandCurrent(totalXP: number): number {
   return totalXP - RANK_LADDER[idx].xp;
 }
 
-/** Total XP required to complete the current rank band, or 0 at Apex. */
+/** Total XP required to complete the current rank band, or 0 at Apex_Gold. */
 export function rankBandTotal(totalXP: number): number {
   const rank = rankForXP(totalXP);
   const idx = RANK_LADDER.findIndex((t) => t.rank === rank);
   if (idx === RANK_LADDER.length - 1) return 0;
   return RANK_LADDER[idx + 1].xp - RANK_LADDER[idx].xp;
+}
+
+/** Display-friendly rank name (replaces underscores with spaces). */
+export function rankDisplayName(rank: RankLevel): string {
+  return rank.replace(/_/g, " ");
 }
 
 /** True if newXP crosses a rank boundary that oldXP did not. */

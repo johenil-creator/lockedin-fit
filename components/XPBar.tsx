@@ -42,7 +42,7 @@ export function XPBar({ totalXP, bandCurrent, bandTotal, progress, nextRank }: P
       <View style={styles.labels}>
         {isApex ? (
           <Text style={[styles.xpText, { color: theme.colors.primary }]}>
-            APEX {"\u00B7"} {totalXP} XP
+            APEX GOLD {"\u00B7"} {totalXP} XP
           </Text>
         ) : (
           <>
@@ -50,7 +50,7 @@ export function XPBar({ totalXP, bandCurrent, bandTotal, progress, nextRank }: P
               {bandCurrent} / {bandTotal} XP
             </Text>
             <Text style={[styles.nextText, { color: theme.colors.muted }]}>
-              {"\u2192"} {nextRank}
+              {"\u2192"} {nextRank?.replace(/_/g, " ")}
             </Text>
           </>
         )}

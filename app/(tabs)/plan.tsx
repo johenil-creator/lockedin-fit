@@ -397,7 +397,7 @@ function ProgressCard({ doneDays, totalDays }: {
     <View style={[pcStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
       {/* Coach row — mini Locke + speech bubble */}
       <View style={pcStyles.coachRow}>
-        <LockeMascot size={80} mood={coach.mood} />
+        <LockeMascot size={120} mood={coach.mood} />
         <View style={[pcStyles.coachBubble, { backgroundColor: theme.colors.mutedBg }]}>
           <View style={[pcStyles.coachTail, { backgroundColor: theme.colors.mutedBg }]} />
           <Text style={[pcStyles.coachText, { color: theme.colors.text }]}>{coach.text}</Text>
@@ -491,7 +491,7 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
   return (
     <View style={epStyles.container}>
       <RNAnimated.View entering={FadeIn.duration(400)}>
-        <LockeMascot size={180} mood="encouraging" />
+        <LockeMascot size={280} mood="encouraging" />
       </RNAnimated.View>
 
       {/* Speech bubble */}
@@ -547,16 +547,16 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
 }
 
 const epStyles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 64 },
+  container: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 40, paddingHorizontal: 4 },
   bubble: {
     borderRadius: 16,
     borderWidth: 1,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    marginTop: 4,
-    marginBottom: 24,
+    marginTop: -8,
+    marginBottom: 20,
     alignItems: "center",
-    maxWidth: 280,
+    maxWidth: 300,
   },
   bubbleTail: {
     position: "absolute",
@@ -571,7 +571,7 @@ const epStyles = StyleSheet.create({
   },
   bubbleText: { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 4 },
   bubbleSub:  { fontSize: 13, textAlign: "center", lineHeight: 18 },
-  cardsWrap:  { gap: 12, width: "100%", paddingHorizontal: 4 },
+  cardsWrap:  { gap: 12, width: "100%" },
   featuredCard: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: 1.5, padding: 16 },
   cards:      { flexDirection: "row", gap: 12 },
   card:       { flex: 1, borderRadius: 14, borderWidth: 1, padding: 16, alignItems: "center" },
@@ -1044,7 +1044,7 @@ export default function PlanScreen() {
         snapPoints={["58%"]}
       >
         <View style={ormStyles.container}>
-          <LockeMascot size={100} mood="savage" />
+          <LockeMascot size={140} mood="savage" />
           <Text style={[ormStyles.title, { color: theme.colors.text }]}>
             Set Up Your Lifts First
           </Text>

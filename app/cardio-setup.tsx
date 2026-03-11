@@ -310,7 +310,7 @@ function LockeTipModal({
           style={[styles.tipModal, { backgroundColor: theme.colors.surface }]}
         >
           <View style={styles.tipMascot}>
-            <LockeMascot size={56} mood="encouraging" />
+            <LockeMascot size={72} mood="encouraging" />
           </View>
 
           <Text style={[styles.tipSetup, { color: theme.colors.text }]}>

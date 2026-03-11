@@ -20,18 +20,21 @@ import Animated, {
 import { useRouter } from "expo-router";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { glowColors, spacing, radius } from "../lib/theme";
-import { RANK_LADDER } from "../lib/rankService";
+import { RANK_LADDER, rankDisplayName } from "../lib/rankService";
 import type { RankLevel } from "../lib/types";
 
 // ── Rank images ─────────────────────────────────────────────────────────────
 export const RANK_IMAGES: Record<string, ImageSourcePropType> = {
-  Runt:     require("../assets/locke/ranks/Scout.png"), // placeholder until Runt art is added
-  Scout:    require("../assets/locke/ranks/Scout.png"),
-  Stalker:  require("../assets/locke/ranks/Stalker.png"),
-  Hunter:   require("../assets/locke/ranks/Hunter.png"),
-  Sentinel: require("../assets/locke/ranks/Sentinel.png"),
-  Alpha:    require("../assets/locke/ranks/Alpha.png"),
-  Apex:     require("../assets/locke/ranks/Apex.png"),
+  Runt:        require("../assets/locke/ranks/Scout.png"), // placeholder until Runt art is added
+  Scout:       require("../assets/locke/ranks/Scout.png"),
+  Stalker:     require("../assets/locke/ranks/Stalker.png"),
+  Hunter:      require("../assets/locke/ranks/Hunter.png"),
+  Sentinel:    require("../assets/locke/ranks/Sentinel.png"),
+  Alpha:       require("../assets/locke/ranks/Alpha.png"),
+  Apex:        require("../assets/locke/ranks/Apex.png"),
+  Apex_Bronze: require("../assets/locke/ranks/Apex_Bronze.png"),
+  Apex_Silver: require("../assets/locke/ranks/Apex_Silver.png"),
+  Apex_Gold:   require("../assets/locke/ranks/Apex_Gold.png"),
 };
 
 export const EVOLUTION_RANKS = RANK_LADDER;
@@ -113,7 +116,7 @@ export function RankEvolutionPath({ currentRank, currentXP, xpForNextRank, progr
 
         {/* Rank name */}
         <Text style={[styles.rankName, { color: glowColors.viridian }]}>
-          {currentRank}
+          {rankDisplayName(currentRank)}
         </Text>
 
         <View style={styles.badgeRow}>
@@ -135,7 +138,7 @@ export function RankEvolutionPath({ currentRank, currentXP, xpForNextRank, progr
             </Text>
             {nextRankName ? (
               <Text style={[styles.xpText, { color: theme.colors.muted }]}>
-                {xpForNextRank} to {nextRankName}
+                {xpForNextRank} to {nextRankName?.replace(/_/g, " ")}
               </Text>
             ) : (
               <Text style={[styles.xpText, { color: glowColors.viridian }]}>

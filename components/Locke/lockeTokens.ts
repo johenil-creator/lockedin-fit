@@ -40,7 +40,7 @@ export const RIM_GLOW = {
 } as const;
 
 // ── Rank config ───────────────────────────────────────────────────────────────
-export type RankKey = "runt" | "scout" | "stalker" | "hunter" | "sentinel" | "alpha" | "apex";
+export type RankKey = "runt" | "scout" | "stalker" | "hunter" | "sentinel" | "alpha" | "apex" | "apex_bronze" | "apex_silver" | "apex_gold";
 
 export const RANK_CONFIG: Record<RankKey, {
   eyeRings:        number;   // how many stacked iris rings (1–3)
@@ -51,13 +51,16 @@ export const RANK_CONFIG: Record<RankKey, {
   rimIntensity:    number;   // multiplier on RIM_GLOW opacity (0.4 → 1.0)
   postureHunch:    number;   // body translate Y offset (positive = lower/hunch)
 }> = {
-  runt:     { eyeRings: 1, glowBlur: 3,  glowOpacity: 0.5,  collarVisible: false, collarGlow: false, rimIntensity: 0.4, postureHunch: 3  },
-  scout:    { eyeRings: 1, glowBlur: 5,  glowOpacity: 0.65, collarVisible: false, collarGlow: false, rimIntensity: 0.6, postureHunch: 1  },
-  stalker:  { eyeRings: 1, glowBlur: 6,  glowOpacity: 0.75, collarVisible: false, collarGlow: false, rimIntensity: 0.7, postureHunch: 0  },
-  hunter:   { eyeRings: 2, glowBlur: 7,  glowOpacity: 0.85, collarVisible: true,  collarGlow: false, rimIntensity: 0.8, postureHunch: 0  },
-  sentinel: { eyeRings: 2, glowBlur: 9,  glowOpacity: 0.90, collarVisible: true,  collarGlow: false, rimIntensity: 0.85,postureHunch: 0  },
-  alpha:    { eyeRings: 3, glowBlur: 11, glowOpacity: 0.95, collarVisible: true,  collarGlow: true,  rimIntensity: 0.95,postureHunch: 0  },
-  apex:     { eyeRings: 3, glowBlur: 14, glowOpacity: 1.0,  collarVisible: true,  collarGlow: true,  rimIntensity: 1.0, postureHunch: 0  },
+  runt:        { eyeRings: 1, glowBlur: 3,  glowOpacity: 0.5,  collarVisible: false, collarGlow: false, rimIntensity: 0.4,  postureHunch: 3  },
+  scout:       { eyeRings: 1, glowBlur: 5,  glowOpacity: 0.65, collarVisible: false, collarGlow: false, rimIntensity: 0.6,  postureHunch: 1  },
+  stalker:     { eyeRings: 1, glowBlur: 6,  glowOpacity: 0.75, collarVisible: false, collarGlow: false, rimIntensity: 0.7,  postureHunch: 0  },
+  hunter:      { eyeRings: 2, glowBlur: 7,  glowOpacity: 0.85, collarVisible: true,  collarGlow: false, rimIntensity: 0.8,  postureHunch: 0  },
+  sentinel:    { eyeRings: 2, glowBlur: 9,  glowOpacity: 0.90, collarVisible: true,  collarGlow: false, rimIntensity: 0.85, postureHunch: 0  },
+  alpha:       { eyeRings: 3, glowBlur: 11, glowOpacity: 0.95, collarVisible: true,  collarGlow: true,  rimIntensity: 0.95, postureHunch: 0  },
+  apex:        { eyeRings: 3, glowBlur: 14, glowOpacity: 1.0,  collarVisible: true,  collarGlow: true,  rimIntensity: 1.0,  postureHunch: 0  },
+  apex_bronze: { eyeRings: 3, glowBlur: 15, glowOpacity: 1.0,  collarVisible: true,  collarGlow: true,  rimIntensity: 1.0,  postureHunch: 0  },
+  apex_silver: { eyeRings: 3, glowBlur: 16, glowOpacity: 1.0,  collarVisible: true,  collarGlow: true,  rimIntensity: 1.0,  postureHunch: 0  },
+  apex_gold:   { eyeRings: 3, glowBlur: 18, glowOpacity: 1.0,  collarVisible: true,  collarGlow: true,  rimIntensity: 1.0,  postureHunch: 0  },
 } as const;
 
 // ── Mood pose offsets ─────────────────────────────────────────────────────────

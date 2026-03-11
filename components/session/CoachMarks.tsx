@@ -73,7 +73,7 @@ export function CoachMarks({ visible, onDismiss }: CoachMarksProps) {
 
         {/* Locke mascot */}
         <View style={styles.mascotContainer}>
-          <LockeMascot size={80} mood="encouraging" />
+          <LockeMascot size={100} mood="encouraging" />
         </View>
 
         {/* Tip text */}

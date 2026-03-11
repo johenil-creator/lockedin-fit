@@ -170,7 +170,7 @@ const RankXPRow = React.memo(function RankXPRow({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Locke panel: 120px mascot left + dynamic microcopy right. Only shown when has1RM. */
+/** Locke panel: mascot left + dynamic microcopy right. Only shown when has1RM. */
 type LockePanelProps = {
   mood: LockeMascotMood;
   microcopy: string;
@@ -185,7 +185,7 @@ const LockePanel = React.memo(function LockePanel({ mood, microcopy }: LockePane
         { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 },
       ]}
     >
-      <LockeMascot size={120} mood={mood} />
+      <LockeMascot size={160} mood={mood} />
       <Text style={[styles.lockeMicrocopy, { color: theme.colors.text }]}>
         {microcopy}
       </Text>
@@ -342,7 +342,7 @@ const BaselineCTA = React.memo(function BaselineCTA({ onTake, onManual }: { onTa
         { backgroundColor: theme.colors.surface, borderColor: theme.colors.accent },
       ]}
     >
-      <LockeMascot size={110} mood="encouraging" />
+      <LockeMascot size={180} mood="encouraging" />
       <Text style={[styles.baselineTitle, { color: theme.colors.text }]}>
         Set your baseline
       </Text>

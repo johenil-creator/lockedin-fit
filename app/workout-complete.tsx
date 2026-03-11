@@ -28,19 +28,23 @@ import { glowColors, spacing, radius } from "../lib/theme";
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { RANK_IMAGES } from "../components/RankEvolutionPath";
 import { formatPRName } from "../lib/prService";
+import { rankDisplayName } from "../lib/rankService";
 import type { WorkoutCompleteParams } from "../lib/xpService";
-import type { CardioPRKey } from "../lib/types";
+import type { CardioPRKey, RankLevel } from "../lib/types";
 
 // ── Rank flavor text ─────────────────────────────────────────────────────────
 
 const RANK_FLAVOR: Record<string, string> = {
-  Runt:     "Every legend starts somewhere.",
-  Scout:    "The hunt begins.",
-  Stalker:  "They can sense you coming.",
-  Hunter:   "Nothing escapes you now.",
-  Sentinel: "The pack follows you.",
-  Alpha:    "You lead. They follow.",
-  Apex:     "Unchallenged. Unstoppable.",
+  Runt:        "Every legend starts somewhere.",
+  Scout:       "The hunt begins.",
+  Stalker:     "They can sense you coming.",
+  Hunter:      "Nothing escapes you now.",
+  Sentinel:    "The pack follows you.",
+  Alpha:       "You lead. They follow.",
+  Apex:        "Unchallenged. Unstoppable.",
+  Apex_Bronze: "The summit is in sight.",
+  Apex_Silver: "Forged in iron. Crowned in silver.",
+  Apex_Gold:   "Unchallenged. Unstoppable.",
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -339,7 +343,7 @@ function LevelUpOverlay({
         </Animated.Text>
 
         <Animated.Text style={[levelUpStyles.rankName, { color: theme.colors.text }, rankNameStyle]}>
-          {newRank.toUpperCase()}
+          {rankDisplayName(newRank as RankLevel).toUpperCase()}
         </Animated.Text>
 
         <Animated.Text style={[levelUpStyles.flavor, { color: theme.colors.muted }, flavorStyle]}>
@@ -681,7 +685,7 @@ export default function WorkoutCompleteScreen() {
       <Animated.View style={[styles.lockeSection, lockeStyle]}>
         <View style={styles.lockeGlowWrap}>
           <Animated.View style={[styles.lockeGlow, glowAnimStyle]} />
-          <LockeMascot size={140} mood="celebrating" />
+          <LockeMascot size={200} mood="celebrating" />
         </View>
       </Animated.View>
 

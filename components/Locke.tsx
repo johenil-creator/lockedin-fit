@@ -81,7 +81,7 @@ export function LockeBanner() {
   return (
     <View style={[styles.banner, { backgroundColor: theme.colors.surface, borderColor }]}>
       <View style={styles.row}>
-        <LockeMascot size={32} mood={mood} />
+        <LockeMascot size={44} mood={mood} />
         <Text style={[styles.message, { color: theme.colors.text }]} numberOfLines={3}>
           {locke.message}
         </Text>

@@ -160,7 +160,7 @@ export default function WorkoutLogScreen() {
                   />
                 ) : (
                   <Animated.View entering={FadeIn.duration(400)} style={emptyStyles.wrap}>
-                    <LockeMascot size={140} mood="encouraging" />
+                    <LockeMascot size={180} mood="encouraging" />
                     <View style={[emptyStyles.bubble, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                       <View style={[emptyStyles.bubbleTail, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} />
                       <Text style={[emptyStyles.bubbleTitle, { color: theme.colors.text }]}>

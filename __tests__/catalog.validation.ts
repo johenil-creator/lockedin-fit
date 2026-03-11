@@ -668,7 +668,10 @@ test("rankForXP returns correct ranks at boundaries", () => {
   assertEqual(rankForXP(1000), "Sentinel", "1000 XP = Sentinel");
   assertEqual(rankForXP(1600), "Alpha", "1600 XP = Alpha");
   assertEqual(rankForXP(2400), "Apex", "2400 XP = Apex");
-  assertEqual(rankForXP(9999), "Apex", "9999 XP = Apex (capped)");
+  assertEqual(rankForXP(3200), "Apex_Bronze", "3200 XP = Apex_Bronze");
+  assertEqual(rankForXP(4200), "Apex_Silver", "4200 XP = Apex_Silver");
+  assertEqual(rankForXP(5400), "Apex_Gold", "5400 XP = Apex_Gold");
+  assertEqual(rankForXP(9999), "Apex_Gold", "9999 XP = Apex_Gold (capped)");
 });
 
 test("didRankUp correctly detects rank boundary crossing", () => {

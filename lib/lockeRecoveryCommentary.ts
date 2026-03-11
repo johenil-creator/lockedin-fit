@@ -49,13 +49,16 @@ const READINESS_IMBALANCE_THRESHOLD = 30;
 // ── Rank → Tone Mapping ─────────────────────────────────────────────────────
 
 const RANK_TONE_MAP: Record<RankLevel, RecoveryCommentaryTone> = {
-  Runt:     'nurturing',
-  Scout:    'nurturing',
-  Stalker:  'coaching',
-  Hunter:   'coaching',
-  Sentinel: 'intense',
-  Alpha:    'savage',
-  Apex:     'savage',
+  Runt:        'nurturing',
+  Scout:       'nurturing',
+  Stalker:     'coaching',
+  Hunter:      'coaching',
+  Sentinel:    'intense',
+  Alpha:       'savage',
+  Apex:        'savage',
+  Apex_Bronze: 'savage',
+  Apex_Silver: 'savage',
+  Apex_Gold:   'savage',
 };
 
 // ── Phrase Banks ─────────────────────────────────────────────────────────────

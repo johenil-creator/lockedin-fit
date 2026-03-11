@@ -102,7 +102,7 @@ export default function PlanCompleteScreen() {
       <Animated.View style={[styles.lockeSection, lockeStyle]}>
         <View style={styles.lockeGlowWrap}>
           <Animated.View style={[styles.lockeGlow, glowStyle]} />
-          <LockeMascot size={140} mood="celebrating" />
+          <LockeMascot size={200} mood="celebrating" />
         </View>
       </Animated.View>
 

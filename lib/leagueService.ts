@@ -46,6 +46,9 @@ const RANK_LADDER: RankLevel[] = [
   "Sentinel",
   "Alpha",
   "Apex",
+  "Apex_Bronze",
+  "Apex_Silver",
+  "Apex_Gold",
 ];
 
 function getNextRank(rank: string): RankLevel | null {

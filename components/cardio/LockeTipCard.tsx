@@ -67,7 +67,7 @@ export function LockeTipCard({ modality }: Props) {
         {/* Header row — always visible, tap to toggle */}
         <Pressable onPress={toggle} style={styles.header}>
           {/* Mini Locke icon */}
-          <LockeMascot size={36} mood="encouraging" />
+          <LockeMascot size={48} mood="encouraging" />
 
           <Text style={[styles.headerText, { color: theme.colors.text }]}>
             Locke's Tip

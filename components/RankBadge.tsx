@@ -2,16 +2,20 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { radius } from "../lib/theme";
+import { rankDisplayName } from "../lib/rankService";
 import type { RankLevel } from "../lib/types";
 
 const RANK_ICONS: Record<RankLevel, keyof typeof Ionicons.glyphMap> = {
-  Runt:     "paw-outline",
-  Scout:    "eye-outline",
-  Stalker:  "footsteps-outline",
-  Hunter:   "locate-outline",
-  Sentinel: "shield-half-outline",
-  Alpha:    "star-outline",
-  Apex:     "diamond-outline",
+  Runt:        "paw-outline",
+  Scout:       "eye-outline",
+  Stalker:     "footsteps-outline",
+  Hunter:      "locate-outline",
+  Sentinel:    "shield-half-outline",
+  Alpha:       "star-outline",
+  Apex:        "diamond-outline",
+  Apex_Bronze: "diamond-outline",
+  Apex_Silver: "diamond-outline",
+  Apex_Gold:   "diamond-outline",
 };
 
 type Props = {
@@ -32,7 +36,7 @@ export function RankBadge({ rank, compact = false }: Props) {
     >
       <Ionicons name={RANK_ICONS[rank]} size={14} color={theme.colors.primary} />
       {!compact && (
-        <Text style={[styles.label, { color: theme.colors.text }]}>{rank}</Text>
+        <Text style={[styles.label, { color: theme.colors.text }]}>{rankDisplayName(rank)}</Text>
       )}
     </View>
   );

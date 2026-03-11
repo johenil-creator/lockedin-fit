@@ -195,7 +195,10 @@ export type RankLevel =
   | 'Hunter'
   | 'Sentinel'
   | 'Alpha'
-  | 'Apex';
+  | 'Apex'
+  | 'Apex_Bronze'
+  | 'Apex_Silver'
+  | 'Apex_Gold';
 
 export type XPHistoryEntry = {
   date: string;      // ISO date string

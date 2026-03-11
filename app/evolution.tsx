@@ -28,6 +28,7 @@ import { useStreak } from "../hooks/useStreak";
 import { XP_AWARDS } from "../lib/xpService";
 import { glowColors, spacing, radius, typography } from "../lib/theme";
 import { RANK_IMAGES, EVOLUTION_RANKS } from "../components/RankEvolutionPath";
+import { rankDisplayName } from "../lib/rankService";
 import type { RankLevel } from "../lib/types";
 
 const NODE_SIZE = 64;
@@ -168,7 +169,7 @@ function PathNode({
           },
         ]}
       >
-        {tier.rank}
+        {rankDisplayName(tier.rank)}
       </Text>
 
       <Text
@@ -317,7 +318,7 @@ export default function EvolutionScreen() {
           </View>
 
           <Text style={[styles.heroRankName, { color: glowColors.viridian }]}>
-            {displayRank}
+            {rankDisplayName(displayRank as RankLevel)}
           </Text>
           <View style={styles.heroBadge}>
             <Text style={styles.heroBadgeText}>CURRENT RANK</Text>
@@ -336,7 +337,7 @@ export default function EvolutionScreen() {
               </Text>
               {nextTier ? (
                 <Text style={[styles.heroXpText, { color: theme.colors.muted }]}>
-                  {toNext} to {nextTier.rank}
+                  {toNext} to {rankDisplayName(nextTier.rank)}
                 </Text>
               ) : (
                 <Text style={[styles.heroXpText, { color: glowColors.viridian }]}>

@@ -549,7 +549,7 @@ const CoachCard = React.memo(function CoachCard({
       <View style={styles.coachColumn}>
         <Animated.View style={[styles.coachMascotWrap, mascotFloatStyle]}>
           <View style={[styles.coachMascotGlow, { backgroundColor: mascotGlow }]} />
-          <LockeMascot size={96} mood={coach.mascotMood} />
+          <LockeMascot size={120} mood={coach.mascotMood} />
         </Animated.View>
         <Text style={[styles.coachHeadline, { color: theme.colors.text }]} numberOfLines={2}>
           {coach.headline}
@@ -1154,7 +1154,7 @@ const EmptyState = React.memo(function EmptyState() {
     <View style={styles.emptyState}>
       <View style={styles.emptyMascotWrap}>
         <View style={[styles.emptyMascotGlow, { backgroundColor: theme.colors.primary }]} />
-        <LockeMascot size={120} mood="encouraging" />
+        <LockeMascot size={160} mood="encouraging" />
         {/* Orbiting dots at 0°, 120°, 240° phase offsets */}
         <OrbitingDot rotation={orbitRotation} phase={0}   color={theme.colors.primary + 'AA'} />
         <OrbitingDot rotation={orbitRotation} phase={120} color={theme.colors.primary + '70'} />

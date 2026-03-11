@@ -711,7 +711,7 @@ export default function CatalogScreen() {
       {/* ── Plan list ── */}
       {sorted.length === 0 ? (
         <View style={styles.noResults}>
-          <LockeMascot size={80} mood="neutral" />
+          <LockeMascot size={120} mood="neutral" />
           <Text style={[styles.noResultsTitle, { color: theme.colors.text }]}>No plans match</Text>
           <Text style={[styles.noResultsText, { color: theme.colors.muted }]}>
             Try loosening your filters or tap Clear to see all plans.
@@ -840,7 +840,7 @@ export default function CatalogScreen() {
         snapPoints={["58%"]}
       >
         <View style={ormStyles.container}>
-          <LockeMascot size={100} mood="savage" />
+          <LockeMascot size={140} mood="savage" />
           <Text style={[ormStyles.title, { color: theme.colors.text }]}>
             Set Up Your Lifts First
           </Text>

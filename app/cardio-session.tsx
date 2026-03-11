@@ -462,7 +462,7 @@ export default function CardioSessionScreen() {
           }}
         >
           <View style={styles.lockContent}>
-            <LockeMascot size={48} mood="neutral" />
+            <LockeMascot size={64} mood="neutral" />
             <Ionicons name="lock-closed" size={32} color={theme.colors.muted} style={{ marginTop: spacing.md }} />
             <Text style={[styles.lockedLabel, { color: theme.colors.muted }]}>LOCKED</Text>
           </View>
