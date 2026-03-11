@@ -20,6 +20,14 @@ import { PlanProvider } from "../contexts/PlanContext";
 import { ProfileProvider } from "../contexts/ProfileContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { preloadLockeAssets } from "../components/Locke/LockeMascot";
+import { useHealthWeightSync } from "../hooks/useHealthWeightSync";
+
+/** Runs app-level background syncs that need context providers. */
+function AppSyncEffects() {
+  useHealthWeightSync();
+  return null;
+}
+
 
 export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
   return (
@@ -39,6 +47,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <ProfileProvider>
+          <AppSyncEffects />
           <ThemeProvider>
             <ToastProvider>
               <LockeProvider>

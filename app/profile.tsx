@@ -77,19 +77,9 @@ export default function ProfileScreen() {
         ohp: profile.manual1RM.ohp ?? "",
         bench: profile.manual1RM.bench ?? "",
       });
-
-      // Auto-fill weight from HealthKit when empty
-      if (!profile.weight && hkAvailable) {
-        hkFetchWeight(profile.weightUnit).then((value) => {
-          if (value) {
-            setWeight(value);
-            updateProfile({ weight: value });
-          }
-        });
-      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs only when profile loads or 1RM changes
-  }, [profileLoading, profile.manual1RM, hkAvailable]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when profile loads, weight changes (HealthKit sync), or 1RM changes
+  }, [profileLoading, profile.weight, profile.manual1RM]);
 
   // Generate friend code once if missing
   useEffect(() => {
