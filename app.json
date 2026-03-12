@@ -46,7 +46,6 @@
     "scheme": "lockedinfit",
     "plugins": [
       "expo-router",
-      "./plugins/withAlternateIcons",
       [
         "expo-custom-assets",
         {
