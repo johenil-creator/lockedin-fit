@@ -10,7 +10,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
-import * as Haptics from "expo-haptics";
+import { impact, notification, ImpactStyle, NotificationType } from "../../lib/haptics";
 import { useAppTheme } from "../../contexts/ThemeContext";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -45,7 +45,7 @@ export function CountdownRing({ visible, onComplete }: Props) {
 
     // Beat 0 → "3" (immediate)
     progress.value = withTiming(0.25, { duration: 800, easing: Easing.linear });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    impact(ImpactStyle.Medium);
     punchScale();
 
     // Beat 1 → "2"
@@ -53,7 +53,7 @@ export function CountdownRing({ visible, onComplete }: Props) {
       setTimeout(() => {
         setBeat(1);
         progress.value = withTiming(0.5, { duration: 800, easing: Easing.linear });
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        impact(ImpactStyle.Medium);
         punchScale();
       }, 800)
     );
@@ -63,7 +63,7 @@ export function CountdownRing({ visible, onComplete }: Props) {
       setTimeout(() => {
         setBeat(2);
         progress.value = withTiming(0.75, { duration: 800, easing: Easing.linear });
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        impact(ImpactStyle.Medium);
         punchScale();
       }, 1600)
     );
@@ -73,7 +73,7 @@ export function CountdownRing({ visible, onComplete }: Props) {
       setTimeout(() => {
         setBeat(3);
         progress.value = withTiming(1, { duration: 800, easing: Easing.linear });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        notification(NotificationType.Success);
         punchScale();
       }, 2400)
     );

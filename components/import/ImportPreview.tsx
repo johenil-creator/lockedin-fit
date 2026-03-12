@@ -12,7 +12,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { notification, NotificationType } from '../../lib/haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { spacing, radius, typography } from '../../lib/theme';
@@ -140,7 +140,7 @@ const ConfirmButton = React.memo(function ConfirmButton({
 
   const handlePress = useCallback(() => {
     if (loading) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    notification(NotificationType.Success);
     onPress();
   }, [loading, onPress]);
 

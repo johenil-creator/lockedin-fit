@@ -122,8 +122,13 @@ export function getTrend(data: ExerciseProgress[], metric: 'estimated1RM' | 'vol
   return 'flat';
 }
 
-/** Get overview stats across all exercises. */
-export function getProgressOverview(workouts: WorkoutSession[]) {
+/** Get overview stats across all exercises.
+ *  Accepts an optional pre-computed progress map to avoid recomputing per-exercise data.
+ */
+export function getProgressOverview(
+  workouts: WorkoutSession[],
+  precomputedMap?: Record<string, ExerciseProgress[]>,
+) {
   const completed = workouts.filter(w => !w.isActive && w.completedAt);
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 86400000);
@@ -131,12 +136,12 @@ export function getProgressOverview(workouts: WorkoutSession[]) {
   const thisWeekSessions = completed.filter(w => new Date(w.completedAt!).getTime() > weekAgo.getTime());
 
   // Count total PRs across all exercises
-  const exerciseNames = getUniqueExerciseNames(workouts);
+  const exerciseNames = precomputedMap ? Object.keys(precomputedMap) : getUniqueExerciseNames(workouts);
   let totalPRs = 0;
   let recentPRs: { exercise: string; value: number; date: string }[] = [];
 
   for (const name of exerciseNames) {
-    const progress = getExerciseProgress(workouts, name);
+    const progress = precomputedMap ? precomputedMap[name] : getExerciseProgress(workouts, name);
     for (const p of progress) {
       if (p.isPR) {
         totalPRs++;

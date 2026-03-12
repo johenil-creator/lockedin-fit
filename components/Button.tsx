@@ -4,7 +4,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { impact, ImpactStyle } from "../lib/haptics";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { radius } from "../lib/theme";
 
@@ -53,7 +53,7 @@ export function Button({ label, onPress, variant = "primary", disabled, loading,
         onPressIn={() => {
           if (!disabled && !loading) {
             scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            impact(ImpactStyle.Light);
           }
         }}
         onPressOut={() => {

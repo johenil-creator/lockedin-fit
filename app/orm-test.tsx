@@ -14,7 +14,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { impact, ImpactStyle } from "../lib/haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { usePlanContext } from "../contexts/PlanContext";
@@ -208,7 +208,7 @@ export default function OrmTestScreen() {
     const nextIndex = currentLift.sets.findIndex((s) => !s.completed);
     if (nextIndex >= 0) {
       ormTest.completeSet(liftIndex, nextIndex);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      impact(ImpactStyle.Medium);
       startRestTimer(nextIndex);
     }
   }
@@ -570,7 +570,7 @@ export default function OrmTestScreen() {
                       onPress={() => {
                         if (!set.completed && !isFuture && !restTimer && set.reps?.trim()) {
                           ormTest.completeSet(liftIndex, i);
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          impact(ImpactStyle.Medium);
                           startRestTimer(i);
                         }
                       }}
@@ -677,7 +677,7 @@ export default function OrmTestScreen() {
                   onPress={() => {
                     if (!set.completed && !isFuture && !restTimer) {
                       ormTest.completeSet(liftIndex, i);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      impact(ImpactStyle.Medium);
                       startRestTimer(i);
                     }
                   }}

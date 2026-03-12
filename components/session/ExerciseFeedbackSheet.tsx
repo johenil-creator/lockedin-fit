@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import * as Haptics from "expo-haptics";
+import { impact, ImpactStyle } from "../../lib/haptics";
 import { AppBottomSheet } from "../AppBottomSheet";
 import { Button } from "../Button";
 import { useAppTheme } from "../../contexts/ThemeContext";
@@ -39,12 +39,12 @@ export function ExerciseFeedbackSheet({
 
   const handleRpeTap = useCallback((value: number) => {
     setSelectedRpe(value);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
   }, []);
 
   const handleFeelingTap = useCallback((tag: FeelingTag) => {
     setSelectedFeeling(tag);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
   }, []);
 
   const handleSubmit = useCallback(() => {

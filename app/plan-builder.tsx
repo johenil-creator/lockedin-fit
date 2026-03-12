@@ -13,7 +13,7 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { impact, notification, ImpactStyle, NotificationType } from "../lib/haptics";
 import { BackButton } from "../components/BackButton";
 import { usePlanContext } from "../contexts/PlanContext";
 import { useAppTheme } from "../contexts/ThemeContext";
@@ -87,7 +87,7 @@ function ChipRow<T extends string>({
           <Pressable
             key={opt}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              impact(ImpactStyle.Light);
               onSelect(opt);
             }}
             style={[
@@ -136,7 +136,7 @@ function Stepper({
       <View style={stepper.controls}>
         <Pressable
           onPress={() => {
-            if (value > min) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onChange(value - 1); }
+            if (value > min) { impact(ImpactStyle.Light); onChange(value - 1); }
           }}
           style={[stepper.btn, { backgroundColor: theme.colors.mutedBg, opacity: value <= min ? 0.3 : 1 }]}
         >
@@ -145,7 +145,7 @@ function Stepper({
         <Text style={[stepper.value, { color: theme.colors.text }]}>{value}</Text>
         <Pressable
           onPress={() => {
-            if (value < max) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onChange(value + 1); }
+            if (value < max) { impact(ImpactStyle.Light); onChange(value + 1); }
           }}
           style={[stepper.btn, { backgroundColor: theme.colors.mutedBg, opacity: value >= max ? 0.3 : 1 }]}
         >
@@ -291,7 +291,7 @@ function DayTabs({
         return (
           <Pressable
             key={i}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onSelect(i); }}
+            onPress={() => { impact(ImpactStyle.Light); onSelect(i); }}
             style={[
               dt.tab,
               {
@@ -368,7 +368,7 @@ export default function PlanBuilderScreen() {
       return updated;
     });
     setPickerVisible(false);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
   }, [activeDay]);
 
   const handleUpdateExercise = useCallback((i: number, patch: Partial<DayExercise>) => {
@@ -382,7 +382,7 @@ export default function PlanBuilderScreen() {
   }, [activeDay]);
 
   const handleDeleteExercise = useCallback((i: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     setDays((prev) => {
       const updated = [...prev];
       const dayExercises = [...updated[activeDay].exercises];
@@ -429,7 +429,7 @@ export default function PlanBuilderScreen() {
     }
 
     setPlan(planName.trim(), exercises);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    notification(NotificationType.Success);
     showToast({ message: `Created "${planName.trim()}" — ${totalExercises} exercises, ${numWeeks} weeks`, type: "success" });
     router.replace("/(tabs)/plan");
   }, [planName, days, numWeeks, totalExercises, setPlan, showToast, router]);
@@ -440,7 +440,7 @@ export default function PlanBuilderScreen() {
 
   const handleNext = useCallback(() => {
     if (step < 2) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      impact(ImpactStyle.Light);
       setStep(step + 1);
     } else {
       handleSave();
@@ -560,7 +560,7 @@ export default function PlanBuilderScreen() {
               {/* Add exercise button */}
               <Pressable
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  impact(ImpactStyle.Light);
                   setPickerVisible(true);
                 }}
                 style={[s.addBtn, { borderColor: glowColors.viridian }]}

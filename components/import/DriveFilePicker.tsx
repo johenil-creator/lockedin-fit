@@ -16,7 +16,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { impact, ImpactStyle } from '../../lib/haptics';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { useAppTheme } from '../../contexts/ThemeContext';
@@ -145,7 +145,7 @@ const FileRow = React.memo(function FileRow({ file, onPress }: FileRowProps) {
   }, [scale]);
 
   const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     onPress(file);
   }, [file, onPress]);
 

@@ -5,7 +5,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { impact, ImpactStyle } from '../../lib/haptics';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { useAppTheme } from '../../contexts/ThemeContext';
@@ -53,7 +53,7 @@ const SourceCard = React.memo(function SourceCard({
   }, [scale]);
 
   const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     onPress();
   }, [onPress]);
 

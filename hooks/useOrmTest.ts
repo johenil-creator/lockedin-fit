@@ -83,7 +83,7 @@ export function useOrmTest(
         setSession(stored);
       }
       setLoading(false);
-    });
+    }).catch(() => { setLoading(false); });
   }, []);
 
   // ── Derived state ──────────────────────────────────────────────────────────

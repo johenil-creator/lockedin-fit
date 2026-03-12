@@ -11,7 +11,7 @@ import Animated, {
   Easing,
   interpolate,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { impact, notification, ImpactStyle, NotificationType } from "../lib/haptics";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { glowColors, spacing, radius } from "../lib/theme";
@@ -34,7 +34,7 @@ export default function PlanCompleteScreen() {
 
   // Entry haptic
   useEffect(() => {
-    const t = setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 100);
+    const t = setTimeout(() => notification(NotificationType.Success), 100);
     return () => clearTimeout(t);
   }, []);
 
@@ -93,7 +93,7 @@ export default function PlanCompleteScreen() {
   }));
 
   const goHome = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     router.replace("/");
   }, [router]);
 

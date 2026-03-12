@@ -24,7 +24,7 @@ import { RankEvolutionPath } from "../components/RankEvolutionPath";
 import { Button } from "../components/Button";
 import { Skeleton } from "../components/Skeleton";
 import { useHealthKit } from "../hooks/useHealthKit";
-import * as Haptics from "expo-haptics";
+import { impact, notification, ImpactStyle, NotificationType } from "../lib/haptics";
 import { BADGE_DEFINITIONS } from "../lib/badgeService";
 import type { Friend } from "../lib/types";
 
@@ -99,7 +99,7 @@ export default function ProfileScreen() {
   function handleCopyCode() {
     if (!myCode) return;
     Clipboard.setString(myCode);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    notification(NotificationType.Success);
     setCopyFlash(true);
     if (copyFlashTimer.current) clearTimeout(copyFlashTimer.current);
     copyFlashTimer.current = setTimeout(() => setCopyFlash(false), 1500);
@@ -107,7 +107,7 @@ export default function ProfileScreen() {
 
   async function handleShareCode() {
     if (!myCode) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     Share.share({
       message: `Add me on LockedInFIT! My friend code is: ${myCode}`,
     });
@@ -131,11 +131,11 @@ export default function ProfileScreen() {
     const newFriend: Friend = { code, addedAt: new Date().toISOString() };
     updateProfile({ friends: [...friends, newFriend] });
     setFriendInput("");
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    notification(NotificationType.Success);
   }
 
   function handleRemoveFriend(code: string) {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     updateProfile({ friends: friends.filter((f) => f.code !== code) });
   }
 

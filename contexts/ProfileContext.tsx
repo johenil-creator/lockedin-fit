@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { loadProfile, saveProfile } from '../lib/storage';
+import { setHapticsEnabled } from '../lib/haptics';
 import type { UserProfile } from '../lib/types';
 
 const DEFAULT_PROFILE: UserProfile = {
@@ -33,6 +34,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const value = p ?? DEFAULT_PROFILE;
       profileRef.current = value;
       setProfile(value);
+      setHapticsEnabled(value.hapticsEnabled !== false);
       setLoading(false);
       setHydrated(true);
     }).catch(() => { setLoading(false); setHydrated(true); });
@@ -42,6 +44,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const updated = { ...profileRef.current, ...patch };
     profileRef.current = updated;   // sync — always up-to-date
     setProfile(updated);            // schedule React re-render
+    if ('hapticsEnabled' in patch) setHapticsEnabled(updated.hapticsEnabled !== false);
     await saveProfile(updated);     // persist
   }, []);
 

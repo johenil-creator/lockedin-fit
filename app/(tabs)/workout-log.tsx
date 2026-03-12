@@ -52,7 +52,17 @@ export default function WorkoutLogScreen() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const exerciseNames = useMemo(() => getUniqueExerciseNames(workouts), [workouts]);
-  const overview = useMemo(() => getProgressOverview(workouts), [workouts]);
+
+  // Pre-compute progress data for all exercises in one pass
+  const exerciseDataMap = useMemo(() => {
+    const map: Record<string, ReturnType<typeof getExerciseProgress>> = {};
+    for (const name of exerciseNames) {
+      map[name] = getExerciseProgress(workouts, name);
+    }
+    return map;
+  }, [exerciseNames, workouts]);
+
+  const overview = useMemo(() => getProgressOverview(workouts, exerciseDataMap), [workouts, exerciseDataMap]);
 
   // Filter exercises by search query
   const filteredExercises = useMemo(() => {
@@ -325,7 +335,7 @@ export default function WorkoutLogScreen() {
                 </Text>
               ) : (
                 filteredExercises.map((name, index) => {
-                  const data = getExerciseProgress(workouts, name);
+                  const data = exerciseDataMap[name] ?? [];
                   if (data.length === 0) return null;
                   const trend = getTrend(data, "estimated1RM");
                   return (

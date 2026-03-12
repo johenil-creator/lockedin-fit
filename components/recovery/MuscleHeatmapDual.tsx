@@ -8,7 +8,7 @@
 import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { impact, ImpactStyle } from '../../lib/haptics';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -47,7 +47,7 @@ const FlipButton = React.memo(function FlipButton({
   const iconRotation = useSharedValue(0);
 
   const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     iconRotation.value = withTiming(iconRotation.value + 180, {
       duration: 350,
       easing: Easing.out(Easing.quad),

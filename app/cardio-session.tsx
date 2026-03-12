@@ -25,7 +25,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { impact, ImpactStyle } from "../lib/haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useWorkouts } from "../hooks/useWorkouts";
 import { useXP } from "../hooks/useXP";
@@ -175,12 +175,12 @@ export default function CardioSessionScreen() {
   // ── Pause / Resume ────────────────────────────────────────────────────────
   function handlePause() {
     setIsPaused(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
   }
 
   function handleResume() {
     setIsPaused(false);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
   }
 
   // ── End session ───────────────────────────────────────────────────────────
@@ -392,7 +392,7 @@ export default function CardioSessionScreen() {
             <Pressable
               onPress={() => {
                 setIsLocked(true);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                impact(ImpactStyle.Light);
               }}
               style={styles.lockBtn}
               accessibilityRole="button"
@@ -456,7 +456,7 @@ export default function CardioSessionScreen() {
           onTouchEnd={(e) => {
             const delta = lockTouchRef.current - e.nativeEvent.pageY;
             if (delta > 100) {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              impact(ImpactStyle.Light);
               setIsLocked(false);
             }
           }}

@@ -8,7 +8,7 @@ import BottomSheet, {
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { impact, ImpactStyle } from "../../lib/haptics";
 import { exerciseCatalog } from "../../src/data/exerciseCatalog";
 import type { ExerciseCatalogEntry, Equipment, MuscleGroup } from "../../src/data/catalogTypes";
 import { useAppTheme } from "../../contexts/ThemeContext";
@@ -205,7 +205,7 @@ export function ExercisePicker({ visible, onClose, onSelect, excludeNames }: Exe
   const keyExtractor = useCallback((item: IndexedEntry) => item.id, []);
 
   const handleBodyPartTap = useCallback((label: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     setMuscleFilter(label);
   }, []);
 

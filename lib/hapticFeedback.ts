@@ -1,50 +1,50 @@
-import * as Haptics from "expo-haptics";
+import { impact, notification, ImpactStyle, NotificationType } from "./haptics";
 
 /** Quick tick for completing a set */
 export function hapticSetComplete(): void {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  impact(ImpactStyle.Medium);
 }
 
 /** Double-tap celebration for workout complete */
 export async function hapticWorkoutComplete(): Promise<void> {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  impact(ImpactStyle.Heavy);
   await delay(100);
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  impact(ImpactStyle.Heavy);
   await delay(100);
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  notification(NotificationType.Success);
 }
 
 /** Triple crescendo for rank up */
 export async function hapticRankUp(): Promise<void> {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  impact(ImpactStyle.Light);
   await delay(120);
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  impact(ImpactStyle.Medium);
   await delay(120);
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  impact(ImpactStyle.Heavy);
   await delay(150);
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  notification(NotificationType.Success);
 }
 
 /** Quick success buzz for PR detection */
 export function hapticPR(): void {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  notification(NotificationType.Success);
 }
 
 /** Warning buzz for streak at risk */
 export function hapticStreakRisk(): void {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  notification(NotificationType.Warning);
 }
 
 /** Soft tick for badge unlock */
 export async function hapticBadgeUnlock(): Promise<void> {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  impact(ImpactStyle.Light);
   await delay(80);
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  impact(ImpactStyle.Medium);
 }
 
 /** Light tap for UI interactions */
 export function hapticTap(): void {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  impact(ImpactStyle.Light);
 }
 
 function delay(ms: number): Promise<void> {

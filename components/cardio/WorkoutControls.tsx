@@ -5,7 +5,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { impact, ImpactStyle } from "../../lib/haptics";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { spacing } from "../../lib/theme";
 
@@ -68,7 +68,7 @@ function AnimatedCircle({
         scale.value = withSpring(1, SPRING_CONFIG);
       }}
       onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        impact(ImpactStyle.Light);
         onPress();
       }}
       accessibilityRole="button"
@@ -146,7 +146,7 @@ export function WorkoutControls({ state, onPause, onResume, onEnd, onFinish }: P
 
       <Pressable
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          impact(ImpactStyle.Light);
           onEnd();
         }}
         style={styles.textLink}

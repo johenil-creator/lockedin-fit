@@ -22,7 +22,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { impact, ImpactStyle } from '../../lib/haptics';
 import Svg, { Path } from 'react-native-svg';
 import Animated, {
   cancelAnimation,
@@ -572,7 +572,7 @@ function MuscleHeatmapInner({
   const handlePressRef = useRef<(m: MuscleGroup) => void>(null!);
   useEffect(() => {
     handlePressRef.current = (muscle: MuscleGroup) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      impact(ImpactStyle.Light);
       if (selectedMuscle === muscle) {
         // Deselect — restore all layer opacities
         setSelectedMuscle(null);

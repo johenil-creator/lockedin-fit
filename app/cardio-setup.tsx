@@ -28,7 +28,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { impact, selection, ImpactStyle } from "../lib/haptics";
 import { useRouter } from "expo-router";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { LockeMascot } from "../components/Locke/LockeMascot";
@@ -116,7 +116,7 @@ function PresetCard({
           scale.value = withSpring(1, { damping: 15, stiffness: 400 });
         }}
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          impact(ImpactStyle.Light);
           onPress();
         }}
       >
@@ -173,7 +173,7 @@ function CustomCardioModal({
   if (!visible) return null;
 
   const handleStart = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    impact(ImpactStyle.Medium);
     const label = selectedModality.charAt(0).toUpperCase() + selectedModality.slice(1).replace("_", " ");
     onStart({
       modality: selectedModality,
@@ -216,7 +216,7 @@ function CustomCardioModal({
                   ]}
                   onPress={() => {
                     setSelectedModality(m.id);
-                    Haptics.selectionAsync();
+                    selection();
                   }}
                 >
                   <Text style={styles.modalityChipIcon}>{m.icon}</Text>
@@ -253,7 +253,7 @@ function CustomCardioModal({
                   ]}
                   onPress={() => {
                     setSelectedRpe(opt.rpe);
-                    Haptics.selectionAsync();
+                    selection();
                   }}
                 >
                   <Text
@@ -329,7 +329,7 @@ function LockeTipModal({
           </View>
 
           <Button label="Let's Go!" onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            impact(ImpactStyle.Medium);
             onLetsGo();
           }} />
         </Animated.View>
@@ -411,7 +411,7 @@ export default function CardioSetupScreen() {
               onPress={() => router.back()}
               onPressIn={() => {
                 backScale.value = withSpring(0.8, { damping: 14, stiffness: 400 });
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                impact(ImpactStyle.Light);
               }}
               onPressOut={() => {
                 backScale.value = withSpring(1, { damping: 14, stiffness: 400 });
@@ -453,7 +453,7 @@ export default function CardioSetupScreen() {
           <Pressable
             style={[styles.customBtn, { borderColor: theme.colors.border }]}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              impact(ImpactStyle.Light);
               setShowCustomModal(true);
             }}
           >

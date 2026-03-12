@@ -48,7 +48,7 @@ import Animated, {
 // Gentle section entrance — short fade + subtle 8px slide, no spring bounce
 const sectionEnter = (delay: number) =>
   FadeInDown.delay(delay).duration(350).damping(20).stiffness(150);
-import * as Haptics from 'expo-haptics';
+import { impact, notification, selection, ImpactStyle, NotificationType } from '../../lib/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { glowColors, radius, spacing, typography } from '../../lib/theme';
@@ -1177,7 +1177,7 @@ const EmptyState = React.memo(function EmptyState() {
           styles.emptyCtaBtn,
           { backgroundColor: theme.colors.primary, opacity: pressed ? 0.85 : 1 },
         ]}
-        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/(tabs)"); }}
+        onPress={() => { impact(ImpactStyle.Medium); router.push("/(tabs)"); }}
       >
         <Text style={[styles.emptyCtaBtnText, { color: theme.colors.primaryText }]}>
           Start your first workout
@@ -1331,11 +1331,11 @@ export default function RecoveryScreen() {
     hapticFiredRef.current = true;
     const score = data.readiness.score;
     if (score >= 80) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notification(NotificationType.Success);
     } else if (score >= 40) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      notification(NotificationType.Warning);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      notification(NotificationType.Error);
     }
   }, [data]);
 
@@ -1343,19 +1343,19 @@ export default function RecoveryScreen() {
   const wasLoadingRef = useRef(false);
   useEffect(() => {
     if (wasLoadingRef.current && !loading && data) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notification(NotificationType.Success);
     }
     wasLoadingRef.current = loading;
   }, [loading, data]);
 
   const handleMusclePress = useCallback((muscle: MuscleGroup) => {
-    Haptics.selectionAsync();
+    selection();
     setSelectedMuscle(muscle);
     setSheetOpen(true);
   }, []);
 
   const handleRefresh = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impact(ImpactStyle.Light);
     refresh();
   }, [refresh]);
 
@@ -1364,7 +1364,7 @@ export default function RecoveryScreen() {
   }, []);
 
   const handleScorePress = useCallback(() => {
-    Haptics.selectionAsync();
+    selection();
     setScoreSheetOpen(true);
   }, []);
 
@@ -1373,7 +1373,7 @@ export default function RecoveryScreen() {
   }, []);
 
   const handlePillPress = useCallback((key: PillKey) => {
-    Haptics.selectionAsync();
+    selection();
     setSelectedPill(key);
     setPillSheetOpen(true);
   }, []);

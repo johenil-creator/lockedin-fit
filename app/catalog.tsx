@@ -20,7 +20,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { impact, ImpactStyle } from "../lib/haptics";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from "@gorhom/bottom-sheet";
@@ -419,7 +419,7 @@ function FilterChip({ label, active, onPress, theme, multiSelect }: {
         onPressIn={() => { scale.value = withSpring(0.93, { damping: 15, stiffness: 400 }); }}
         onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 400 }); }}
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          impact(ImpactStyle.Light);
           onPress();
         }}
       >
@@ -446,7 +446,7 @@ function ActiveFilterPill({ label, onRemove, theme }: {
       <Pressable
         style={[styles.activePill, { backgroundColor: theme.colors.accent }]}
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          impact(ImpactStyle.Light);
           onRemove();
         }}
         hitSlop={4}
