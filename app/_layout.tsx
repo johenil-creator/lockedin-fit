@@ -1,8 +1,8 @@
-import { useEffect } from "react";
-import { LogBox } from "react-native";
+import { useEffect, useState } from "react";
+import { LogBox, Alert } from "react-native";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, ScrollView } from "react-native";
 import { ThemeProvider } from "../contexts/ThemeContext";
 
 // Reanimated 4.x layout animations (FadeIn/FadeInDown entering) internally
@@ -33,7 +33,10 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1117", justifyContent: "center", alignItems: "center", padding: 24 }}>
       <Text style={{ color: "#E63946", fontSize: 20, fontWeight: "700", marginBottom: 12 }}>Something went wrong</Text>
-      <Text style={{ color: "#9DA5B0", fontSize: 14, textAlign: "center", marginBottom: 24 }}>{error.message}</Text>
+      <ScrollView style={{ maxHeight: 300, marginBottom: 24 }}>
+        <Text selectable style={{ color: "#9DA5B0", fontSize: 14, textAlign: "center" }}>{error.message}</Text>
+        <Text selectable style={{ color: "#6A737D", fontSize: 11, textAlign: "center", marginTop: 8 }}>{error.stack}</Text>
+      </ScrollView>
       <Pressable onPress={retry} style={{ backgroundColor: "#00875A", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}>
         <Text style={{ color: "#0D1117", fontWeight: "600", fontSize: 16 }}>Try Again</Text>
       </Pressable>
