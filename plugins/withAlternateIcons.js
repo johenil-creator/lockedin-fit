@@ -22,7 +22,7 @@ function assetSetName(mood) {
 }
 
 /**
- * Pad a PNG to 1024x1024 centered on #0D1117 background using sips + Python.
+ * Pad a PNG to 1024x1024 centered on #0D1117 background using sips.
  * Only runs if the image isn't already 1024x1024 at 72 DPI.
  */
 function ensureIcon1024(pngPath) {
@@ -36,47 +36,24 @@ function ensureIcon1024(pngPath) {
   if (w === 1024 && h === 1024 && Math.abs(dpi - 72) < 1) return;
 
   console.log(`  [withAlternateIcons] Padding ${path.basename(pngPath)} (${w}x${h} @${dpi}dpi) -> 1024x1024 @72dpi`);
-  execSync(
-    `/usr/bin/python3 -c "
-from PIL import Image
-fg = Image.open('${pngPath}').convert('RGBA')
-w, h = fg.size
-BG = (0x0D, 0x11, 0x17, 255)
-canvas = Image.new('RGBA', (1024, 1024), BG)
-if w > 900 or h > 900:
-    pixels = fg.load()
-    min_x, min_y, max_x, max_y = w, h, 0, 0
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = pixels[x, y]
-            if a > 10 and not (r == 0x0D and g == 0x11 and b == 0x17):
-                min_x, min_y = min(min_x, x), min(min_y, y)
-                max_x, max_y = max(max_x, x), max(max_y, y)
-    if max_x > min_x and max_y > min_y:
-        content = fg.crop((min_x, min_y, max_x + 1, max_y + 1))
-        cw, ch = content.size
-        canvas.paste(content, ((1024-cw)//2, (1024-ch)//2), content)
-    else:
-        canvas.paste(fg, ((1024-w)//2, (1024-h)//2), fg)
-else:
-    canvas.paste(fg, ((1024-w)//2, (1024-h)//2), fg)
-canvas.convert('RGB').save('${pngPath}', dpi=(72, 72))
-"`,
-    { encoding: "utf8" }
-  );
+  // Resample largest dimension to 1024, pad to square, set DPI
+  execSync(`sips --resampleLargestPixel 1024 "${pngPath}"`, { encoding: "utf8" });
+  execSync(`sips --padToHeightWidth 1024 1024 --padColor 0D1117 "${pngPath}"`, { encoding: "utf8" });
+  execSync(`sips -s dpiWidth 72 -s dpiHeight 72 "${pngPath}"`, { encoding: "utf8" });
 }
 
 /**
  * Strip alpha channel from a PNG — iOS rejects app icons with transparency.
+ * Uses JPEG roundtrip via sips (lossless enough at 1024x1024 icon size).
  */
 function stripAlpha(pngPath) {
   if (!fs.existsSync(pngPath)) return;
-  const info = execSync(`file "${pngPath}"`, { encoding: "utf8" });
-  if (!info.includes("RGBA")) return; // already opaque
-  execSync(
-    `/usr/bin/python3 -c "from PIL import Image; Image.open('${pngPath}').convert('RGB').save('${pngPath}', dpi=(72,72))"`,
-    { encoding: "utf8" }
-  );
+  const info = execSync(`sips -g hasAlpha "${pngPath}"`, { encoding: "utf8" });
+  if (!info.includes("yes")) return; // already opaque
+  const tmpJpeg = pngPath.replace(/\.png$/, "_tmp.jpg");
+  execSync(`sips -s format jpeg "${pngPath}" --out "${tmpJpeg}"`, { encoding: "utf8" });
+  execSync(`sips -s format png "${tmpJpeg}" --out "${pngPath}"`, { encoding: "utf8" });
+  fs.unlinkSync(tmpJpeg);
   console.log(`  [withAlternateIcons] Stripped alpha from ${path.basename(pngPath)}`);
 }
 
