@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
-  FlatList,
+  TextInput,
 } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,9 +15,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { fmtDate } from "../../lib/helpers";
 import { useWorkouts } from "../../hooks/useWorkouts";
+import { useStreak } from "../../hooks/useStreak";
+import { useXP } from "../../hooks/useXP";
 import { useProfileContext } from "../../contexts/ProfileContext";
-import { getExerciseProgress, getUniqueExerciseNames } from "../../lib/progress";
-import { ProgressChart } from "../../components/ProgressChart";
+import { getExerciseProgress, getUniqueExerciseNames, getTrend, getProgressOverview } from "../../lib/progress";
+import { rankDisplayName } from "../../lib/rankService";
 import { Card } from "../../components/Card";
 import { EmptyState } from "../../components/EmptyState";
 import { LockeMascot } from "../../components/Locke/LockeMascot";
@@ -25,6 +27,10 @@ import { CalendarGrid } from "../../components/CalendarGrid";
 import { Skeleton } from "../../components/Skeleton";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { ProfileButton } from "../../components/ProfileButton";
+import { StatsStrip } from "../../components/progress/StatsStrip";
+import { PRHighlights } from "../../components/progress/PRHighlights";
+import { ExerciseCard } from "../../components/progress/ExerciseCard";
+import { LockeCommentary } from "../../components/progress/LockeCommentary";
 import { spacing, radius } from "../../lib/theme";
 import type { WorkoutSession } from "../../lib/types";
 
@@ -34,6 +40,8 @@ export default function WorkoutLogScreen() {
   const insets = useSafeAreaInsets();
   const { workouts, loading, deleteWorkout, reload } = useWorkouts();
   const { profile } = useProfileContext();
+  const { streak } = useStreak();
+  const { rank } = useXP();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -41,20 +49,20 @@ export default function WorkoutLogScreen() {
   const [activeTab, setActiveTab] = useState<"history" | "progress">("history");
 
   // Progress-specific state
-  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
-  const [metric, setMetric] = useState<"maxWeight" | "totalReps">("maxWeight");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const exerciseNames = getUniqueExerciseNames(workouts);
-  const progressData = selectedExercise
-    ? getExerciseProgress(workouts, selectedExercise).slice(-8)
-    : [];
+  const exerciseNames = useMemo(() => getUniqueExerciseNames(workouts), [workouts]);
+  const overview = useMemo(() => getProgressOverview(workouts), [workouts]);
 
-  const bestWeight = progressData.length
-    ? Math.max(...progressData.map((d) => d.maxWeight))
-    : 0;
-  const firstVal = progressData[0]?.[metric] ?? 0;
-  const lastVal = progressData[progressData.length - 1]?.[metric] ?? 0;
-  const improvement = firstVal > 0 ? Math.round(((lastVal - firstVal) / firstVal) * 100) : 0;
+  // Filter exercises by search query
+  const filteredExercises = useMemo(() => {
+    let names = exerciseNames;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      names = names.filter((n) => n.toLowerCase().includes(q));
+    }
+    return names;
+  }, [exerciseNames, searchQuery]);
 
   function handleDayPress(dateKey: string, daySessions: WorkoutSession[]) {
     if (daySessions.length === 0) return;
@@ -221,106 +229,118 @@ export default function WorkoutLogScreen() {
               subtitle="Complete sessions to track your progress."
             />
           ) : (
-            <View style={styles.progressBody}>
-              {/* Exercise sidebar */}
-              <View style={[styles.sidebar, { borderRightColor: theme.colors.border }]}>
-                <Text style={[styles.sidebarTitle, { color: theme.colors.muted }]}>EXERCISES</Text>
-                <FlatList
-                  data={exerciseNames}
-                  keyExtractor={(item) => item}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      style={[
-                        styles.exerciseItem,
-                        selectedExercise === item && { backgroundColor: theme.colors.mutedBg },
-                      ]}
-                      onPress={() => setSelectedExercise(item)}
-                    >
-                      <Text
-                        style={[
-                          styles.exerciseItemText,
-                          { color: selectedExercise === item ? theme.colors.primary : theme.colors.text },
-                        ]}
-                        numberOfLines={2}
-                      >
-                        {item}
-                      </Text>
-                    </Pressable>
-                  )}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 60 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={theme.colors.primary}
                 />
-              </View>
+              }
+            >
+              {/* Locke Commentary Hero */}
+              <Animated.View entering={FadeIn.duration(400)}>
+                <LockeCommentary
+                  weekSessions={overview.thisWeekSessions}
+                  volumeChange={overview.volumeChange}
+                  recentPRCount={overview.recentPRs.length}
+                  streak={streak.current}
+                />
+              </Animated.View>
 
-              {/* Chart panel */}
-              <ScrollView
-                style={styles.chartPanel}
-                contentContainerStyle={{ paddingBottom: 40 }}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    tintColor={theme.colors.primary}
-                  />
-                }
-              >
-                {!selectedExercise ? (
-                  <Text style={[styles.hint, { color: theme.colors.muted }]}>
-                    Select an exercise to see progress
-                  </Text>
-                ) : (
-                  <>
-                    <Text style={[styles.exerciseTitle, { color: theme.colors.text }]}>
-                      {selectedExercise}
-                    </Text>
+              {/* Stats Strip */}
+              <Animated.View entering={FadeInDown.delay(80).duration(300)}>
+                <StatsStrip
+                  stats={[
+                    { icon: "flame-outline", value: streak.current, label: "Streak", color: "#FF9F0A" },
+                    { icon: "shield-outline", value: rankDisplayName(rank), label: "Rank" },
+                    { icon: "barbell-outline", value: overview.thisWeekSessions, label: "This Week" },
+                    { icon: "trophy-outline", value: overview.totalPRs, label: "PRs", color: "#FFD700" },
+                  ]}
+                />
+              </Animated.View>
 
-                    {/* Summary row */}
-                    {progressData.length > 0 && (
-                      <View style={styles.summaryRow}>
-                        <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
-                          <Text style={[styles.summaryVal, { color: theme.colors.text }]}>{bestWeight > 0 ? `${bestWeight} ${profile.weightUnit}` : "—"}</Text>
-                          <Text style={[styles.summaryLabel, { color: theme.colors.muted }]}>Best Weight</Text>
-                        </View>
-                        <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
-                          <Text style={[styles.summaryVal, { color: theme.colors.text }]}>{progressData.length}</Text>
-                          <Text style={[styles.summaryLabel, { color: theme.colors.muted }]}>Sessions</Text>
-                        </View>
-                        <View style={[styles.summaryCard, { backgroundColor: theme.colors.surface }]}>
-                          <Text style={[styles.summaryVal, { color: improvement >= 0 ? theme.colors.accent : theme.colors.danger }]}>
-                            {improvement >= 0 ? "+" : ""}{improvement}%
-                          </Text>
-                          <Text style={[styles.summaryLabel, { color: theme.colors.muted }]}>Progress</Text>
-                        </View>
+              {/* PR Highlights Carousel */}
+              {overview.recentPRs.length > 0 && (
+                <Animated.View entering={FadeInDown.delay(140).duration(300)}>
+                  <PRHighlights prs={overview.recentPRs} weightUnit={profile.weightUnit} />
+                </Animated.View>
+              )}
+
+              {/* Weekly Volume Change */}
+              {overview.thisWeekVolume > 0 && (
+                <Animated.View entering={FadeInDown.delay(200).duration(300)}>
+                  <View style={[styles.volumeBanner, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                    <View>
+                      <Text style={[styles.volumeBannerLabel, { color: theme.colors.muted }]}>WEEKLY VOLUME</Text>
+                      <Text style={[styles.volumeBannerValue, { color: theme.colors.text }]}>
+                        {overview.thisWeekVolume.toLocaleString()} {profile.weightUnit}
+                      </Text>
+                    </View>
+                    {overview.volumeChange !== 0 && (
+                      <View style={[styles.volumeChangePill, { backgroundColor: overview.volumeChange > 0 ? theme.colors.success + "20" : theme.colors.danger + "20" }]}>
+                        <Ionicons
+                          name={overview.volumeChange > 0 ? "trending-up" : "trending-down"}
+                          size={14}
+                          color={overview.volumeChange > 0 ? theme.colors.success : theme.colors.danger}
+                        />
+                        <Text style={{ color: overview.volumeChange > 0 ? theme.colors.success : theme.colors.danger, fontSize: 13, fontWeight: "700" }}>
+                          {overview.volumeChange > 0 ? "+" : ""}{overview.volumeChange}%
+                        </Text>
                       </View>
                     )}
+                  </View>
+                </Animated.View>
+              )}
 
-                    {/* Metric toggle */}
-                    <View style={styles.metricToggle}>
-                      {(["maxWeight", "totalReps"] as const).map((m) => (
-                        <Pressable
-                          key={m}
-                          style={[
-                            styles.metricPill,
-                            { backgroundColor: metric === m ? theme.colors.primary : theme.colors.mutedBg },
-                          ]}
-                          onPress={() => setMetric(m)}
-                        >
-                          <Text style={{ color: metric === m ? theme.colors.primaryText : theme.colors.muted, fontSize: 12, fontWeight: "600" }}>
-                            {m === "maxWeight" ? "Max Weight" : "Total Reps"}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-
-                    {progressData.length === 0 ? (
-                      <Text style={[styles.hint, { color: theme.colors.muted }]}>
-                        No completed sets for this exercise yet.
-                      </Text>
-                    ) : (
-                      <ProgressChart data={progressData} metric={metric} weightUnit={profile.weightUnit} />
-                    )}
-                  </>
+              {/* Search */}
+              <View style={[styles.searchBar, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]}>
+                <Ionicons name="search-outline" size={16} color={theme.colors.muted} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.colors.text }]}
+                  placeholder="Search exercises..."
+                  placeholderTextColor={theme.colors.muted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                  <Pressable onPress={() => setSearchQuery("")}>
+                    <Ionicons name="close-circle" size={16} color={theme.colors.muted} />
+                  </Pressable>
                 )}
-              </ScrollView>
-            </View>
+              </View>
+
+              {/* Exercise section header */}
+              <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
+                {searchQuery ? `${filteredExercises.length} RESULTS` : `ALL EXERCISES (${exerciseNames.length})`}
+              </Text>
+
+              {/* Exercise Cards */}
+              {filteredExercises.length === 0 ? (
+                <Text style={[styles.noResults, { color: theme.colors.muted }]}>
+                  No exercises match "{searchQuery}"
+                </Text>
+              ) : (
+                filteredExercises.map((name, index) => {
+                  const data = getExerciseProgress(workouts, name);
+                  if (data.length === 0) return null;
+                  const trend = getTrend(data, "estimated1RM");
+                  return (
+                    <Animated.View key={name} entering={FadeInDown.delay(Math.min(index * 40, 400)).duration(300)}>
+                      <ExerciseCard
+                        name={name}
+                        data={data}
+                        trend={trend}
+                        weightUnit={profile.weightUnit}
+                      />
+                    </Animated.View>
+                  );
+                })
+              )}
+            </ScrollView>
           )
         )}
       </View>
@@ -375,20 +395,14 @@ const styles = StyleSheet.create({
   dateChipText: { fontSize: 13, fontWeight: "700" },
   dateChipClear: { fontSize: 16, fontWeight: "400" },
   // Progress styles
-  progressBody: { flex: 1, flexDirection: "row" },
-  sidebar: { width: 140, borderRightWidth: 0.5, paddingTop: 8 },
-  sidebarTitle: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, paddingHorizontal: 12, marginBottom: 8 },
-  exerciseItem: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, marginHorizontal: 6, marginBottom: 2 },
-  exerciseItemText: { fontSize: 13, fontWeight: "500" },
-  chartPanel: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
-  hint: { textAlign: "center", marginTop: 40, fontSize: 14 },
-  exerciseTitle: { fontSize: 17, fontWeight: "700", marginBottom: 16 },
-  summaryRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  summaryCard: { flex: 1, borderRadius: 14, padding: 14, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
-  summaryVal: { fontSize: 18, fontWeight: "700", marginBottom: 2 },
-  summaryLabel: { fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 },
-  metricToggle: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  metricPill: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999 },
+  volumeBanner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: spacing.md, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.md },
+  volumeBannerLabel: { fontSize: 10, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 2 },
+  volumeBannerValue: { fontSize: 20, fontWeight: "800" },
+  volumeChangePill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.sm },
+  searchInput: { flex: 1, fontSize: 14, padding: 0 },
+  sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 8 },
+  noResults: { textAlign: "center", marginTop: 20, fontSize: 14 },
 });
 
 const emptyStyles = StyleSheet.create({

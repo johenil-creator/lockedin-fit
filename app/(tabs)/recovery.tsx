@@ -18,6 +18,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  type DimensionValue,
   LayoutChangeEvent,
   Pressable,
   RefreshControl,
@@ -753,8 +754,8 @@ const AcwrBar = React.memo(function AcwrBar({ acwr }: { acwr: number }) {
             style={[
               styles.acwrZoneSegment,
               {
-                left: `${z.pctStart}%` as any,
-                width: `${z.pctEnd - z.pctStart}%` as any,
+                left: `${z.pctStart}%` as DimensionValue,
+                width: `${z.pctEnd - z.pctStart}%` as DimensionValue,
                 backgroundColor: z.color + '18',
               },
             ]}
@@ -764,7 +765,7 @@ const AcwrBar = React.memo(function AcwrBar({ acwr }: { acwr: number }) {
         <View
           style={[
             styles.acwrIndicator,
-            { left: `${pct}%` as any, backgroundColor: zone.color },
+            { left: `${pct}%` as DimensionValue, backgroundColor: zone.color },
           ]}
         />
       </View>

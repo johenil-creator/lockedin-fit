@@ -185,10 +185,10 @@ export default function OrmTestScreen() {
   const completedCount =
     ormTest.session?.lifts.filter((l) => l.completed).length ?? 0;
   const allSetsComplete = currentLift?.sets.every((s) => s.completed) ?? false;
-  // True when all 4 lifts are done but finishTest() hasn't been called yet
+  // True when all 4 lifts are done (stays true after finishTest to prevent
+  // a flash of empty state while navigating out)
   const allLiftsComplete =
-    (ormTest.session?.lifts.every((l) => l.completed) ?? false) &&
-    !ormTest.isComplete;
+    ormTest.session?.lifts.every((l) => l.completed) ?? false;
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -437,7 +437,7 @@ export default function OrmTestScreen() {
             placeholderTextColor={theme.colors.muted}
             value={currentLift.estimatedInput}
             onChangeText={(v) => ormTest.setEstimatedInput(liftIndex, v)}
-            autoFocus
+            autoFocus={false}
           />
 
           <View style={{ marginTop: 24 }}>

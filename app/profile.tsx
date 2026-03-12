@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -66,6 +66,10 @@ export default function ProfileScreen() {
   const [friendInput, setFriendInput] = useState("");
   const [friendError, setFriendError] = useState("");
   const [copyFlash, setCopyFlash] = useState(false);
+  const copyFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup copy flash timer on unmount
+  useEffect(() => () => { if (copyFlashTimer.current) clearTimeout(copyFlashTimer.current); }, []);
 
   useEffect(() => {
     if (!profileLoading) {
@@ -97,7 +101,8 @@ export default function ProfileScreen() {
     Clipboard.setString(myCode);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setCopyFlash(true);
-    setTimeout(() => setCopyFlash(false), 1500);
+    if (copyFlashTimer.current) clearTimeout(copyFlashTimer.current);
+    copyFlashTimer.current = setTimeout(() => setCopyFlash(false), 1500);
   }
 
   async function handleShareCode() {

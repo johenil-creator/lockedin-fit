@@ -123,6 +123,8 @@ async function recordSessionFatigue(
   completed: WorkoutSession,
   allSessions: WorkoutSession[],
 ): Promise<void> {
+  if (!completed.completedAt) return; // guard: nothing to record without a timestamp
+  const completedAt = completed.completedAt;
   try {
     // 1. This session's fatigue contribution
     const sessionFatigue = computeSessionFatigue(completed);
@@ -143,7 +145,7 @@ async function recordSessionFatigue(
 
     // 4. Persist CachedFatigueState — rawFatigueMap is the current value at `computedAt`
     await saveCachedFatigueState({
-      computedAt: completed.completedAt!,
+      computedAt: completedAt,
       rawFatigueMap: updatedFatigue,
       halfLifeHours: FATIGUE_HALF_LIFE_HOURS,
       lastSessionId: completed.id,
@@ -173,7 +175,7 @@ async function recordSessionFatigue(
       .map(([muscle, fatigue]) => ({ muscle, fatigue: Math.round(fatigue) }));
 
     await saveDailySnapshot({
-      date: completed.completedAt!.split("T")[0],
+      date: completedAt.split("T")[0],
       overallFatigue,
       topMuscles,
       topMusclesFatigue,
@@ -310,6 +312,10 @@ export default function SessionScreen() {
   const [prFlash, setPrFlash] = useState<string | null>(null); // exercise name
   const prFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Pre-computed PR baselines: { exerciseName: { best1RM, bestBWReps } }
+  // Built once at session load to avoid O(n²) on every set completion.
+  const prBaselinesRef = useRef<Record<string, { best1RM: number; bestBWReps: number }>>({});
+
   // Rest timers
   const { restTimers, startRestTimer, dismissRestTimer, advanceTimers } = useRestTimers();
 
@@ -377,6 +383,32 @@ export default function SessionScreen() {
       if (!val) setShowCoach(true);
     });
   }, [session?.isActive]);
+
+  // ── Build PR baselines from workout history (O(n) once, O(1) lookups) ─────
+  useEffect(() => {
+    if (!session) return;
+    const baselines: Record<string, { best1RM: number; bestBWReps: number }> = {};
+    for (const w of workouts) {
+      if (w.id === session.id || !w.completedAt) continue;
+      for (const ex of w.exercises) {
+        if (!baselines[ex.name]) baselines[ex.name] = { best1RM: 0, bestBWReps: 0 };
+        const b = baselines[ex.name];
+        for (const s of ex.sets) {
+          if (!s.completed) continue;
+          const wt = parseFloat(s.weight);
+          const rp = parseFloat(s.reps);
+          if (!isNaN(wt) && !isNaN(rp) && rp > 0) {
+            b.best1RM = Math.max(b.best1RM, wt * (1 + rp / 30));
+          }
+          if (!s.isWarmUp && !isNaN(rp)) {
+            b.bestBWReps = Math.max(b.bestBWReps, rp);
+          }
+        }
+      }
+    }
+    prBaselinesRef.current = baselines;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuild only when session identity changes
+  }, [session?.id]);
 
   // ── Auto-recalculate weights when 1RM data becomes available ──────────────
   const ormRecalcDone = useRef(false);
@@ -618,49 +650,21 @@ export default function SessionScreen() {
         hapticSetComplete();
         startRestTimer(exId, setIdx, ex.restTime ?? profile.defaultRestTimer ?? 90);
 
-        // PR detection — compare this set's Epley 1RM against past sessions
+        // PR detection — O(1) lookup against pre-computed baselines
         const setData = { ...ex.sets[setIdx], ...patch };
         const w = parseFloat(setData.weight);
         const r = parseFloat(setData.reps);
         const isBodyweight = ex.equipment === "bodyweight";
+        const baseline = prBaselinesRef.current[ex.name];
 
-        if (!setData.isWarmUp && !isNaN(r) && r > 0) {
+        if (!setData.isWarmUp && !isNaN(r) && r > 0 && baseline) {
           let prDetected = false;
 
           if (!isNaN(w) && w > 0) {
-            // Weighted PR: compare Epley 1RM
             const current1RM = w * (1 + r / 30);
-            let prevBest = 0;
-            for (const pw of workouts) {
-              if (pw.id === session.id || !pw.completedAt) continue;
-              for (const pe of pw.exercises) {
-                if (pe.name !== ex.name) continue;
-                for (const ps of pe.sets) {
-                  if (!ps.completed) continue;
-                  const pw2 = parseFloat(ps.weight);
-                  const pr2 = parseFloat(ps.reps);
-                  if (!isNaN(pw2) && !isNaN(pr2) && pr2 > 0) {
-                    prevBest = Math.max(prevBest, pw2 * (1 + pr2 / 30));
-                  }
-                }
-              }
-            }
-            if (prevBest > 0 && current1RM > prevBest) prDetected = true;
+            if (baseline.best1RM > 0 && current1RM > baseline.best1RM) prDetected = true;
           } else if (isBodyweight) {
-            // Bodyweight PR: compare max reps directly
-            let prevBestReps = 0;
-            for (const pw of workouts) {
-              if (pw.id === session.id || !pw.completedAt) continue;
-              for (const pe of pw.exercises) {
-                if (pe.name !== ex.name) continue;
-                for (const ps of pe.sets) {
-                  if (!ps.completed || ps.isWarmUp) continue;
-                  const pr2 = parseFloat(ps.reps);
-                  if (!isNaN(pr2)) prevBestReps = Math.max(prevBestReps, pr2);
-                }
-              }
-            }
-            if (prevBestReps > 0 && r > prevBestReps) prDetected = true;
+            if (baseline.bestBWReps > 0 && r > baseline.bestBWReps) prDetected = true;
           }
 
           if (prDetected) {

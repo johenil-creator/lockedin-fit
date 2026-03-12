@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, type DimensionValue } from "react-native";
 import { useAppTheme } from "../contexts/ThemeContext";
 import type { ExerciseProgress } from "../lib/progress";
 
@@ -28,7 +28,7 @@ export function ProgressChart({ data, metric = "maxWeight", weightUnit = "kg" }:
               style={[
                 styles.bar,
                 {
-                  width: `${Math.max((values[i] / maxVal) * 100, 4)}%` as any,
+                  width: `${Math.max((values[i] / maxVal) * 100, 4)}%` as DimensionValue,
                   backgroundColor: theme.colors.accent,
                 },
               ]}

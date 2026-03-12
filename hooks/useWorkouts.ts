@@ -8,6 +8,10 @@ export function useWorkouts() {
   const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // In-memory ref mirrors state — avoids redundant AsyncStorage reads in writes.
+  // Safe because all mutations go through the serial queue below.
+  const workoutsRef = useRef<WorkoutSession[]>([]);
+
   // Serial write queue — each write waits for the previous to finish
   const writeQueue = useRef<Promise<void>>(Promise.resolve());
   function enqueue(fn: () => Promise<void>): Promise<void> {
@@ -16,13 +20,21 @@ export function useWorkouts() {
     return next;
   }
 
+  /** Update both the ref and React state in one step. */
+  function commit(updated: WorkoutSession[]) {
+    workoutsRef.current = updated;
+    setWorkouts(updated);
+  }
+
   useEffect(() => {
     loadWorkouts()
       .then((data) => {
+        workoutsRef.current = data;
         setWorkouts(data);
         setLoading(false);
       })
       .catch(() => {
+        workoutsRef.current = [];
         setWorkouts([]);
         setLoading(false);
       });
@@ -31,10 +43,9 @@ export function useWorkouts() {
   const addWorkout = useCallback(
     async (session: WorkoutSession): Promise<void> => {
       await enqueue(async () => {
-        const current = await loadWorkouts();
-        const updated = [session, ...current];
+        const updated = [session, ...workoutsRef.current];
         await saveWorkouts(updated);
-        setWorkouts(updated);
+        commit(updated);
       });
     },
     []
@@ -43,10 +54,9 @@ export function useWorkouts() {
   const deleteWorkout = useCallback(
     async (id: string): Promise<void> => {
       await enqueue(async () => {
-        const current = await loadWorkouts();
-        const updated = current.filter((w) => w.id !== id);
+        const updated = workoutsRef.current.filter((w) => w.id !== id);
         await saveWorkouts(updated);
-        setWorkouts(updated);
+        commit(updated);
       });
     },
     []
@@ -56,13 +66,15 @@ export function useWorkouts() {
     async (session: WorkoutSession): Promise<void> => {
       // Optimistic in-memory update — UI reflects the change immediately
       // so TextInputs don't glitch while the async storage write completes.
-      setWorkouts(prev => prev.map(w => w.id === session.id ? session : w));
+      const optimistic = workoutsRef.current.map(w => w.id === session.id ? session : w);
+      workoutsRef.current = optimistic;
+      setWorkouts(optimistic);
 
       // Persist to storage asynchronously
       enqueue(async () => {
-        const current = await loadWorkouts();
-        const updated = current.map((w) => (w.id === session.id ? session : w));
+        const updated = workoutsRef.current.map((w) => (w.id === session.id ? session : w));
         await saveWorkouts(updated);
+        workoutsRef.current = updated;
       });
     },
     []
@@ -79,14 +91,12 @@ export function useWorkouts() {
     async (planName: string, week: string, day: string, exercises: Exercise[], profile?: UserProfile): Promise<string> => {
       let id = "";
       await enqueue(async () => {
-        // Load fresh to get accurate history for lastUsedWeight fallback
-        const current = await loadWorkouts();
+        const current = workoutsRef.current;
 
         // Storage-level guard — prevents duplicate active sessions even when
         // in-memory state is stale (e.g. home tab never remounts between navigations)
         const existingActive = current.find((w) => w.isActive);
         if (existingActive) {
-          setWorkouts(current); // sync stale in-memory state
           id = existingActive.id;
           return;
         }
@@ -172,7 +182,7 @@ export function useWorkouts() {
 
         // Write to storage first, then update in-memory state
         await saveWorkouts(updatedList);
-        setWorkouts(updatedList);
+        commit(updatedList);
       });
 
       return id;
@@ -189,7 +199,7 @@ export function useWorkouts() {
     ): Promise<string> => {
       let id = "";
       await enqueue(async () => {
-        const current = await loadWorkouts();
+        const current = workoutsRef.current;
         id = makeId();
 
         const session: WorkoutSession = {
@@ -238,7 +248,7 @@ export function useWorkouts() {
 
         const updatedList = [session, ...current];
         await saveWorkouts(updatedList);
-        setWorkouts(updatedList);
+        commit(updatedList);
       });
 
       return id;
@@ -248,7 +258,7 @@ export function useWorkouts() {
 
   const reload = useCallback(async () => {
     const data = await loadWorkouts();
-    setWorkouts(data);
+    commit(data);
   }, []);
 
   return { workouts, loading, addWorkout, deleteWorkout, updateWorkout, startSessionFromPlan, startSessionFromExercises, getActiveSession, reload };
