@@ -15,7 +15,6 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "1",
       "bundleIdentifier": "com.johenilhernandez.LockedInFit",
       "icon": "./assets/icons/icon_default.png",
       "infoPlist": {
