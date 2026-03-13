@@ -74,11 +74,15 @@ function TimedSetInputInner({
     }
   }, [target, timerState]);
 
-  // Sync completed prop from parent (e.g. restoring state)
+  // Sync completed prop from parent (e.g. checkmark tapped while running)
   useEffect(() => {
     if (completed && timerState !== "completed") {
-      setTimerState("completed");
       clearTimer();
+      // If timer was running, record the actual elapsed time
+      if (timerState === "running" && actualElapsed > 0) {
+        onCompleteRef.current(actualElapsed);
+      }
+      setTimerState("completed");
     }
   }, [completed]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -141,15 +145,6 @@ function TimedSetInputInner({
     // (play resets; pause just stops)
   }, [clearTimer]);
 
-  const handleStop = useCallback(() => {
-    impact(ImpactStyle.Heavy);
-    clearTimer();
-    const elapsed = actualElapsed;
-    setTimerState("completed");
-    notification(NotificationType.Warning);
-    onCompleteRef.current(elapsed);
-  }, [clearTimer, actualElapsed]);
-
   const handleTimeAdjust = useCallback(
     (seconds: number) => {
       if (timerState !== "idle") return;
@@ -175,11 +170,6 @@ function TimedSetInputInner({
     return (
       <View style={[styles.container, { backgroundColor: colors.mutedBg }]}>
         <View style={styles.content}>
-          <Ionicons
-            name="checkmark-circle"
-            size={18}
-            color={colors.success}
-          />
           <Text style={[styles.timeText, { color: colors.success }]}>
             {formatTime(displayTime)}
           </Text>
@@ -232,35 +222,12 @@ function TimedSetInputInner({
           ]}
         />
 
-        <View style={styles.runningContent}>
-          {/* Pause button */}
-          <Pressable
-            onPress={handlePause}
-            style={[styles.controlBtn, { backgroundColor: colors.primary + "25" }]}
-            hitSlop={8}
-          >
-            <Ionicons name="pause" size={16} color={colors.primary} />
-          </Pressable>
-
-          {/* Countdown */}
-          <Text
-            style={[
-              styles.countdownText,
-              { color: colors.primary },
-            ]}
-          >
+        <Pressable onPress={handlePause} style={styles.runningContent}>
+          <Ionicons name="pause" size={16} color={colors.primary} />
+          <Text style={[styles.countdownText, { color: colors.primary }]}>
             {formatTime(remaining)}
           </Text>
-
-          {/* Stop button */}
-          <Pressable
-            onPress={handleStop}
-            style={[styles.controlBtn, { backgroundColor: colors.accent + "20" }]}
-            hitSlop={8}
-          >
-            <Ionicons name="stop" size={14} color={colors.accent} />
-          </Pressable>
-        </View>
+        </Pressable>
       </View>
     );
   }
@@ -394,20 +361,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    gap: 8,
     paddingHorizontal: 8,
   },
   playBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  controlBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
