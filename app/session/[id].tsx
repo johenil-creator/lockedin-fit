@@ -67,7 +67,6 @@ import { BackButton } from "../../components/BackButton";
 import { SessionHeader } from "../../components/session/SessionHeader";
 import { Skeleton } from "../../components/Skeleton";
 import { AppBottomSheet } from "../../components/AppBottomSheet";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { useRestTimers } from "../../hooks/useRestTimers";
 import { useProfileContext } from "../../contexts/ProfileContext";
@@ -1449,7 +1448,7 @@ export default function SessionScreen() {
         ) : null}
 
         <Text style={[styles.orLabel, { color: theme.colors.muted }]}>Or enter manually:</Text>
-        <BottomSheetTextInput
+        <TextInput
           style={[styles.manualInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text }]}
           placeholder="Exercise name"
           placeholderTextColor={theme.colors.muted}

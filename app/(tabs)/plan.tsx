@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -9,7 +10,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import RNAnimated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LockeMascot } from "../../components/Locke/LockeMascot";
@@ -1016,7 +1016,7 @@ export default function PlanScreen() {
         <Text style={[styles.modalHint,  { color: theme.colors.muted }]}>
           Sheet must be shared as "Anyone with the link can view"
         </Text>
-        <BottomSheetTextInput
+        <TextInput
           style={[styles.input, { backgroundColor: theme.colors.bg, color: theme.colors.text }]}
           placeholder="https://docs.google.com/spreadsheets/d/..."
           placeholderTextColor={theme.colors.muted}

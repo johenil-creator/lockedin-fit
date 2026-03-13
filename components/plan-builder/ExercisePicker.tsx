@@ -1,10 +1,9 @@
 import React, { useRef, useEffect, useCallback, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetFlatList,
-  BottomSheetTextInput,
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -278,7 +277,7 @@ export function ExercisePicker({ visible, onClose, onSelect, excludeNames }: Exe
           {/* Search */}
           <View style={[styles.searchWrap, { backgroundColor: colors.mutedBg }]}>
             <Ionicons name="search" size={18} color={colors.muted} style={styles.searchIcon} />
-            <BottomSheetTextInput
+            <TextInput
               style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search exercises..."
               placeholderTextColor={colors.muted}
