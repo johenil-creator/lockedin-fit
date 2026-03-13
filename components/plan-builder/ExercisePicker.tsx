@@ -147,7 +147,7 @@ export function ExercisePicker({ visible, onClose, onSelect, excludeNames }: Exe
   const results = useMemo(() => {
     let list = sortedCatalog;
 
-    if (muscleFilter) {
+    if (muscleFilter && muscleFilter !== "All") {
       const muscles = BODY_PARTS.find((b) => b.label === muscleFilter)?.muscles ?? [];
       list = list.filter((e) => e.primaryMuscles.some((m) => muscles.includes(m)));
     }
