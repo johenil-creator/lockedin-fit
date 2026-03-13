@@ -36,6 +36,7 @@ import { syncCompletedSession } from "../../lib/healthkit/integration";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { sanitizeWeight } from "../../lib/sanitizeWeight";
 import { getExerciseEquipment, isExerciseTimed } from "../../lib/loadEngine/classifier";
+import { TimedSetInput } from "../../components/session/TimedSetInput";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -967,7 +968,7 @@ export default function SessionScreen() {
               <View style={styles.setHeaderRow}>
                 <Text style={[styles.setHeaderCell, styles.setColNum, { color: theme.colors.text, opacity: 0.6 }]}>SET</Text>
                 <Text style={[styles.setHeaderCell, styles.setColWeight, { color: theme.colors.text, opacity: 0.6 }]}>WEIGHT <Text style={{ fontSize: 7 }}>({sessionUnit})</Text></Text>
-                <Text style={[styles.setHeaderCell, styles.setColReps, { color: theme.colors.text, opacity: 0.6 }]}>{isExerciseTimed(activeExercise.name) ? "TIME (s)" : "REPS"}</Text>
+                <Text style={[styles.setHeaderCell, styles.setColReps, { color: theme.colors.text, opacity: 0.6 }]}>{isExerciseTimed(activeExercise.name) ? "TIMER" : "REPS"}</Text>
                 <View style={styles.setColCheck} />
               </View>
 
@@ -1025,27 +1026,38 @@ export default function SessionScreen() {
                         maxLength={6}
                         editable={!isFutureSet}
                       />
-                      <TextInput
-                        style={[
-                          styles.setInput,
-                          styles.setColReps,
-                          {
-                            backgroundColor: isRangeReps ? theme.colors.danger + "20" : theme.colors.mutedBg,
-                            color: isRangeReps ? theme.colors.danger : isFutureSet ? theme.colors.muted : theme.colors.text,
-                            borderWidth: isRangeReps ? 1.5 : 0,
-                            borderColor: isRangeReps ? theme.colors.danger : "transparent",
-                          },
-                        ]}
-                        placeholder={isTimed ? "sec" : "reps"}
-                        placeholderTextColor={theme.colors.muted}
-                        value={s.reps}
-                        onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { reps: v })}
-                        onFocus={(e) => { if (isRangeReps) e.target && (e.target as any).setNativeProps?.({ selection: { start: 0, end: s.reps.length } }); }}
-                        selectTextOnFocus={isRangeReps}
-                        keyboardType="number-pad"
-                        maxLength={isTimed ? 3 : 5}
-                        editable={!isFutureSet}
-                      />
+                      {isTimed ? (
+                        <TimedSetInput
+                          targetSeconds={parseInt(s.reps, 10) || 0}
+                          completed={s.completed}
+                          locked={locked}
+                          isFutureSet={isFutureSet}
+                          colors={theme.colors}
+                          onComplete={() => updateSet(activeExercise.exerciseId, i, { completed: true })}
+                        />
+                      ) : (
+                        <TextInput
+                          style={[
+                            styles.setInput,
+                            styles.setColReps,
+                            {
+                              backgroundColor: isRangeReps ? theme.colors.danger + "20" : theme.colors.mutedBg,
+                              color: isRangeReps ? theme.colors.danger : isFutureSet ? theme.colors.muted : theme.colors.text,
+                              borderWidth: isRangeReps ? 1.5 : 0,
+                              borderColor: isRangeReps ? theme.colors.danger : "transparent",
+                            },
+                          ]}
+                          placeholder="reps"
+                          placeholderTextColor={theme.colors.muted}
+                          value={s.reps}
+                          onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { reps: v })}
+                          onFocus={(e) => { if (isRangeReps) e.target && (e.target as any).setNativeProps?.({ selection: { start: 0, end: s.reps.length } }); }}
+                          selectTextOnFocus={isRangeReps}
+                          keyboardType="number-pad"
+                          maxLength={5}
+                          editable={!isFutureSet}
+                        />
+                      )}
                       <Pressable
                         style={[
                           styles.checkBtn,
