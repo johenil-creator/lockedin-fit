@@ -26,7 +26,7 @@ type Props = {
   onComplete: (actualSeconds: number) => void;
 };
 
-type TimerState = "idle" | "running" | "completed";
+type TimerState = "idle" | "running" | "paused" | "completed";
 
 /* ─── helpers ─── */
 
@@ -74,12 +74,12 @@ function TimedSetInputInner({
     }
   }, [target, timerState]);
 
-  // Sync completed prop from parent (e.g. checkmark tapped while running)
+  // Sync completed prop from parent (e.g. checkmark tapped while running/paused)
   useEffect(() => {
     if (completed && timerState !== "completed") {
       clearTimer();
-      // If timer was running, record the actual elapsed time
-      if (timerState === "running" && actualElapsed > 0) {
+      // If timer was running or paused, record the actual elapsed time
+      if ((timerState === "running" || timerState === "paused") && actualElapsed > 0) {
         onCompleteRef.current(actualElapsed);
       }
       setTimerState("completed");
@@ -132,17 +132,21 @@ function TimedSetInputInner({
   const handlePlay = useCallback(() => {
     if (completed || isFutureSet || locked) return;
     impact(ImpactStyle.Medium);
-    setActualElapsed(0);
-    setRemaining(adjustedTarget);
-    setTimerState("running");
-  }, [completed, isFutureSet, locked, adjustedTarget]);
+    if (timerState === "paused") {
+      // Resume — keep remaining and elapsed as-is
+      setTimerState("running");
+    } else {
+      // Fresh start
+      setActualElapsed(0);
+      setRemaining(adjustedTarget);
+      setTimerState("running");
+    }
+  }, [completed, isFutureSet, locked, adjustedTarget, timerState]);
 
   const handlePause = useCallback(() => {
     impact(ImpactStyle.Light);
     clearTimer();
-    setTimerState("idle");
-    // Keep remaining where it was — user can resume by pressing play
-    // (play resets; pause just stops)
+    setTimerState("paused");
   }, [clearTimer]);
 
   const handleTimeAdjust = useCallback(
@@ -225,6 +229,33 @@ function TimedSetInputInner({
         <Pressable onPress={handlePause} style={styles.runningContent}>
           <Ionicons name="pause" size={16} color={colors.primary} />
           <Text style={[styles.countdownText, { color: colors.primary }]}>
+            {formatTime(remaining)}
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  /* ─── render: paused ─── */
+
+  if (timerState === "paused") {
+    const elapsed = adjustedTarget - remaining;
+    const progress = adjustedTarget > 0 ? elapsed / adjustedTarget : 0;
+
+    return (
+      <View style={[styles.container, { backgroundColor: colors.mutedBg }]}>
+        <View
+          style={[
+            styles.progressBar,
+            {
+              backgroundColor: colors.accent + "25",
+              width: `${Math.min(progress * 100, 100)}%`,
+            },
+          ]}
+        />
+        <Pressable onPress={handlePlay} style={styles.runningContent}>
+          <Ionicons name="play" size={16} color={colors.accent} />
+          <Text style={[styles.countdownText, { color: colors.text }]}>
             {formatTime(remaining)}
           </Text>
         </Pressable>
