@@ -242,6 +242,8 @@ export default function WorkoutLogScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 60 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
