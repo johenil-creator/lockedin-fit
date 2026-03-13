@@ -1,4 +1,5 @@
 import { View, Text } from "react-native";
+import { useRouter } from "expo-router";
 import { LockeMascot } from "../Locke/LockeMascot";
 import { Button } from "../Button";
 import { useAppTheme } from "../../contexts/ThemeContext";
@@ -10,6 +11,7 @@ type Props = {
 
 export function WelcomeStep({ onContinue }: Props) {
   const { theme } = useAppTheme();
+  const router = useRouter();
   return (
     <StepSlide>
       <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -29,7 +31,10 @@ export function WelcomeStep({ onContinue }: Props) {
             LockedInFIT is a fitness tracking tool, not a substitute for professional medical advice. Always consult a physician before beginning any exercise programme and listen to your body.
           </Text>
           <Text style={{ fontSize: 11, color: theme.colors.muted, textAlign: "center", opacity: 0.7, marginBottom: 16, paddingHorizontal: 24 }}>
-            By continuing, you agree to our Terms of Service and Privacy Policy.
+            By continuing, you agree to our{" "}
+            <Text style={{ color: theme.colors.primary, textDecorationLine: "underline" }} onPress={() => router.push("/legal?doc=tos")}>Terms of Service</Text>
+            {" "}and{" "}
+            <Text style={{ color: theme.colors.primary, textDecorationLine: "underline" }} onPress={() => router.push("/legal?doc=privacy")}>Privacy Policy</Text>.
           </Text>
           <Button label="Let's Go" onPress={onContinue} />
         </View>
