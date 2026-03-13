@@ -174,9 +174,9 @@ export default function ImportDriveScreen() {
         const b64 = await FileSystem.readAsStringAsync(asset.uri, {
           encoding: "base64" as const,
         });
-        const wb = XLSX.read(b64, { type: "base64" });
+        const wb = XLSX.read(b64, { type: "base64", cellDates: false });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 });
+        rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "", raw: false });
       } else {
         const text = await FileSystem.readAsStringAsync(asset.uri);
         rows = csvToRows(text);
@@ -289,9 +289,9 @@ export default function ImportDriveScreen() {
           rows = csvToRows(csv);
         } else if (fileType === "xlsx") {
           const b64 = await downloadFileAsBase64(file.id);
-          const wb = XLSX.read(b64, { type: "base64" });
+          const wb = XLSX.read(b64, { type: "base64", cellDates: false });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 });
+          rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "", raw: false });
         } else {
           throw new DriveError(
             "Unsupported file type. Select a Google Sheet, CSV, or XLSX."

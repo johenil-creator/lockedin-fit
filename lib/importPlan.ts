@@ -42,6 +42,66 @@ export function looksLikeHtml(text: string): boolean {
   return t.startsWith("<!") || t.startsWith("<html") || t.startsWith("<HTML");
 }
 
+// ── Sanitizers ───────────────────────────────────────────────────────────────
+
+/**
+ * Sanitize a numeric cell value. Returns the original string if it's a
+ * reasonable number within [min, max], otherwise returns "" so the app
+ * falls back to its default.
+ *
+ * Guards against Excel date serial numbers (e.g. 44355) leaking through
+ * as reps or sets when raw:false is not applied.
+ */
+function sanitizeNumeric(val: string, min: number, max: number): string {
+  if (!val) return "";
+  // Handle ranges like "8-12" — keep as-is (session screen parses these)
+  if (/^\d+\s*[-–]\s*\d+$/.test(val)) return val;
+  const n = parseInt(val, 10);
+  if (isNaN(n) || n < min || n > max) return "";
+  return String(n);
+}
+
+/**
+ * Parse rest time from various spreadsheet formats into seconds string.
+ * Handles: "90", "1:30", "1 min", "60s", "1-2 min", "2:00".
+ * Returns "" if unparseable (falls back to default 90s in session).
+ */
+function sanitizeRestTime(val: string): string {
+  if (!val) return "";
+  const trimmed = val.trim();
+
+  // "M:SS" format (e.g. "1:30" → 90, "2:00" → 120)
+  const mmss = trimmed.match(/^(\d+):(\d{1,2})$/);
+  if (mmss) {
+    const secs = parseInt(mmss[1], 10) * 60 + parseInt(mmss[2], 10);
+    if (secs > 0 && secs <= 600) return String(secs);
+    return "";
+  }
+
+  // "N min" or "N minutes" (e.g. "2 min" → 120)
+  const minMatch = trimmed.match(/^(\d+)\s*min/i);
+  if (minMatch) {
+    const secs = parseInt(minMatch[1], 10) * 60;
+    if (secs > 0 && secs <= 600) return String(secs);
+    return "";
+  }
+
+  // "Ns" format (e.g. "90s" → 90)
+  const secMatch = trimmed.match(/^(\d+)\s*s(?:ec)?/i);
+  if (secMatch) {
+    const secs = parseInt(secMatch[1], 10);
+    if (secs > 0 && secs <= 600) return String(secs);
+    return "";
+  }
+
+  // Plain number — validate it's a reasonable rest time in seconds
+  const n = parseInt(trimmed, 10);
+  if (!isNaN(n) && n >= 10 && n <= 600) return String(n);
+
+  // Unreasonable value (e.g. Excel date serial) — discard
+  return "";
+}
+
 // ── Core parser ───────────────────────────────────────────────────────────────
 
 /**
@@ -168,12 +228,12 @@ export function smartParse(rawInput: unknown[][]): Exercise[] {
 
     exercises.push({
       exercise:   cleaned || cellEx,
-      sets:       cell(row, setCol),
-      reps:       cell(row, repCol),
+      sets:       sanitizeNumeric(cell(row, setCol), 1, 20),
+      reps:       sanitizeNumeric(cell(row, repCol), 1, 100),
       weight:     "",              // always ignored — app uses its own 1RM / load engine
       comments:   cell(row, ntCol),
-      warmUpSets: cell(row, wuCol),
-      restTime:   cell(row, rtCol),
+      warmUpSets: sanitizeNumeric(cell(row, wuCol), 0, 10),
+      restTime:   sanitizeRestTime(cell(row, rtCol)),
       week:       currentWeek,
       day:        currentDay,
     });
