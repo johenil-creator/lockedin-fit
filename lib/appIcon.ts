@@ -31,8 +31,14 @@ export async function setAppIcon(mood: IconMood): Promise<void> {
 /**
  * Throttled icon change: skips if same mood or changed within 24h.
  * Exception: icon_disappointed gets one streak-break override.
+ *
+ * NOTE: Disabled pre-release — alternate icon assets must be verified
+ * in a production build before enabling. iOS shows an intrusive system
+ * alert on every call and falls back to a blank icon if assets are missing.
  */
-export async function maybeUpdateIcon(mood: IconMood): Promise<void> {
+export async function maybeUpdateIcon(_mood: IconMood): Promise<void> {
+  // Disabled until alternate icon assets are confirmed in production build
+  return;
   if (Platform.OS !== "ios" || !AppIconModule) return;
 
   const [lastMood, lastChangedStr] = await Promise.all([
