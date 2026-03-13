@@ -1033,7 +1033,7 @@ export default function SessionScreen() {
                           locked={locked}
                           isFutureSet={isFutureSet}
                           colors={theme.colors}
-                          onComplete={() => updateSet(activeExercise.exerciseId, i, { completed: true })}
+                          onComplete={(actualSeconds: number) => updateSet(activeExercise.exerciseId, i, { completed: true, reps: String(actualSeconds) })}
                         />
                       ) : (
                         <TextInput
