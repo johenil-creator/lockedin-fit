@@ -614,7 +614,10 @@ export default function SessionScreen() {
     const updated = session.exercises.map((ex) => {
       if (ex.exerciseId !== exId) return ex;
       const target = ex.sets[setIndex];
-      if (!target || target.completed) return ex;
+      if (!target) return ex;
+      // Keep at least 1 working set — don't allow deleting the last non-warmup set
+      const workingSets = ex.sets.filter((s) => !s.isWarmUp);
+      if (!target.isWarmUp && workingSets.length <= 1) return ex;
       const newSets = ex.sets.filter((_, i) => i !== setIndex);
       const warmUpAdj = target.isWarmUp ? { warmUpSets: Math.max(0, (ex.warmUpSets ?? 0) - 1) } : {};
       return { ...ex, sets: newSets, ...warmUpAdj };
@@ -1091,9 +1094,7 @@ export default function SessionScreen() {
                   </View>
                 );
 
-                return s.completed ? (
-                  <View key={i}>{setContent}</View>
-                ) : (
+                return (
                   <Swipeable
                     key={i}
                     renderRightActions={() => (
