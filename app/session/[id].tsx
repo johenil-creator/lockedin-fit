@@ -983,6 +983,7 @@ export default function SessionScreen() {
                 const isFutureSet = i > getCurrentSetIndex(activeExercise);
                 const isCurrentIncomplete = isCurrent && !s.completed;
                 const isBWExercise = activeExercise.equipment === "bodyweight";
+                const isRangeReps = /^\d+\s*[-–]\s*\d+$/.test(s.reps.trim());
                 const setContent = (
                   <View>
                     <View style={[
@@ -1012,7 +1013,7 @@ export default function SessionScreen() {
                       <TextInput
                         style={[styles.setInput, styles.setColWeight, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
                         placeholder={isBWExercise ? "BW" : sessionUnit}
-                        placeholderTextColor="#B0B8C4"
+                        placeholderTextColor={theme.colors.muted}
                         value={s.weight}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { weight: v })}
                         keyboardType="decimal-pad"
@@ -1020,13 +1021,22 @@ export default function SessionScreen() {
                         editable={!isFutureSet}
                       />
                       <TextInput
-                        style={[styles.setInput, styles.setColReps, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
+                        style={[
+                          styles.setInput,
+                          styles.setColReps,
+                          {
+                            backgroundColor: isRangeReps ? theme.colors.danger + "20" : theme.colors.mutedBg,
+                            color: isRangeReps ? theme.colors.danger : isFutureSet ? theme.colors.muted : theme.colors.text,
+                            borderWidth: isRangeReps ? 1.5 : 0,
+                            borderColor: isRangeReps ? theme.colors.danger : "transparent",
+                          },
+                        ]}
                         placeholder="reps"
-                        placeholderTextColor="#B0B8C4"
+                        placeholderTextColor={theme.colors.muted}
                         value={s.reps}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { reps: v })}
                         keyboardType="number-pad"
-                        maxLength={2}
+                        maxLength={3}
                         editable={!isFutureSet}
                       />
                       <Pressable
@@ -1045,9 +1055,10 @@ export default function SessionScreen() {
                         ]}
                         onPress={() => {
                           if (locked && !s.completed) return; // blocked
+                          if (isRangeReps && !s.completed) return; // must pick a single rep count
                           updateSet(activeExercise.exerciseId, i, { completed: !s.completed });
                         }}
-                        disabled={locked && !s.completed}
+                        disabled={(locked && !s.completed) || (isRangeReps && !s.completed)}
                       >
                         <Text style={{
                           color: s.completed
