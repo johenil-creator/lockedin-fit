@@ -29,7 +29,7 @@ export default function AuthScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useAppTheme();
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, resetPassword } = useAuth();
   const { profile } = useProfileContext();
   const { rank } = useXP();
 
@@ -39,6 +39,7 @@ export default function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const isSignUp = mode === "signup";
 
@@ -86,6 +87,23 @@ export default function AuthScreen() {
     }
   }
 
+  async function handleForgotPassword() {
+    const trimmed = email.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError("Enter your email above, then tap Forgot Password.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: err } = await resetPassword(trimmed);
+      if (err) { setError(err); return; }
+      setResetSent(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.colors.bg }}
@@ -115,7 +133,7 @@ export default function AuthScreen() {
                   styles.toggleSegment,
                   { backgroundColor: active ? theme.colors.primary : "transparent" },
                 ]}
-                onPress={() => { setMode(m); setError(null); setAgreedToTerms(false); }}
+                onPress={() => { setMode(m); setError(null); setAgreedToTerms(false); setResetSent(false); }}
               >
                 <Text
                   style={[
@@ -150,8 +168,9 @@ export default function AuthScreen() {
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="emailAddress"
+            autoComplete="email"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(t) => { setEmail(t); setError(null); setResetSent(false); }}
           />
 
           <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm, marginTop: spacing.md }]}>
@@ -170,9 +189,24 @@ export default function AuthScreen() {
             placeholderTextColor={theme.colors.muted}
             secureTextEntry
             textContentType={isSignUp ? "newPassword" : "password"}
+            autoComplete={isSignUp ? "password-new" : "password"}
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(t) => { setPassword(t); setError(null); }}
           />
+
+          {!isSignUp && (
+            <Pressable onPress={handleForgotPassword} disabled={loading} style={{ marginTop: spacing.sm }}>
+              <Text style={{ fontSize: 13, color: theme.colors.primary, fontWeight: "600" }}>
+                Forgot Password?
+              </Text>
+            </Pressable>
+          )}
+
+          {resetSent && (
+            <Text style={[typography.small, { color: theme.colors.primary, marginTop: spacing.sm }]}>
+              Password reset email sent. Check your inbox.
+            </Text>
+          )}
 
           {error && (
             <Text style={[typography.small, { color: theme.colors.danger, marginTop: spacing.sm }]}>
