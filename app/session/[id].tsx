@@ -35,7 +35,7 @@ import { checkBadges } from "../../lib/badgeService";
 import { syncCompletedSession } from "../../lib/healthkit/integration";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { sanitizeWeight } from "../../lib/sanitizeWeight";
-import { getExerciseEquipment } from "../../lib/loadEngine/classifier";
+import { getExerciseEquipment, isExerciseTimed } from "../../lib/loadEngine/classifier";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -625,9 +625,11 @@ export default function SessionScreen() {
   function updateSet(exId: string, setIdx: number, patch: Partial<SetEntry>) {
     if (!session) return;
 
-    // Cap reps to 2 digits, weight to 3 digits
+    // Cap reps to 2 digits (3 for timed exercises), weight to 3 digits
     if (patch.reps !== undefined && typeof patch.reps === "string") {
-      patch = { ...patch, reps: patch.reps.replace(/[^0-9]/g, "").slice(0, 2) };
+      const ex = session.exercises.find((e) => e.exerciseId === exId);
+      const maxDigits = ex && isExerciseTimed(ex.name) ? 3 : 2;
+      patch = { ...patch, reps: patch.reps.replace(/[^0-9]/g, "").slice(0, maxDigits) };
     }
     if (patch.weight !== undefined && typeof patch.weight === "string") {
       patch = { ...patch, weight: sanitizeWeight(patch.weight) };
@@ -871,7 +873,7 @@ export default function SessionScreen() {
                     {s.isWarmUp ? `W${i + 1}` : `${i + 1 - (ex.sets.slice(0, i).filter((x) => !!x.isWarmUp).length)}`}
                   </Text>
                   <Text style={[styles.readOnlySetWeight, { color: theme.colors.text }]}>{s.weight || "—"} {sessionUnit}</Text>
-                  <Text style={[styles.readOnlySetReps, { color: theme.colors.text }]}>× {s.reps || "—"}</Text>
+                  <Text style={[styles.readOnlySetReps, { color: theme.colors.text }]}>{isExerciseTimed(ex.name) ? `${s.reps || "—"}s` : `× ${s.reps || "—"}`}</Text>
                   <Text style={{ color: s.completed ? theme.colors.success : theme.colors.muted, fontSize: 14 }}>
                     {s.completed ? "✓" : "—"}
                   </Text>
@@ -941,7 +943,7 @@ export default function SessionScreen() {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {activeExercise ? (
           /* ── Focused Exercise View ─────────────────────────────────── */
           <View>
@@ -962,7 +964,7 @@ export default function SessionScreen() {
               <View style={styles.setHeaderRow}>
                 <Text style={[styles.setHeaderCell, styles.setColNum, { color: theme.colors.text, opacity: 0.6 }]}>SET</Text>
                 <Text style={[styles.setHeaderCell, styles.setColWeight, { color: theme.colors.text, opacity: 0.6 }]}>WEIGHT <Text style={{ fontSize: 7 }}>({sessionUnit})</Text></Text>
-                <Text style={[styles.setHeaderCell, styles.setColReps, { color: theme.colors.text, opacity: 0.6 }]}>REPS</Text>
+                <Text style={[styles.setHeaderCell, styles.setColReps, { color: theme.colors.text, opacity: 0.6 }]}>{isExerciseTimed(activeExercise.name) ? "TIME (s)" : "REPS"}</Text>
                 <View style={styles.setColCheck} />
               </View>
 
@@ -982,7 +984,8 @@ export default function SessionScreen() {
                 const isFutureSet = i > getCurrentSetIndex(activeExercise);
                 const isCurrentIncomplete = isCurrent && !s.completed;
                 const isBWExercise = activeExercise.equipment === "bodyweight";
-                const isRangeReps = /^\d+\s*[-–]\s*\d+$/.test(s.reps.trim());
+                const isTimed = isExerciseTimed(activeExercise.name);
+                const isRangeReps = !isTimed && /^\d+\s*[-–]\s*\d+$/.test(s.reps.trim());
                 const setContent = (
                   <View>
                     <View style={[
@@ -1030,12 +1033,14 @@ export default function SessionScreen() {
                             borderColor: isRangeReps ? theme.colors.danger : "transparent",
                           },
                         ]}
-                        placeholder="reps"
+                        placeholder={isTimed ? "sec" : "reps"}
                         placeholderTextColor={theme.colors.muted}
                         value={s.reps}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { reps: v })}
+                        onFocus={(e) => { if (isRangeReps) e.target && (e.target as any).setNativeProps?.({ selection: { start: 0, end: s.reps.length } }); }}
+                        selectTextOnFocus={isRangeReps}
                         keyboardType="number-pad"
-                        maxLength={3}
+                        maxLength={isTimed ? 3 : 5}
                         editable={!isFutureSet}
                       />
                       <Pressable

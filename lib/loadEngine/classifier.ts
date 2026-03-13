@@ -125,3 +125,28 @@ export function getExerciseEquipment(name: string): Equipment | null {
   const entry = nameIndex.get(name.toLowerCase().trim());
   return entry?.equipment ?? null;
 }
+
+// ── Timed / isometric exercise detection ────────────────────────────────────
+
+/** Catalog IDs that are definitively timed exercises. */
+const TIMED_IDS = new Set([
+  "plank",
+  "side_plank",
+  "l_sit",
+  "hollow_hold",
+  "back_extension_hold",
+  "copenhagen_plank",
+]);
+
+/** Name patterns that indicate a timed/isometric exercise. */
+const TIMED_PATTERNS = /\b(plank|hold|iso(?:metric)?|l[- ]sit|dead\s*hang|wall\s*sit|hollow)\b/i;
+
+/**
+ * Returns true if the exercise should use duration (seconds) instead of reps.
+ * Checks catalog ID first (O(1)), then falls back to name pattern matching.
+ */
+export function isExerciseTimed(name: string): boolean {
+  const entry = nameIndex.get(name.toLowerCase().trim());
+  if (entry && TIMED_IDS.has(entry.id)) return true;
+  return TIMED_PATTERNS.test(name);
+}
