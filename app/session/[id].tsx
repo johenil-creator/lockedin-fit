@@ -13,6 +13,7 @@ import {
   TextInput,
   FlatList,
   Alert,
+  Modal,
   Image,
   AppState,
   AppStateStatus,
@@ -330,6 +331,12 @@ export default function SessionScreen() {
     _setActiveExerciseId(id);
     setShowCues(false);
   }, []);
+
+  // ── Workout-complete navigation (user taps Continue) ─────────────────────
+  const [pendingCompleteParams, setPendingCompleteParams] = useState<Record<string, any> | null>(null);
+
+  // ── End session confirmation modal ──────────────────────────────────────
+  const [endModalVisible, setEndModalVisible] = useState(false);
 
   // ── Auto-pause state ──────────────────────────────────────────────────────
   const [paused, setPaused] = useState(false);
@@ -885,6 +892,21 @@ export default function SessionScreen() {
               ))}
             </View>
           ))}
+
+          {/* Continue to celebration screen */}
+          {pendingCompleteParams && (
+            <Pressable
+              style={[styles.continueBtn, { backgroundColor: theme.colors.primary }]}
+              onPress={() => {
+                router.replace({
+                  pathname: "/workout-complete",
+                  params: { data: JSON.stringify(pendingCompleteParams) },
+                });
+              }}
+            >
+              <Text style={[styles.continueBtnText, { color: theme.colors.primaryText }]}>Continue</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
     );
@@ -1246,203 +1268,215 @@ export default function SessionScreen() {
               <View style={{ marginTop: 28 }}>
                 <Button
                   label="End Session"
-                  onPress={() => {
-                    Alert.alert(
-                      "End Session?",
-                      `${completedSets}/${totalSets} sets completed across ${session.exercises.length} exercise(s).\n\nThis will log today's workout.`,
-                      [
-                        { text: "Keep Going", style: "cancel" },
-                        {
-                          text: "Discard",
-                          style: "destructive",
-                          onPress: async () => {
-                            await deleteWorkout(session.id);
-                            hapticStreakRisk();
-                            router.replace("/");
-                          },
-                        },
-                        {
-                          text: "End Session",
-                          onPress: async () => {
-                            // ── Idempotency guard ──────────────────────────────
-                            if (session.xpClaimed) {
-                              router.replace("/");
-                              return;
-                            }
-
-                            const completed: WorkoutSession = {
-                              ...session,
-                              isActive: false,
-                              completedAt: new Date().toISOString(),
-                              xpClaimed: true,
-                            };
-                            await updateWorkout(completed);
-
-                            // ── Mark plan day completed ──────────────────────────
-                            if (session.planWeek && session.planDay) {
-                              markDayCompleted(session.planWeek, session.planDay);
-                            }
-
-                            // ── Streak (with freeze + rest-day support) ────────
-                            const restDays = profile.restDays ?? [];
-                            const week = isoWeek();
-                            const freezesLeft =
-                              profile.freezesResetWeek === week
-                                ? (profile.freezesRemaining ?? 2)
-                                : 2;
-                            const { streak: newStreak, freezesUsed } =
-                              await recordActivity(new Date(), restDays, freezesLeft);
-                            if (freezesUsed > 0 || profile.freezesResetWeek !== week) {
-                              updateProfile({
-                                freezesRemaining: freezesLeft - freezesUsed,
-                                freezesResetWeek: week,
-                              });
-                            }
-
-                            // ── PR detection (Epley 1RM + bodyweight reps vs prior sessions) ─────
-                            const prevSessions = workouts.filter(
-                              (w) => w.id !== session.id && !!w.completedAt
-                            );
-                            const isPR = prevSessions.length > 0 && session.exercises.some((ex) => {
-                              const isBW = ex.equipment === "bodyweight";
-
-                              // Weighted PR: Epley 1RM comparison
-                              let current = 0;
-                              for (const s of ex.sets) {
-                                if (!s.completed) continue;
-                                const w = parseFloat(s.weight);
-                                const r = parseFloat(s.reps);
-                                if (!isNaN(w) && !isNaN(r) && r > 0) {
-                                  current = Math.max(current, w * (1 + r / 30));
-                                }
-                              }
-                              if (current > 0) {
-                                let prevBest = 0;
-                                for (const prev of prevSessions) {
-                                  for (const pe of prev.exercises) {
-                                    if (pe.name !== ex.name) continue;
-                                    for (const s of pe.sets) {
-                                      if (!s.completed) continue;
-                                      const w = parseFloat(s.weight);
-                                      const r = parseFloat(s.reps);
-                                      if (!isNaN(w) && !isNaN(r) && r > 0) {
-                                        prevBest = Math.max(prevBest, w * (1 + r / 30));
-                                      }
-                                    }
-                                  }
-                                }
-                                if (current > prevBest) return true;
-                              }
-
-                              // Bodyweight PR: max reps comparison
-                              if (isBW) {
-                                let currentMaxReps = 0;
-                                for (const s of ex.sets) {
-                                  if (!s.completed || s.isWarmUp) continue;
-                                  const r = parseFloat(s.reps);
-                                  if (!isNaN(r)) currentMaxReps = Math.max(currentMaxReps, r);
-                                }
-                                if (currentMaxReps <= 0) return false;
-                                let prevBestReps = 0;
-                                for (const prev of prevSessions) {
-                                  for (const pe of prev.exercises) {
-                                    if (pe.name !== ex.name) continue;
-                                    for (const s of pe.sets) {
-                                      if (!s.completed || s.isWarmUp) continue;
-                                      const r = parseFloat(s.reps);
-                                      if (!isNaN(r)) prevBestReps = Math.max(prevBestReps, r);
-                                    }
-                                  }
-                                }
-                                if (prevBestReps > 0 && currentMaxReps > prevBestReps) return true;
-                              }
-
-                              return false;
-                            });
-
-                            // ── XP award ────────────────────────────────────────
-                            const xpResult = awardSessionXP(
-                              xp,
-                              completed,
-                              isPR,
-                              newStreak.current
-                            );
-                            await setXPRecord(xpResult.updatedRecord);
-
-                            // ── Badges ─────────────────────────────────────
-                            const newBadges = checkBadges({
-                              session: completed,
-                              allWorkouts: [...workouts.filter((w) => w.id !== completed.id), completed],
-                              profile,
-                              streakDays: newStreak.current,
-                            });
-                            if (newBadges.length > 0) {
-                              await updateProfile({
-                                badges: [...(profile.badges ?? []), ...newBadges],
-                              });
-                            }
-
-                            // ── Performance week ────────────────────────────────
-                            const weekRecord = buildPerformanceWeek(
-                              isoWeekKey(new Date()),
-                              [completed],
-                              newStreak.current,
-                              isPR ? 1 : 0
-                            );
-                            await savePerformanceRecord(upsertPerformanceWeek(performance, weekRecord));
-
-                            // ── Locke reaction (suppressed — workout-complete screen owns celebration)
-
-                            // ── Icon mood ──────────────────────────────────────
-                            checkIconMood({
-                              isSessionActive: false,
-                              prHitInLast24h: isPR,
-                              streakDays: newStreak.current,
-                              lastWorkoutAt: completed.completedAt ?? null,
-                            });
-
-                            // ── Fatigue + training load (fire-and-forget) ─────────
-                            // Runs in background — never blocks the UX transition.
-                            // Pass all sessions including the newly completed one.
-                            void recordSessionFatigue(
-                              completed,
-                              [...workouts.filter((w) => w.id !== completed.id), completed],
-                            );
-
-                            // ── Sync to Apple Health (fire-and-forget) ─────────
-                            // Respects auto-sync preference from user settings.
-                            void syncCompletedSession(completed);
-
-                            // ── Cancel streak-at-risk notification ───────────────
-                            void cancelStreakRiskReminder();
-
-                            // ── Navigate to Workout Complete screen ──────────────
-                            const params = buildWorkoutCompleteParams(
-                              completed,
-                              xpResult,
-                              isPR,
-                              newStreak.current
-                            );
-                            if (newBadges.length > 0) {
-                              params.newBadges = newBadges;
-                            }
-                            router.replace({
-                              pathname: "/workout-complete",
-                              params: {
-                                data: JSON.stringify(params),
-                              },
-                            });
-                          },
-                        },
-                      ]
-                    );
-                  }}
+                  onPress={() => setEndModalVisible(true)}
                 />
               </View>
             )}
           </View>
         )}
       </ScrollView>
+
+      {/* ── End Session confirmation modal ────────────────────────────── */}
+      <Modal
+        visible={endModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEndModalVisible(false)}
+      >
+        <Pressable
+          style={endModalStyles.backdrop}
+          onPress={() => setEndModalVisible(false)}
+        >
+          <Pressable style={[endModalStyles.card, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[endModalStyles.title, { color: theme.colors.text }]}>End Session?</Text>
+            <Text style={[endModalStyles.body, { color: theme.colors.muted }]}>
+              {completedSets}/{totalSets} sets completed across {session.exercises.length} exercise(s).
+            </Text>
+            <Text style={[endModalStyles.subtext, { color: theme.colors.primary }]}>
+              This will log today's workout.
+            </Text>
+
+            <Pressable
+              style={[endModalStyles.btn, { backgroundColor: theme.colors.primary }]}
+              onPress={async () => {
+                setEndModalVisible(false);
+
+                // ── Idempotency guard ──────────────────────────────
+                if (session.xpClaimed) {
+                  router.replace("/");
+                  return;
+                }
+
+                const completed: WorkoutSession = {
+                  ...session,
+                  isActive: false,
+                  completedAt: new Date().toISOString(),
+                  xpClaimed: true,
+                };
+                await updateWorkout(completed);
+
+                // ── Mark plan day completed ──────────────────────────
+                if (session.planWeek && session.planDay) {
+                  markDayCompleted(session.planWeek, session.planDay);
+                }
+
+                // ── Streak (with freeze + rest-day support) ────────
+                const restDays = profile.restDays ?? [];
+                const week = isoWeek();
+                const freezesLeft =
+                  profile.freezesResetWeek === week
+                    ? (profile.freezesRemaining ?? 2)
+                    : 2;
+                const { streak: newStreak, freezesUsed } =
+                  await recordActivity(new Date(), restDays, freezesLeft);
+                if (freezesUsed > 0 || profile.freezesResetWeek !== week) {
+                  updateProfile({
+                    freezesRemaining: freezesLeft - freezesUsed,
+                    freezesResetWeek: week,
+                  });
+                }
+
+                // ── PR detection (Epley 1RM + bodyweight reps vs prior sessions) ─────
+                const prevSessions = workouts.filter(
+                  (w) => w.id !== session.id && !!w.completedAt
+                );
+                const isPR = prevSessions.length > 0 && session.exercises.some((ex) => {
+                  const isBW = ex.equipment === "bodyweight";
+
+                  let current = 0;
+                  for (const s of ex.sets) {
+                    if (!s.completed) continue;
+                    const w = parseFloat(s.weight);
+                    const r = parseFloat(s.reps);
+                    if (!isNaN(w) && !isNaN(r) && r > 0) {
+                      current = Math.max(current, w * (1 + r / 30));
+                    }
+                  }
+                  if (current > 0) {
+                    let prevBest = 0;
+                    for (const prev of prevSessions) {
+                      for (const pe of prev.exercises) {
+                        if (pe.name !== ex.name) continue;
+                        for (const s of pe.sets) {
+                          if (!s.completed) continue;
+                          const w = parseFloat(s.weight);
+                          const r = parseFloat(s.reps);
+                          if (!isNaN(w) && !isNaN(r) && r > 0) {
+                            prevBest = Math.max(prevBest, w * (1 + r / 30));
+                          }
+                        }
+                      }
+                    }
+                    if (current > prevBest) return true;
+                  }
+
+                  if (isBW) {
+                    let currentMaxReps = 0;
+                    for (const s of ex.sets) {
+                      if (!s.completed || s.isWarmUp) continue;
+                      const r = parseFloat(s.reps);
+                      if (!isNaN(r)) currentMaxReps = Math.max(currentMaxReps, r);
+                    }
+                    if (currentMaxReps <= 0) return false;
+                    let prevBestReps = 0;
+                    for (const prev of prevSessions) {
+                      for (const pe of prev.exercises) {
+                        if (pe.name !== ex.name) continue;
+                        for (const s of pe.sets) {
+                          if (!s.completed || s.isWarmUp) continue;
+                          const r = parseFloat(s.reps);
+                          if (!isNaN(r)) prevBestReps = Math.max(prevBestReps, r);
+                        }
+                      }
+                    }
+                    if (prevBestReps > 0 && currentMaxReps > prevBestReps) return true;
+                  }
+
+                  return false;
+                });
+
+                // ── XP award ────────────────────────────────────────
+                const xpResult = awardSessionXP(xp, completed, isPR, newStreak.current);
+                await setXPRecord(xpResult.updatedRecord);
+
+                // ── Badges ─────────────────────────────────────
+                const newBadges = checkBadges({
+                  session: completed,
+                  allWorkouts: [...workouts.filter((w) => w.id !== completed.id), completed],
+                  profile,
+                  streakDays: newStreak.current,
+                });
+                if (newBadges.length > 0) {
+                  await updateProfile({
+                    badges: [...(profile.badges ?? []), ...newBadges],
+                  });
+                }
+
+                // ── Performance week ────────────────────────────────
+                const weekRecord = buildPerformanceWeek(
+                  isoWeekKey(new Date()),
+                  [completed],
+                  newStreak.current,
+                  isPR ? 1 : 0
+                );
+                await savePerformanceRecord(upsertPerformanceWeek(performance, weekRecord));
+
+                // ── Icon mood ──────────────────────────────────────
+                checkIconMood({
+                  isSessionActive: false,
+                  prHitInLast24h: isPR,
+                  streakDays: newStreak.current,
+                  lastWorkoutAt: completed.completedAt ?? null,
+                });
+
+                // ── Fatigue + training load (fire-and-forget) ─────────
+                void recordSessionFatigue(
+                  completed,
+                  [...workouts.filter((w) => w.id !== completed.id), completed],
+                );
+
+                // ── Sync to Apple Health (fire-and-forget) ─────────
+                void syncCompletedSession(completed);
+
+                // ── Cancel streak-at-risk notification ───────────────
+                void cancelStreakRiskReminder();
+
+                // ── Prepare Workout Complete params (user navigates manually) ──
+                const wcParams = buildWorkoutCompleteParams(
+                  completed,
+                  xpResult,
+                  isPR,
+                  newStreak.current
+                );
+                if (newBadges.length > 0) {
+                  wcParams.newBadges = newBadges;
+                }
+                setPendingCompleteParams(wcParams);
+              }}
+            >
+              <Text style={[endModalStyles.btnText, { color: theme.colors.primaryText }]}>End Session</Text>
+            </Pressable>
+
+            <Pressable
+              style={[endModalStyles.btn, { backgroundColor: theme.colors.mutedBg }]}
+              onPress={() => setEndModalVisible(false)}
+            >
+              <Text style={[endModalStyles.btnText, { color: theme.colors.text }]}>Keep Going</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={async () => {
+                setEndModalVisible(false);
+                await deleteWorkout(session.id);
+                hapticStreakRisk();
+                router.replace("/");
+              }}
+            >
+              <Text style={[endModalStyles.discardText, { color: theme.colors.danger }]}>Discard</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Exercise picker bottom sheet */}
       <AppBottomSheet visible={pickerVisible} onClose={() => { setPickerVisible(false); setManualName(""); }} snapPoints={["60%"]}>
@@ -1800,6 +1834,65 @@ const styles = StyleSheet.create({
   readOnlySetNum: { width: 28, fontSize: 13, fontWeight: "600" } as const,
   readOnlySetWeight: { flex: 1, fontSize: 14, fontWeight: "600" } as const,
   readOnlySetReps: { width: 60, fontSize: 14 },
+  continueBtn: {
+    marginTop: 24,
+    marginBottom: 16,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center" as const,
+  },
+  continueBtnText: {
+    fontSize: 17,
+    fontWeight: "700" as const,
+  },
+});
+
+const endModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  card: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  body: {
+    fontSize: 15,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  subtext: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 24,
+  },
+  btn: {
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  btnText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  discardText: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginTop: 6,
+    paddingVertical: 8,
+  },
 });
 
 const pauseStyles = StyleSheet.create({

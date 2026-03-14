@@ -59,7 +59,7 @@ const BODY_PARTS: { label: string; muscles: MuscleGroup[]; icon: string; iconSet
   { label: "Core", muscles: ["core"], icon: "yoga", iconSet: "mci" },
 ];
 
-const MAX_RESULTS = 50;
+const PAGE_SIZE = 50;
 const SNAP_POINTS = ["85%"];
 
 // --- Result row (memoised) ---
@@ -111,6 +111,7 @@ export function ExercisePicker({ visible, onClose, onSelect, excludeNames }: Exe
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [equipFilter, setEquipFilter] = useState<Equipment | "all">("all");
   const [muscleFilter, setMuscleFilter] = useState<string | null>(null);
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
   // Debounce search input
   useEffect(() => {
@@ -135,6 +136,7 @@ export function ExercisePicker({ visible, onClose, onSelect, excludeNames }: Exe
       setDebouncedQuery("");
       setEquipFilter("all");
       setMuscleFilter(null);
+      setDisplayCount(PAGE_SIZE);
     }
   }, [visible]);
 
@@ -144,7 +146,7 @@ export function ExercisePicker({ visible, onClose, onSelect, excludeNames }: Exe
   );
 
   // Filtered results
-  const results = useMemo(() => {
+  const filteredList = useMemo(() => {
     let list = sortedCatalog;
 
     if (muscleFilter && muscleFilter !== "All") {
@@ -161,8 +163,21 @@ export function ExercisePicker({ visible, onClose, onSelect, excludeNames }: Exe
       list = list.filter((e) => e._searchKey.includes(q));
     }
 
-    return list.slice(0, MAX_RESULTS);
+    return list;
   }, [debouncedQuery, equipFilter, muscleFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setDisplayCount(PAGE_SIZE);
+  }, [debouncedQuery, equipFilter, muscleFilter]);
+
+  const results = useMemo(() => filteredList.slice(0, displayCount), [filteredList, displayCount]);
+
+  const handleLoadMore = useCallback(() => {
+    if (displayCount < filteredList.length) {
+      setDisplayCount((prev) => prev + PAGE_SIZE);
+    }
+  }, [displayCount, filteredList.length]);
 
   const handleSheetClose = useCallback(() => {
     if (visibleRef.current) onClose();
@@ -336,6 +351,8 @@ export function ExercisePicker({ visible, onClose, onSelect, excludeNames }: Exe
             renderItem={renderItem}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Ionicons name="barbell-outline" size={36} color={colors.muted} />
