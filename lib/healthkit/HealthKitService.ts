@@ -78,27 +78,55 @@ export async function initializeHealthKit(options: InitOptions): Promise<void> {
     .map((p) => (Constants.Permissions as Record<string, HealthPermission>)[p])
     .filter(Boolean);
 
+  if (__DEV__) {
+    console.log('[HealthKit] initHealthKit with read:', readPerms, 'write:', writePerms);
+  }
+
   return new Promise<void>((resolve, reject) => {
-    AppleHealthKit.initHealthKit(
-      {
-        permissions: {
-          read: readPerms,
-          write: writePerms,
+    // Timeout after 15s in case the native callback never fires
+    const timeout = setTimeout(() => {
+      if (__DEV__) console.error('[HealthKit] initHealthKit timed out after 15s');
+      reject(new HealthKitError(
+        'HealthKit request timed out. Try again or enable in Settings > Health.',
+        'timeout',
+      ));
+    }, 15_000);
+
+    try {
+      AppleHealthKit.initHealthKit(
+        {
+          permissions: {
+            read: readPerms,
+            write: writePerms,
+          },
         },
-      },
-      (err: string) => {
-        if (err) {
-          reject(new HealthKitError(
-            err.includes('denied') ? 'Health access denied.' : err,
-            'permission_denied',
-            err,
-          ));
-        } else {
-          _initialized = true;
-          resolve();
-        }
-      },
-    );
+        (err: any) => {
+          clearTimeout(timeout);
+          if (__DEV__) console.log('[HealthKit] initHealthKit callback fired, err:', err);
+          if (err) {
+            const errStr = typeof err === 'string' ? err : JSON.stringify(err);
+            if (__DEV__) console.error('[HealthKit] initHealthKit error:', errStr, err);
+            reject(new HealthKitError(
+              errStr.includes?.('denied') ? 'Health access denied.' : errStr,
+              'permission_denied',
+              errStr,
+            ));
+          } else {
+            _initialized = true;
+            resolve();
+          }
+        },
+      );
+      if (__DEV__) console.log('[HealthKit] initHealthKit called successfully');
+    } catch (e) {
+      clearTimeout(timeout);
+      if (__DEV__) console.error('[HealthKit] initHealthKit threw:', e);
+      reject(new HealthKitError(
+        'HealthKit native module error',
+        'native_error',
+        String(e),
+      ));
+    }
   });
 }
 

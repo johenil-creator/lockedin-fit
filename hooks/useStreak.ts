@@ -125,10 +125,26 @@ export function useStreak() {
     []
   );
 
+  /**
+   * Restore a broken streak (e.g. after watching a rewarded ad).
+   * Sets lastActivityDate to today so the streak resumes from where it was.
+   */
+  const restoreStreak = useCallback(async (): Promise<StreakData> => {
+    const prev = streakRef.current;
+    const updated: StreakData = {
+      ...prev,
+      lastActivityDate: toDateStr(),
+    };
+    streakRef.current = updated;
+    setStreak(updated);
+    await saveStreak(updated);
+    return updated;
+  }, []);
+
   /** Days since last recorded activity (Infinity if never). */
   const daysSinceActivity: number = streak.lastActivityDate
     ? daysBetween(streak.lastActivityDate, toDateStr())
     : Infinity;
 
-  return { streak, loading, recordActivity, daysSinceActivity };
+  return { streak, loading, recordActivity, restoreStreak, daysSinceActivity };
 }

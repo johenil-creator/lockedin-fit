@@ -69,8 +69,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     "expo-asset",
-    "expo-notifications",
     "expo-font",
+    [
+      "react-native-google-mobile-ads",
+      {
+        androidAppId: "ca-app-pub-5004436293909047~9486645456",
+        iosAppId: "ca-app-pub-5004436293909047~9486645456",
+      },
+    ],
   ],
   extra: {
     router: {},

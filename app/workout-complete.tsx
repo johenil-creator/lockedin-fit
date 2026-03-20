@@ -28,6 +28,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { InfoTooltip } from "../components/InfoTooltip";
 import { earnFangs } from "../lib/fangsService";
+import { useInterstitialAd } from "../hooks/useInterstitialAd";
 import { postActivity } from "../lib/activityService";
 import { updateChallengeProgress } from "../lib/packChallengeService";
 import { updateChallengeScore } from "../lib/friendChallengeService";
@@ -498,6 +499,7 @@ export default function WorkoutCompleteScreen() {
     if (__DEV__) console.warn("Failed to parse workout-complete params:", e);
   }
 
+  const { show: showInterstitial } = useInterstitialAd();
   const reducedMotion = useReducedMotion();
   const [claimed, setClaimed] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -770,9 +772,10 @@ export default function WorkoutCompleteScreen() {
 
   // ── Navigation handlers ────────────────────────────────────────────────────
 
-  const navigateHome = useCallback(() => {
+  const navigateHome = useCallback(async () => {
+    await showInterstitial();
     router.replace("/");
-  }, [router]);
+  }, [router, showInterstitial]);
 
   const handleLevelUpContinue = useCallback(() => {
     setShowLevelUp(false);

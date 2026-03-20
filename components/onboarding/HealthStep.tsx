@@ -25,10 +25,13 @@ type Props = {
  */
 export function HealthStep({ unit, onSynced, onSkip, onBack }: Props) {
   const { theme } = useAppTheme();
-  const { weight, loading, error, fetchWeight } = useHealthKit();
+  const { weight, loading, error: hkError, fetchWeight } = useHealthKit();
   const { requestEnhancedPermissions } = useHealthPermissions();
   const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const autoAdvanced = useRef(false);
+
+  const error = connectError || hkError;
 
   // Auto-advance once weight is synced
   useEffect(() => {
@@ -41,17 +44,22 @@ export function HealthStep({ unit, onSynced, onSkip, onBack }: Props) {
 
   async function handleConnect() {
     setConnecting(true);
-    // Request enhanced permissions (weight + workouts + HR + steps + active energy)
-    // in a single dialog — no second screen needed
-    const granted = await requestEnhancedPermissions();
-    if (granted) {
-      // Then fetch weight (uses the permissions we just requested)
-      await fetchWeight(unit);
+    setConnectError(null);
+    try {
+      // Request enhanced permissions (weight + workouts + HR + steps + active energy)
+      // in a single dialog — no second screen needed
+      const granted = await requestEnhancedPermissions();
+      if (granted) {
+        // Then fetch weight (uses the permissions we just requested)
+        await fetchWeight(unit);
+      } else {
+        setConnectError("Could not connect to Apple Health. You can enable it later in Settings.");
+      }
+    } catch (e: any) {
+      if (__DEV__) console.error("[HealthStep] connect error:", e);
+      setConnectError("Could not connect to Apple Health. You can enable it later in Settings.");
     }
     setConnecting(false);
-    // If weight was fetched, the useEffect above handles auto-advance.
-    // If no weight (denied or no data), stay on this screen —
-    // user can tap Skip to proceed without syncing.
   }
 
   const synced = !!weight;

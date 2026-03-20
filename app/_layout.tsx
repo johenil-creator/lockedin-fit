@@ -23,6 +23,7 @@ import { preloadLockeAssets } from "../components/Locke/LockeMascot";
 import { AvatarPrewarmer } from "../components/avatar/LockeAvatarBuilder";
 import { loadLockeCustomization } from "../lib/storage";
 import { useHealthWeightSync } from "../hooks/useHealthWeightSync";
+import mobileAds from "react-native-google-mobile-ads";
 
 /** Runs app-level background syncs that need context providers. */
 function AppSyncEffects() {
@@ -47,7 +48,11 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
 }
 
 export default function RootLayout() {
-  useEffect(() => { preloadLockeAssets(); loadLockeCustomization(); }, []);
+  useEffect(() => {
+    preloadLockeAssets();
+    loadLockeCustomization();
+    mobileAds().initialize();
+  }, []);
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AvatarPrewarmer />
