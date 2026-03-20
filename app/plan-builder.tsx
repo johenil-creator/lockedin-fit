@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,19 +6,25 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { impact, notification, ImpactStyle, NotificationType } from "../lib/haptics";
 import { BackButton } from "../components/BackButton";
 import { usePlanContext } from "../contexts/PlanContext";
+import { useProfileContext } from "../contexts/ProfileContext";
+import { useWorkouts } from "../hooks/useWorkouts";
+import { loadPlanDraft, savePlanDraft, clearPlanDraft, loadSavedDraftById, saveSavedDraft, type SavedPlanDraft } from "../lib/storage";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useToast } from "../contexts/ToastContext";
 import { ExercisePicker } from "../components/plan-builder/ExercisePicker";
+import { resolveExerciseLoad, classifyExercise, getWeekPrescription } from "../lib/loadEngine";
 import { glowColors, spacing, radius, typography } from "../lib/theme";
 import type { Exercise } from "../lib/types";
 
@@ -325,12 +331,19 @@ const dt = StyleSheet.create({
 export default function PlanBuilderScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{ new?: string; draftId?: string }>();
   const { theme } = useAppTheme();
   const { setPlan } = usePlanContext();
+  const { profile } = useProfileContext();
+  const { workouts } = useWorkouts();
   const { showToast } = useToast();
+
+  // Track which saved draft we're editing (if any)
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(params.draftId ?? null);
 
   // Wizard state
   const [step, setStep] = useState(0);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   // Step 1: Plan basics
   const [planName, setPlanName] = useState("");
@@ -338,38 +351,175 @@ export default function PlanBuilderScreen() {
   const [daysPerWeek, setDaysPerWeek] = useState(4);
   const [numWeeks, setNumWeeks] = useState(4);
 
-  // Step 2: Day builder
-  const [days, setDays] = useState<DayConfig[]>(() =>
-    Array.from({ length: 4 }, (_, i) => ({ label: `Day ${i + 1}`, exercises: [] }))
+  // Step 2: Day builder — per-week
+  const makeDays = (n: number) => Array.from({ length: n }, (_, i) => ({ label: `Day ${i + 1}`, exercises: [] as DayExercise[] }));
+  const [weeks, setWeeks] = useState<DayConfig[][]>(() =>
+    Array.from({ length: 4 }, () => makeDays(4))
   );
+
+  // Restore draft on mount
+  useEffect(() => {
+    (async () => {
+      // If new=1, start fresh — skip draft loading
+      if (params.new === "1") {
+        setDraftLoaded(true);
+        return;
+      }
+
+      // If draftId is specified, load from saved drafts
+      if (params.draftId) {
+        const saved = await loadSavedDraftById(params.draftId);
+        if (saved?.draft) {
+          const d = saved.draft;
+          setPlanName(d.planName ?? "");
+          setGoal(d.goal ?? "Hypertrophy");
+          setDaysPerWeek(d.daysPerWeek ?? 4);
+          setNumWeeks(d.numWeeks ?? 4);
+          if (d.weeks) setWeeks(d.weeks);
+          setStep(d.step ?? 0);
+          if (d.activeWeek != null) setActiveWeek(d.activeWeek);
+          if (d.activeDay != null) setActiveDay(d.activeDay);
+          setCurrentDraftId(saved.id);
+        }
+        setDraftLoaded(true);
+        return;
+      }
+
+      // Fallback: load legacy single draft
+      const draft = await loadPlanDraft();
+      if (draft) {
+        setPlanName(draft.planName ?? "");
+        setGoal(draft.goal ?? "Hypertrophy");
+        setDaysPerWeek(draft.daysPerWeek ?? 4);
+        setNumWeeks(draft.numWeeks ?? 4);
+        if (draft.weeks) setWeeks(draft.weeks);
+        setStep(draft.step ?? 0);
+        if (draft.activeWeek != null) setActiveWeek(draft.activeWeek);
+        if (draft.activeDay != null) setActiveDay(draft.activeDay);
+      }
+      setDraftLoaded(true);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [activeWeek, setActiveWeek] = useState(0);
   const [activeDay, setActiveDay] = useState(0);
   const [pickerVisible, setPickerVisible] = useState(false);
 
-  // Sync days array when daysPerWeek changes
+  // Convenience accessor for current week's days
+  const days = weeks[activeWeek] ?? [];
+  const setDays = useCallback((updater: (prev: DayConfig[]) => DayConfig[]) => {
+    setWeeks((prev) => {
+      const updated = [...prev];
+      updated[activeWeek] = updater(updated[activeWeek]);
+      return updated;
+    });
+  }, [activeWeek]);
+
+  // Sync weeks/days when numWeeks or daysPerWeek changes
   const handleDaysPerWeekChange = useCallback((n: number) => {
     setDaysPerWeek(n);
-    setDays((prev) => {
-      if (n > prev.length) {
-        return [...prev, ...Array.from({ length: n - prev.length }, (_, i) => ({ label: `Day ${prev.length + i + 1}`, exercises: [] }))];
+    setWeeks((prev) => prev.map((week) => {
+      if (n > week.length) {
+        return [...week, ...Array.from({ length: n - week.length }, (_, i) => ({ label: `Day ${week.length + i + 1}`, exercises: [] as DayExercise[] }))];
       }
-      return prev.slice(0, n);
-    });
+      return week.slice(0, n);
+    }));
     setActiveDay((prev) => Math.min(prev, n - 1));
   }, []);
 
-  // Exercise handlers
-  const handleAddExercise = useCallback((exercise: { name: string; equipment: string }) => {
+  // Keep weeks array in sync with numWeeks
+  useEffect(() => {
+    setWeeks((prev) => {
+      if (numWeeks > prev.length) {
+        // Add new weeks — copy structure from week 1 (with empty exercises) as template
+        const template = prev[0] ?? makeDays(daysPerWeek);
+        return [...prev, ...Array.from({ length: numWeeks - prev.length }, () =>
+          template.map((d) => ({ label: d.label, exercises: [] as DayExercise[] }))
+        )];
+      }
+      return prev.slice(0, numWeeks);
+    });
+    setActiveWeek((prev) => Math.min(prev, numWeeks - 1));
+  }, [numWeeks, daysPerWeek]);
+
+  // Check if user has 1RM data
+  const has1RM = !!(profile.manual1RM?.deadlift || profile.manual1RM?.squat || profile.manual1RM?.bench || profile.manual1RM?.ohp);
+
+  // Add exercise with optional auto-fill from 1RM
+  const addExerciseWithDefaults = useCallback((name: string, autoFill: boolean) => {
+    let sets = "3";
+    let reps = "10";
+    let restTime = "90";
+    let warmUpSets = "0";
+
+    if (autoFill) {
+      const weekStr = `Week ${activeWeek + 1}`;
+      // Get prescription for sets/reps based on week + exercise type
+      const classification = classifyExercise(name);
+      const isCompound = classification.baseLift !== null && classification.confidence >= 0.5;
+      const prescription = getWeekPrescription(activeWeek + 1, isCompound, classification.pattern);
+
+      sets = String(prescription.sets);
+      reps = String(prescription.reps);
+      restTime = isCompound ? "120" : "90";
+      warmUpSets = isCompound ? "2" : "0";
+
+      // Try to get weight from load engine
+      const load = resolveExerciseLoad({
+        exerciseName: name,
+        weekStr,
+        profile,
+        workouts,
+        workingSetCount: prescription.sets,
+        targetReps: String(prescription.reps),
+        plannedWarmUpCount: isCompound ? 2 : 0,
+      });
+
+      // If we got a calculated weight, show it in the reps field context
+      if (load.workingSets.length > 0 && load.workingSets[0].weight) {
+        // Weight will be applied when the session starts via the load engine,
+        // but show the prescription sets/reps so the user sees the auto-fill worked
+      }
+
+      if (__DEV__) {
+        console.log(`[auto-fill] ${name}: ${sets}×${reps}, source=${load.source}, weight=${load.workingWeight}`);
+      }
+    }
+
     setDays((prev) => {
       const updated = [...prev];
       updated[activeDay] = {
         ...updated[activeDay],
-        exercises: [...updated[activeDay].exercises, { name: exercise.name, sets: "3", reps: "10", restTime: "90", warmUpSets: "0" }],
+        exercises: [...updated[activeDay].exercises, { name, sets, reps, restTime, warmUpSets }],
       };
       return updated;
     });
-    setPickerVisible(false);
     impact(ImpactStyle.Light);
-  }, [activeDay]);
+  }, [activeDay, activeWeek, setDays, profile, workouts]);
+
+  // Exercise handlers
+  const handleAddExercise = useCallback((exercise: { name: string; equipment: string }) => {
+    setPickerVisible(false);
+
+    if (has1RM) {
+      Alert.alert(
+        "Set Up Exercise",
+        `How would you like to configure "${exercise.name}"?`,
+        [
+          {
+            text: "Auto-fill from 1RM",
+            onPress: () => addExerciseWithDefaults(exercise.name, true),
+          },
+          {
+            text: "Enter Manually",
+            onPress: () => addExerciseWithDefaults(exercise.name, false),
+          },
+          { text: "Cancel", style: "cancel" },
+        ],
+      );
+    } else {
+      addExerciseWithDefaults(exercise.name, false);
+    }
+  }, [has1RM, addExerciseWithDefaults]);
 
   const handleUpdateExercise = useCallback((i: number, patch: Partial<DayExercise>) => {
     setDays((prev) => {
@@ -379,7 +529,7 @@ export default function PlanBuilderScreen() {
       updated[activeDay] = { ...updated[activeDay], exercises: dayExercises };
       return updated;
     });
-  }, [activeDay]);
+  }, [activeDay, setDays]);
 
   const handleDeleteExercise = useCallback((i: number) => {
     impact(ImpactStyle.Light);
@@ -390,7 +540,7 @@ export default function PlanBuilderScreen() {
       updated[activeDay] = { ...updated[activeDay], exercises: dayExercises };
       return updated;
     });
-  }, [activeDay]);
+  }, [activeDay, setDays]);
 
   const handleDayRename = useCallback((newLabel: string) => {
     setDays((prev) => {
@@ -398,20 +548,21 @@ export default function PlanBuilderScreen() {
       updated[activeDay] = { ...updated[activeDay], label: newLabel };
       return updated;
     });
-  }, [activeDay]);
+  }, [activeDay, setDays]);
 
   // Existing exercise names for current day (for de-emphasis in picker)
   const existingNames = days[activeDay]?.exercises.map((e) => e.name) ?? [];
 
-  // Total exercise count across all days
-  const totalExercises = days.reduce((sum, d) => sum + d.exercises.length, 0);
+  // Total exercise count across all weeks/days
+  const totalExercises = weeks.reduce((sum, week) => sum + week.reduce((s, d) => s + d.exercises.length, 0), 0);
+  const currentWeekExercises = days.reduce((sum, d) => sum + d.exercises.length, 0);
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
   const handleSave = useCallback(() => {
     const exercises: Exercise[] = [];
-    for (let w = 1; w <= numWeeks; w++) {
-      for (const day of days) {
+    weeks.forEach((weekDays, wi) => {
+      for (const day of weekDays) {
         for (const ex of day.exercises) {
           exercises.push({
             exercise: ex.name,
@@ -419,70 +570,137 @@ export default function PlanBuilderScreen() {
             reps: ex.reps || "10",
             weight: "",
             comments: "",
-            week: `Week ${w}`,
+            week: `Week ${wi + 1}`,
             day: day.label,
             restTime: ex.restTime || "90",
             warmUpSets: ex.warmUpSets || "0",
           });
         }
       }
-    }
+    });
 
     setPlan(planName.trim(), exercises);
+    clearPlanDraft();
     notification(NotificationType.Success);
     showToast({ message: `Created "${planName.trim()}" — ${totalExercises} exercises, ${numWeeks} weeks`, type: "success" });
     router.replace("/(tabs)/plan");
-  }, [planName, days, numWeeks, totalExercises, setPlan, showToast, router]);
+  }, [planName, weeks, numWeeks, totalExercises, setPlan, showToast, router]);
+
+  const handleSaveAndStart = useCallback(async () => {
+    // Build exercises from current state
+    const exercises: Exercise[] = [];
+    weeks.forEach((weekDays, wi) => {
+      for (const day of weekDays) {
+        for (const ex of day.exercises) {
+          exercises.push({
+            exercise: ex.name,
+            sets: ex.sets || "3",
+            reps: ex.reps || "10",
+            weight: "",
+            comments: "",
+            week: `Week ${wi + 1}`,
+            day: day.label,
+            restTime: ex.restTime || "90",
+            warmUpSets: ex.warmUpSets || "0",
+          });
+        }
+      }
+    });
+
+    // Only save if there's at least one exercise
+    if (exercises.length > 0) {
+      setPlan(planName.trim() || "My Plan", exercises);
+    }
+
+    // Save to multi-draft system
+    const draftData = { planName, goal, daysPerWeek, numWeeks, weeks, step, activeWeek, activeDay };
+    const draftId = currentDraftId || `draft_${Date.now()}`;
+    const totalEx = weeks.reduce((sum, wk) => sum + wk.reduce((s, d) => s + d.exercises.length, 0), 0);
+    await saveSavedDraft({
+      id: draftId,
+      name: planName.trim() || "Untitled Plan",
+      goal,
+      daysPerWeek,
+      numWeeks,
+      totalExercises: totalEx,
+      updatedAt: new Date().toISOString(),
+      draft: draftData,
+    });
+    // Also save to legacy single draft for backwards compat
+    await savePlanDraft(draftData);
+    setCurrentDraftId(draftId);
+    showToast({ message: "Plan saved — you can edit anytime", type: "success" });
+    router.replace("/(tabs)/plan");
+  }, [planName, goal, daysPerWeek, numWeeks, weeks, step, activeWeek, activeDay, currentDraftId, setPlan, showToast, router]);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
-  const canAdvance = step === 0 ? planName.trim().length > 0 : step === 1 ? totalExercises > 0 : true;
+  const currentDayHasExercises = step === 1 && (days[activeDay]?.exercises.length ?? 0) > 0;
+  const canAdvance = step === 0 ? planName.trim().length > 0 : step === 1 ? currentDayHasExercises : true;
+
+  const isLastDay = step === 1 && activeDay >= days.length - 1;
+  const isLastWeek = step === 1 && activeWeek >= numWeeks - 1;
 
   const handleNext = useCallback(() => {
-    if (step < 2) {
+    if (step === 1 && !isLastDay) {
+      // Advance to next day tab
+      impact(ImpactStyle.Light);
+      setActiveDay(activeDay + 1);
+    } else if (step === 1 && isLastDay && !isLastWeek) {
+      // Advance to next week
+      impact(ImpactStyle.Light);
+      setActiveWeek(activeWeek + 1);
+      setActiveDay(0);
+    } else if (step < 2) {
       impact(ImpactStyle.Light);
       setStep(step + 1);
     } else {
       handleSave();
     }
-  }, [step, handleSave]);
+  }, [step, activeDay, activeWeek, isLastDay, isLastWeek, numWeeks, handleSave]);
 
   const handleBack = useCallback(() => {
-    if (step > 0) {
+    if (step === 1 && activeWeek > 0) {
+      // Go back to previous week's last day
+      setActiveWeek(activeWeek - 1);
+      setActiveDay(daysPerWeek - 1);
+    } else if (step === 2) {
+      // Go back to last week's last day
+      setActiveWeek(numWeeks - 1);
+      setActiveDay(daysPerWeek - 1);
+      setStep(1);
+    } else if (step > 0) {
       setStep(step - 1);
     } else {
       router.back();
     }
-  }, [step, router]);
+  }, [step, activeWeek, daysPerWeek, numWeeks, router]);
 
   // ── Step titles ────────────────────────────────────────────────────────────
 
-  const stepTitles = ["Plan Basics", "Add Exercises", "Review"];
+  const stepTitles = ["Plan Basics", numWeeks > 1 ? `Week ${activeWeek + 1} Exercises` : "Add Exercises", "Review"];
 
   return (
     <View style={[s.screen, { backgroundColor: theme.colors.bg, paddingTop: insets.top }]}>
       {/* Header */}
       <View style={s.header}>
-        <Pressable onPress={handleBack} hitSlop={8}>
-          {step > 0 ? (
-            <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
-          ) : (
-            <BackButton />
-          )}
-        </Pressable>
+        <BackButton onPress={handleBack} />
         <View style={s.headerCenter}>
           <Text style={[typography.heading, { color: theme.colors.text, fontSize: 18 }]}>
             {stepTitles[step]}
           </Text>
           <StepIndicator current={step} total={3} />
         </View>
-        <View style={{ width: 44 }} />
+        <Pressable onPress={handleSaveAndStart} hitSlop={8} style={{ width: 44, alignItems: "center" }}>
+          <Ionicons name="save-outline" size={22} color={theme.colors.accent} />
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           contentContainerStyle={s.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           {/* ── STEP 0: Plan Basics ─────────────────────────────────────────── */}
@@ -496,8 +714,9 @@ export default function PlanBuilderScreen() {
                   onChangeText={setPlanName}
                   placeholder="e.g. Push Pull Legs"
                   placeholderTextColor={theme.colors.muted}
-                  autoFocus
-                  returnKeyType="next"
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  blurOnSubmit
                 />
 
                 <Text style={[s.fieldLabel, { color: theme.colors.muted, marginTop: spacing.lg }]}>Goal</Text>
@@ -517,6 +736,30 @@ export default function PlanBuilderScreen() {
           {/* ── STEP 1: Day Builder ─────────────────────────────────────────── */}
           {step === 1 && (
             <Animated.View entering={FadeIn.duration(250)}>
+              {/* Week indicator */}
+              {numWeeks > 1 && (
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 8, gap: 6 }}>
+                  {Array.from({ length: numWeeks }, (_, i) => (
+                    <Pressable
+                      key={i}
+                      onPress={() => { setActiveWeek(i); setActiveDay(0); }}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 4,
+                        borderRadius: 12,
+                        backgroundColor: i === activeWeek ? theme.colors.accent + "20" : "transparent",
+                        borderWidth: 1,
+                        borderColor: i === activeWeek ? theme.colors.accent : theme.colors.border,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: i === activeWeek ? "700" : "500", color: i === activeWeek ? theme.colors.accent : theme.colors.muted }}>
+                        W{i + 1}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
               {/* Day tabs */}
               <DayTabs days={days} activeDay={activeDay} onSelect={setActiveDay} />
 
@@ -540,7 +783,7 @@ export default function PlanBuilderScreen() {
                     No exercises yet
                   </Text>
                   <Text style={[s.emptyHint, { color: theme.colors.muted }]}>
-                    Tap the button below to add exercises
+                    Every pack needs a plan. Tap below to add exercises.
                   </Text>
                 </View>
               ) : (
@@ -593,57 +836,75 @@ export default function PlanBuilderScreen() {
                 </View>
               </View>
 
-              {/* Per-day summary */}
-              {days.map((day, i) => (
-                <Animated.View
-                  key={i}
-                  entering={FadeInDown.delay(i * 60).duration(200)}
-                  style={[s.card, { backgroundColor: theme.colors.surface }]}
-                >
-                  <View style={s.reviewDayHeader}>
-                    <Text style={[s.reviewDayLabel, { color: theme.colors.text }]}>{day.label}</Text>
-                    <Text style={[s.reviewDayCount, { color: theme.colors.muted }]}>
-                      {day.exercises.length} exercise{day.exercises.length !== 1 ? "s" : ""}
+              {/* Per-week / per-day summary */}
+              {weeks.map((weekDays, wi) => (
+                <View key={wi}>
+                  {numWeeks > 1 && (
+                    <Text style={{ color: theme.colors.accent, fontSize: 14, fontWeight: "700", marginTop: wi > 0 ? 16 : 8, marginBottom: 6 }}>
+                      Week {wi + 1}
                     </Text>
-                  </View>
-                  {day.exercises.map((ex, j) => (
-                    <View key={j} style={s.reviewExRow}>
-                      <Text style={[s.reviewExName, { color: theme.colors.text }]}>{ex.name}</Text>
-                      <Text style={[s.reviewExDetail, { color: theme.colors.muted }]}>
-                        {ex.sets} × {ex.reps}
-                      </Text>
-                    </View>
-                  ))}
-                  {day.exercises.length === 0 && (
-                    <Text style={[s.reviewEmpty, { color: theme.colors.muted }]}>No exercises</Text>
                   )}
-                </Animated.View>
+                  {weekDays.map((day, i) => (
+                    <Animated.View
+                      key={`${wi}-${i}`}
+                      entering={FadeInDown.delay((wi * weekDays.length + i) * 40).duration(200)}
+                      style={[s.card, { backgroundColor: theme.colors.surface }]}
+                    >
+                      <View style={s.reviewDayHeader}>
+                        <Text style={[s.reviewDayLabel, { color: theme.colors.text }]}>{day.label}</Text>
+                        <Text style={[s.reviewDayCount, { color: theme.colors.muted }]}>
+                          {day.exercises.length} exercise{day.exercises.length !== 1 ? "s" : ""}
+                        </Text>
+                      </View>
+                      {day.exercises.map((ex, j) => (
+                        <View key={j} style={s.reviewExRow}>
+                          <Text style={[s.reviewExName, { color: theme.colors.text }]}>{ex.name}</Text>
+                          <Text style={[s.reviewExDetail, { color: theme.colors.muted }]}>
+                            {ex.sets} × {ex.reps}
+                          </Text>
+                        </View>
+                      ))}
+                      {day.exercises.length === 0 && (
+                        <Text style={[s.reviewEmpty, { color: theme.colors.muted }]}>No exercises</Text>
+                      )}
+                    </Animated.View>
+                  ))}
+                </View>
               ))}
             </Animated.View>
           )}
 
-          <View style={{ height: 100 }} />
-        </ScrollView>
+          {/* Bottom CTA */}
+          <View style={[s.bottomBar, { backgroundColor: theme.colors.bg, paddingBottom: Math.max(insets.bottom, 16) }]}>
+            {step === 2 && (
+              <Pressable
+                onPress={handleBack}
+                style={[s.ctaBtn, { backgroundColor: theme.colors.mutedBg, marginBottom: 10 }]}
+              >
+                <Ionicons name="pencil-outline" size={16} color={theme.colors.text} />
+                <Text style={[s.ctaBtnText, { color: theme.colors.text, marginLeft: 6 }]}>Edit Plan</Text>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={handleNext}
+              disabled={!canAdvance}
+              style={[
+                s.ctaBtn,
+                {
+                  backgroundColor: canAdvance ? theme.colors.primary : theme.colors.mutedBg,
+                  opacity: canAdvance ? 1 : 0.5,
+                },
+              ]}
+            >
+              <Text style={[s.ctaBtnText, { color: canAdvance ? theme.colors.primaryText : theme.colors.muted }]}>
+                {step === 2 ? "Create Plan" : step === 1 && isLastDay && isLastWeek ? "Finish" : step === 1 && isLastDay ? "Next Week" : "Next"}
+              </Text>
+              {step === 2 || (step === 1 && isLastDay && isLastWeek) ? null : <Ionicons name="arrow-forward" size={18} color={canAdvance ? theme.colors.primaryText : theme.colors.muted} />}
+            </Pressable>
+          </View>
 
-        {/* Bottom CTA */}
-        <View style={[s.bottomBar, { backgroundColor: theme.colors.bg, paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Pressable
-            onPress={handleNext}
-            disabled={!canAdvance}
-            style={[
-              s.ctaBtn,
-              {
-                backgroundColor: canAdvance ? theme.colors.primary : theme.colors.mutedBg,
-                opacity: canAdvance ? 1 : 0.5,
-              },
-            ]}
-          >
-            <Text style={[s.ctaBtnText, { color: canAdvance ? theme.colors.primaryText : theme.colors.muted }]}>
-              {step === 2 ? "Create Plan" : "Next"}
-            </Text>
-            {step < 2 && <Ionicons name="arrow-forward" size={18} color={canAdvance ? theme.colors.primaryText : theme.colors.muted} />}
-          </Pressable>
-        </View>
+          <View style={{ height: 40 }} />
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Exercise Picker */}
@@ -673,7 +934,7 @@ const s = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
     padding: spacing.lg,
-    marginBottom: spacing.sm + 4,
+    marginBottom: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,

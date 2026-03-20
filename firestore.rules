@@ -3,15 +3,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users — only owner can read/write their own profile
+    // Users — any authed user can read (needed for pack members, friends, etc); only owner can write
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Weekly XP — users can only access their own XP docs
+    // Weekly XP — any authed user can read (needed for league standings); only owner can write
     match /weeklyXp/{docId} {
-      allow read:   if request.auth != null
-                    && resource.data.userId == request.auth.uid;
+      allow read:   if request.auth != null;
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null
@@ -52,6 +52,175 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow update: if false;
       allow delete: if false;
+    }
+
+    // Packs — any authed user can read; creator can create; members can update
+    match /packs/{packId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.createdBy == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    // Pack Members — any authed user can read; own membership for create/delete
+    match /packMembers/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    // Activity Feed — authed users can read; own posts for write
+    match /activityFeed/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null
+                      && request.resource.data.userId == request.auth.uid;
+        allow delete: if request.auth != null
+                      && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    // Streak Battles
+    match /streakBattles/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    // Nudges
+    match /nudges/{docId} {
+      allow read:   if request.auth != null
+                    && resource.data.toUserId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.fromUserId == request.auth.uid;
+    }
+
+    // In-App Notifications
+    match /inAppNotifications/{userId}/items/{notifId} {
+      allow read:   if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Pack Wars
+    match /packWars/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    // Pack Bosses
+    match /packBosses/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false;
+
+      match /contributions/{contribId} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null;
+      }
+    }
+
+    // Pack Levels
+    match /packLevels/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Pack Leaderboard
+    match /packLeaderboard/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Seasonal Events (admin-created, client reads + participates)
+    match /seasonalEvents/{docId} {
+      allow read: if request.auth != null;
+
+      match /participants/{userId} {
+        allow read:   if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /leaderboard/{entryId} {
+        allow read: if request.auth != null;
+      }
+    }
+
+    // Fangs Transactions
+    match /fangsTransactions/{docId} {
+      allow read:   if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Gifts
+    match /gifts/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.fromUserId == request.auth.uid;
+      allow update: if request.auth != null;
+    }
+
+    // Global Leaderboard (Cloud Functions only)
+    match /globalLeaderboard/{docId} {
+      allow read: if request.auth != null;
+    }
+
+    // Friend Challenges
+    match /friendChallenges/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Pack Challenges
+    match /packChallenges/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Pack Chat (legacy path)
+    match /packChat/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Pack Messages — subcollection under packMessages/{packId}/messages
+    match /packMessages/{packId}/messages/{messageId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Quests
+    match /quests/{docId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
     }
   }
 }

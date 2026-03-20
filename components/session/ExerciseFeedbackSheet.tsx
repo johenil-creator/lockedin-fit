@@ -4,6 +4,7 @@ import { impact, ImpactStyle } from "../../lib/haptics";
 import { AppBottomSheet } from "../AppBottomSheet";
 import { Button } from "../Button";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { InfoTooltip } from "../InfoTooltip";
 import type { ExerciseFeedback, FeelingTag } from "../../lib/types";
 
 type Props = {
@@ -73,9 +74,12 @@ export function ExerciseFeedbackSheet({
       </Text>
 
       {/* RPE — two rows of 5 so they fit comfortably */}
-      <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
-        EFFORT (RPE)
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
+          EFFORT (RPE)
+        </Text>
+        <InfoTooltip term="RPE" definition="Rate of Perceived Exertion — how hard a set felt on a scale of 1-10. Use 6-7 for moderate sets, 8-9 for hard sets, 10 for max effort." />
+      </View>
       <View style={styles.rpeGrid}>
         <View style={styles.rpeRow}>
           {RPE_VALUES.slice(0, 5).map((value) => {

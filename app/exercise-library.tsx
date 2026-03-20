@@ -251,7 +251,7 @@ export default function ExerciseLibraryScreen() {
           No exercises found
         </Text>
         <Text style={[styles.emptyHint, { color: theme.colors.muted }]}>
-          Try a different search or filter
+          Try a different search or filter. The hunt continues.
         </Text>
       </View>
     ),
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: radius.md,
     borderWidth: 1,
-    paddingHorizontal: spacing.sm + 4,
+    paddingHorizontal: spacing.md,
     paddingVertical: Platform.OS === "ios" ? 10 : 6,
     marginBottom: spacing.sm,
     gap: spacing.sm,
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   chip: {
-    paddingHorizontal: spacing.sm + 4,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radius.full,
     borderWidth: 1,
@@ -455,8 +455,8 @@ const styles = StyleSheet.create({
 
   // Cues
   cuesContainer: {
-    marginTop: spacing.sm + 4,
-    paddingTop: spacing.sm + 4,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
   },
   cueRow: {

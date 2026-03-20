@@ -23,6 +23,7 @@ import { db } from "../lib/firebase";
 import { auth as firebaseAuth } from "../lib/firebase";
 import { BackButton } from "../components/BackButton";
 import { Card } from "../components/Card";
+import { LockeMascot } from "../components/Locke/LockeMascot";
 import { spacing, typography, radius } from "../lib/theme";
 
 export default function AuthScreen() {
@@ -46,7 +47,7 @@ export default function AuthScreen() {
   async function handleSubmit() {
     setError(null);
     if (!email.trim() || !password.trim()) {
-      setError("Email and password are required.");
+      setError("Every wolf needs credentials.");
       return;
     }
     if (isSignUp) {
@@ -72,6 +73,10 @@ export default function AuthScreen() {
             friendCode: profile.friendCode ?? "",
             displayName: profile.name,
             rank: rank,
+            fangs: 0,
+            lastActiveAt: serverTimestamp(),
+            lockeCustomization: { bodyFur: "brown", headFur: "brown", eyes: "green", brows: "neutral", noseMouth: "neutral", neckAccessory: null, earAccessory: null, aura: null },
+            packId: null,
             createdAt: serverTimestamp(),
           });
         }
@@ -117,8 +122,14 @@ export default function AuthScreen() {
         {/* Header */}
         <View style={styles.header}>
           <BackButton />
+          <View style={{ alignItems: "center", marginBottom: spacing.sm }}>
+            <LockeMascot size={100} mood="neutral" />
+          </View>
           <Text style={[typography.title, { color: theme.colors.text }]}>
-            {isSignUp ? "Create Account" : "Sign In"}
+            {isSignUp ? "Join the Pack" : "Enter the Den"}
+          </Text>
+          <Text style={[typography.small, { color: theme.colors.muted, marginTop: spacing.xs }]}>
+            {isSignUp ? "Your pack is waiting." : "Welcome back, wolf."}
           </Text>
         </View>
 
@@ -141,7 +152,7 @@ export default function AuthScreen() {
                     { color: active ? theme.colors.primaryText : theme.colors.muted },
                   ]}
                 >
-                  {m === "signin" ? "Sign In" : "Sign Up"}
+                  {m === "signin" ? "Sign In" : "Join"}
                 </Text>
               </Pressable>
             );
@@ -188,8 +199,8 @@ export default function AuthScreen() {
             placeholder={isSignUp ? "Min. 8 characters" : "Password"}
             placeholderTextColor={theme.colors.muted}
             secureTextEntry
-            textContentType={isSignUp ? "newPassword" : "password"}
-            autoComplete={isSignUp ? "password-new" : "password"}
+            textContentType="oneTimeCode"
+            autoComplete="off"
             value={password}
             onChangeText={(t) => { setPassword(t); setError(null); }}
           />
@@ -248,7 +259,7 @@ export default function AuthScreen() {
               <ActivityIndicator color={theme.colors.primaryText} />
             ) : (
               <Text style={[styles.submitText, { color: theme.colors.primaryText }]}>
-                {isSignUp ? "Create Account" : "Sign In"}
+                {isSignUp ? "Join the Pack" : "Enter"}
               </Text>
             )}
           </Pressable>

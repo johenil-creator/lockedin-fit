@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   hapticSetComplete,
   hapticPR,
@@ -38,6 +38,7 @@ import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { sanitizeWeight } from "../../lib/sanitizeWeight";
 import { getExerciseEquipment, isExerciseTimed } from "../../lib/loadEngine/classifier";
 import { TimedSetInput } from "../../components/session/TimedSetInput";
+import { ExercisePicker } from "../../components/plan-builder/ExercisePicker";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -297,6 +298,8 @@ export default function SessionScreen() {
   const sessionUnit = profile.weightUnit === "lbs" ? "lbs" : "kg";
   const [pickerVisible, setPickerVisible] = useState(false);
   const [manualName, setManualName] = useState("");
+  const [replacingExerciseId, setReplacingExerciseId] = useState<string | null>(null);
+  const [replacePickerVisible, setReplacePickerVisible] = useState(false);
 
   // Classify exercise modal state
   const [classifyVisible, setClassifyVisible] = useState(false);
@@ -339,11 +342,22 @@ export default function SessionScreen() {
   const [endModalVisible, setEndModalVisible] = useState(false);
 
   // ── Auto-pause state ──────────────────────────────────────────────────────
-  const [paused, setPaused] = useState(false);
   const backgroundTimestampRef = useRef<number | null>(null);
-  const totalBackgroundMsRef = useRef(0);
 
   const session = workouts.find((w) => w.id === id);
+
+  // Compute initial paused ms synchronously so timers never show wrong value
+  const initialPausedMs = useMemo(() => {
+    if (!session) return 0;
+    let ms = session.totalPausedMs ?? 0;
+    if (session.pausedAt && session.isActive) {
+      ms += Date.now() - new Date(session.pausedAt).getTime();
+    }
+    return ms;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalBackgroundMsRef = useRef(initialPausedMs);
+  const [paused, setPaused] = useState(() => !!(session?.pausedAt && session?.isActive));
 
   // ── Auto-save on app background / restore on foreground ───────────────────
   useEffect(() => {
@@ -374,7 +388,15 @@ export default function SessionScreen() {
 
   const handleResumePause = useCallback(() => {
     setPaused(false);
-  }, []);
+    if (session?.pausedAt) {
+      // Pause time was already accumulated on mount — just persist and clear pausedAt
+      updateWorkout({
+        ...session,
+        pausedAt: undefined,
+        totalPausedMs: totalBackgroundMsRef.current,
+      });
+    }
+  }, [session, updateWorkout]);
 
   // Load custom catalog entries into the matcher on mount
   useEffect(() => {
@@ -561,7 +583,16 @@ export default function SessionScreen() {
       matchedModifier: load.classification.modifier.fraction,
       equipment:       getExerciseEquipment(name) ?? undefined,
     };
-    update({ ...session, exercises: [...session.exercises, newEx] });
+    if (replacingExerciseId) {
+      // Replace the exercise in-place, preserving position
+      const updatedExercises = session.exercises.map((ex) =>
+        ex.exerciseId === replacingExerciseId ? newEx : ex
+      );
+      update({ ...session, exercises: updatedExercises });
+      setReplacingExerciseId(null);
+    } else {
+      update({ ...session, exercises: [...session.exercises, newEx] });
+    }
     setPickerVisible(false);
     setManualName("");
     setClassifyVisible(false);
@@ -935,12 +966,10 @@ export default function SessionScreen() {
         onClearActiveExercise={() => setActiveExerciseId(null)}
         planContext={sessionPlanContext}
         setsProgress={setsProgressFraction}
-        startedAt={session.startedAt}
-        backgroundMs={totalBackgroundMsRef}
       />
 
 
-      {/* Rank mascot + how-to cues */}
+      {/* Rank mascot + how-to cues + replace */}
       {activeExercise?.catalogId && EXERCISE_CUES[activeExercise.catalogId] ? (
         <View style={{ marginVertical: 8 }}>
           <Pressable
@@ -982,8 +1011,17 @@ export default function SessionScreen() {
                 <Text style={[styles.prBadgeText, { color: theme.colors.successText }]}>NEW PR!</Text>
               </Animated.View>
             )}
-            <Text style={[styles.focusedTitle, { color: theme.colors.text }]}>{activeExercise.name}</Text>
-
+            <View style={styles.focusedTitleRow}>
+              <Text style={[styles.focusedTitle, { color: theme.colors.text, flex: 1 }]}>{activeExercise.name}</Text>
+              <Pressable
+                onPress={() => { setReplacingExerciseId(activeExercise.exerciseId); setReplacePickerVisible(true); }}
+                style={[styles.replaceBtn, { backgroundColor: theme.colors.accent + "15" }]}
+                hitSlop={8}
+              >
+                <Text style={{ color: theme.colors.accent, fontSize: 14 }}>⇄</Text>
+                <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: "700", marginLeft: 6, letterSpacing: 0.3 }}>Swap Exercise</Text>
+              </Pressable>
+            </View>
 
             <View style={styles.focusedContent}>
               {/* Set headers */}
@@ -1209,7 +1247,7 @@ export default function SessionScreen() {
 
             <Pressable
               onPress={() =>
-                Alert.alert("Remove Exercise", `Remove "${activeExercise.name}" from this session?`, [
+                Alert.alert("Remove Exercise?", `Remove "${activeExercise.name}" from this session?`, [
                   { text: "Cancel", style: "cancel" },
                   { text: "Remove", style: "destructive", onPress: () => removeExercise(activeExercise.exerciseId) },
                 ])
@@ -1223,7 +1261,7 @@ export default function SessionScreen() {
           /* ── Exercise List View ────────────────────────────────────── */
           <View>
             {session.exercises.length === 0 && (
-              <Text style={[styles.emptyHint, { color: theme.colors.muted }]}>No exercises yet. Tap "Add Exercise" to start.</Text>
+              <Text style={[styles.emptyHint, { color: theme.colors.muted }]}>No exercises yet. Tap "Add Exercise" to start building your hunt.</Text>
             )}
 
             {session.exercises.length > 0 && (
@@ -1623,8 +1661,8 @@ export default function SessionScreen() {
         }}
       />
 
-      {/* Floating pause bar */}
-      {session.isActive && session.startedAt && (
+      {/* Floating pause bar — hide when paused or end-session modal is open */}
+      {session.isActive && session.startedAt && !paused && !endModalVisible && (
         <FloatingPauseBar
           startedAt={session.startedAt}
           backgroundMs={totalBackgroundMsRef}
@@ -1634,6 +1672,19 @@ export default function SessionScreen() {
 
       {/* Auto-pause overlay */}
       <PauseOverlay visible={paused && !!session.isActive} onResume={handleResumePause} />
+
+      {/* Replace exercise picker */}
+      <ExercisePicker
+        visible={replacePickerVisible}
+        onClose={() => { setReplacePickerVisible(false); setReplacingExerciseId(null); }}
+        onSelect={({ name }) => {
+          if (replacingExerciseId) {
+            addExerciseWithLoad(name);
+          }
+          setReplacePickerVisible(false);
+        }}
+        excludeNames={session.exercises.map((e) => e.name)}
+      />
     </View>
   );
 }
@@ -1671,6 +1722,14 @@ const styles = StyleSheet.create({
   },
   addNoteBtn: { marginTop: 2 },
   addNoteText: { fontSize: 12, fontWeight: "600" },
+  replaceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 12,
+  },
   removeExBtn: { alignItems: "center", paddingVertical: 12, marginTop: 10 },
   // Set header
   setHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: 8, paddingHorizontal: 8 },
@@ -1752,10 +1811,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.5,
   },
+  focusedTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   focusedTitle: {
     fontSize: 22,
     fontWeight: "700",
-    marginBottom: 10,
   },
   focusedContent: {
     marginBottom: 8,

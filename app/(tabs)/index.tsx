@@ -13,13 +13,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
-import { fmtDate, wasCompletedToday } from "../../lib/helpers";
+import { wasCompletedToday } from "../../lib/helpers";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import type { Exercise, LockeTrigger } from "../../lib/types";
 import { useXP } from "../../hooks/useXP";
 import { useStreak, isoWeek } from "../../hooks/useStreak";
-import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { RankBadge } from "../../components/RankBadge";
 import { XPBar } from "../../components/XPBar";
@@ -28,12 +27,22 @@ import { LockeMascot } from "../../components/Locke/LockeMascot";
 import type { LockeMascotMood } from "../../components/Locke/LockeMascot";
 import { useLocke } from "../../contexts/LockeContext";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { InfoTooltip } from "../../components/InfoTooltip";
 import Logo from "../../components/Logo";
 import { ProfileButton } from "../../components/ProfileButton";
 import { SectionLabel } from "../../components/SectionLabel";
 import { usePlanContext } from "../../contexts/PlanContext";
-import { clearAllData } from "../../lib/storage";
+import { clearAllData, loadDailySnapshots } from "../../lib/storage";
 import { pickMessage, pickMessageWithMood } from "../../lib/lockeMessages";
+import { spacing, typography } from "../../lib/theme";
+import type { ReadinessScore } from "../../lib/types";
+import { useGifts } from "../../hooks/useGifts";
+import { GiftBanner } from "../../components/social/GiftBanner";
+import { NotificationBell } from "../../components/social/NotificationBell";
+import { NotificationSheet } from "../../components/social/NotificationSheet";
+import { useNotifications } from "../../hooks/useNotifications";
+import { useWeekInReview } from "../../hooks/useWeekInReview";
+import { WeekInReviewCard } from "../../components/insights/WeekInReviewCard";
 
 // ── Local sub-components ──────────────────────────────────────────────────────
 
@@ -42,16 +51,18 @@ type HeaderSectionProps = {
   topInset: number;
   onCycleSpeech?: () => void;
   onReset?: () => void;
+  notifCount?: number;
+  onNotifPress?: () => void;
 };
 
-const HeaderSection = React.memo(function HeaderSection({ topInset, onCycleSpeech, onReset }: HeaderSectionProps) {
+const HeaderSection = React.memo(function HeaderSection({ topInset, onCycleSpeech, onReset, notifCount, onNotifPress }: HeaderSectionProps) {
   const { theme } = useAppTheme();
   const [devOpen, setDevOpen] = useState(false);
   return (
     <View
       style={[
         styles.stickyHeader,
-        { backgroundColor: theme.colors.bg, paddingTop: topInset + 12 },
+        { backgroundColor: theme.colors.bg, paddingTop: topInset + spacing.md },
       ]}
     >
       <Logo />
@@ -82,6 +93,7 @@ const HeaderSection = React.memo(function HeaderSection({ topInset, onCycleSpeec
             )}
           </View>
         )}
+        {onNotifPress && <NotificationBell unreadCount={notifCount ?? 0} onPress={onNotifPress} />}
         <ProfileButton />
       </View>
     </View>
@@ -148,6 +160,8 @@ const RankXPRow = React.memo(function RankXPRow({
           style={styles.streakArea}
           onPress={onStreakPress}
           hitSlop={8}
+          accessibilityLabel="Streak details"
+          accessibilityRole="button"
         >
           <Ionicons name="paw-outline" size={14} color={streakColor} />
           <Text style={[styles.streakChipLabel, { color: streakColor }]}>
@@ -165,6 +179,59 @@ const RankXPRow = React.memo(function RankXPRow({
         </Pressable>
       </View>
     </View>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lightweight readiness badge — reads cached daily snapshot from AsyncStorage
+ * instead of pulling in the full useRecovery hook (which loads 7 storage items
+ * and runs 11 computations). Refreshes on tab focus.
+ */
+type ReadinessIndicatorProps = { onPress: () => void };
+
+const ReadinessIndicator = React.memo(function ReadinessIndicator({ onPress }: ReadinessIndicatorProps) {
+  const { theme } = useAppTheme();
+  const [readiness, setReadiness] = useState<ReadinessScore | null>(null);
+
+  // Load on mount + refresh when tab re-focuses
+  const loadReadiness = useCallback(async () => {
+    try {
+      const snapshots = await loadDailySnapshots();
+      if (snapshots.length > 0) {
+        setReadiness(snapshots[0].readinessScore);
+      }
+    } catch {
+      // Silently fail — indicator simply won't show
+    }
+  }, []);
+
+  useEffect(() => { loadReadiness(); }, [loadReadiness]);
+  useFocusEffect(useCallback(() => { loadReadiness(); }, [loadReadiness]));
+
+  if (!readiness) return null;
+
+  const score = readiness.score;
+  const dotColor =
+    score >= 70 ? theme.colors.success :
+    score >= 40 ? '#E3B341' :
+    theme.colors.danger;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={styles.readinessBadge}
+      hitSlop={6}
+      accessibilityLabel={`Readiness ${score} percent. Tap for recovery details.`}
+      accessibilityRole="button"
+    >
+      <View style={[styles.readinessDot, { backgroundColor: dotColor }]} />
+      <Text style={[styles.readinessText, { color: theme.colors.muted }]}>
+        Readiness: {score}%
+      </Text>
+      <Ionicons name="chevron-forward" size={12} color={theme.colors.muted} />
+    </Pressable>
   );
 });
 
@@ -319,11 +386,11 @@ const NoPlanCard = React.memo(function NoPlanCard({
         No plan loaded
       </Text>
       <Text style={[styles.workoutDayLabel, { color: theme.colors.muted, marginBottom: 16 }]}>
-        Browse plans or start a quick workout
+        Scout a training plan or start a quick hunt
       </Text>
       <View style={styles.noPlanBtns}>
-        <Button label="Browse Plans" onPress={onBrowse} />
-        <Button label="Quick Workout" onPress={onQuick} variant="secondary" />
+        <Button label="Scout Training" onPress={onBrowse} />
+        <Button label="Quick Hunt" onPress={onQuick} variant="secondary" />
         <Button label="Import Plan" onPress={onImport} variant="secondary" />
       </View>
     </View>
@@ -344,11 +411,17 @@ const BaselineCTA = React.memo(function BaselineCTA({ onTake, onManual }: { onTa
     >
       <LockeMascot size={180} mood="encouraging" />
       <Text style={[styles.baselineTitle, { color: theme.colors.text }]}>
-        Set your baseline
+        Prove Your Strength
       </Text>
-      <Text style={[styles.baselineSub, { color: theme.colors.muted }]}>
-        Add your 1RM data so I can track your progress and set smart targets.
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", justifyContent: "center", paddingHorizontal: 12 }}>
+        <Text style={[styles.baselineSub, { color: theme.colors.muted }]}>
+          Add your 1RM
+        </Text>
+        <InfoTooltip term="1RM" definition="One-Rep Max — the heaviest weight you can lift for one repetition. Used to calculate training percentages and track strength progress." />
+        <Text style={[styles.baselineSub, { color: theme.colors.muted }]}>
+          {" "}data so Locke can track your progress and set smart targets.
+        </Text>
+      </View>
       <View style={styles.baselineBtnWrap}>
         <Pressable
           style={[styles.baselineOption, { backgroundColor: theme.colors.primary + "15", borderColor: theme.colors.primary }]}
@@ -356,8 +429,8 @@ const BaselineCTA = React.memo(function BaselineCTA({ onTake, onManual }: { onTa
         >
           <Ionicons name="barbell-outline" size={20} color={theme.colors.primary} />
           <View style={styles.baselineOptionText}>
-            <Text style={[styles.baselineOptionLabel, { color: theme.colors.primary }]}>Take 1RM Test</Text>
-            <Text style={[styles.baselineOptionHint, { color: theme.colors.muted }]}>Guided protocol, most accurate</Text>
+            <Text style={[styles.baselineOptionLabel, { color: theme.colors.primary }]}>Take Strength Trial</Text>
+            <Text style={[styles.baselineOptionHint, { color: theme.colors.muted }]}>Guided protocol — most accurate</Text>
           </View>
         </Pressable>
         <Pressable
@@ -392,6 +465,8 @@ const QuickActionsRow = React.memo(function QuickActionsRow({ actions }: { actio
       {actions.map((action) => (
         <Pressable
           key={action.label}
+          accessibilityLabel={action.label}
+          accessibilityRole="button"
           style={[
             styles.quickActionBtn,
             {
@@ -420,83 +495,7 @@ const QuickActionsRow = React.memo(function QuickActionsRow({ actions }: { actio
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Progress snapshot: 3-column stats + recent activity list. */
-type ProgressSnapshotProps = {
-  totalSessions: number;
-  thisWeekSessions: number;
-  lastWorkoutDate: string;
-  recentWorkouts: ReturnType<typeof useWorkouts>["workouts"];
-  onWorkoutPress: (id: string) => void;
-};
-
-const ProgressSnapshot = React.memo(function ProgressSnapshot({
-  totalSessions,
-  thisWeekSessions,
-  lastWorkoutDate,
-  recentWorkouts,
-  onWorkoutPress,
-}: ProgressSnapshotProps) {
-  const { theme } = useAppTheme();
-
-  return (
-    <View style={styles.progressSection}>
-      <SectionLabel label="PROGRESS" />
-
-      {/* 3-column stats */}
-      <View
-        style={[
-          styles.statsRow,
-          { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-        ]}
-      >
-        <View style={styles.statCell}>
-          <Text style={[styles.statValue, { color: theme.colors.text }]}>
-            {totalSessions}
-          </Text>
-          <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Total</Text>
-        </View>
-        <View style={[styles.statDivider, { backgroundColor: theme.colors.border }]} />
-        <View style={styles.statCell}>
-          <Text style={[styles.statValue, { color: theme.colors.text }]}>
-            {thisWeekSessions}
-          </Text>
-          <Text style={[styles.statLabel, { color: theme.colors.muted }]}>This Week</Text>
-        </View>
-        <View style={[styles.statDivider, { backgroundColor: theme.colors.border }]} />
-        <View style={styles.statCell}>
-          <Text style={[styles.statValue, { color: theme.colors.text }]} numberOfLines={1}>
-            {lastWorkoutDate}
-          </Text>
-          <Text style={[styles.statLabel, { color: theme.colors.muted }]}>Last</Text>
-        </View>
-      </View>
-
-      {/* Recent activity */}
-      {recentWorkouts.length > 0 && (
-        <>
-          <SectionLabel label="RECENT ACTIVITY" style={{ marginTop: 24 }} />
-          {recentWorkouts.map((w) => (
-            <Pressable key={w.id} onPress={() => onWorkoutPress(w.id)}>
-              <Card style={styles.recentCard}>
-                <Text style={[styles.recentName, { color: theme.colors.text }]}>
-                  {w.name}
-                </Text>
-                <Text style={[styles.recentMeta, { color: theme.colors.muted }]}>
-                  {fmtDate(w.date)}
-                  {w.sessionType === "cardio"
-                    ? " · Cardio"
-                    : w.exercises.length > 0
-                    ? ` · ${w.exercises.length} exercises`
-                    : ""}
-                </Text>
-              </Card>
-            </Pressable>
-          ))}
-        </>
-      )}
-    </View>
-  );
-});
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
@@ -567,6 +566,10 @@ export default function HomeScreen() {
     isPlanComplete,
     totalPlanDays,
   } = usePlanContext();
+  const { pendingGifts, claim: claimGift } = useGifts();
+  const { notifications, unreadCount, markRead: markNotifRead, markAllRead: markAllNotifsRead } = useNotifications();
+  const { review: weekReview } = useWeekInReview();
+  const [showNotifs, setShowNotifs] = useState(false);
   const didFireInactivity   = useRef(false);
   const onboardingCheckDone = useRef(false);
   const planCelebrationShown = useRef(false);
@@ -674,24 +677,6 @@ export default function HomeScreen() {
     profile.lastTestedAt
   );
   const activeSession = useMemo(() => workouts.find((w) => w.isActive), [workouts]);
-  const totalCount    = useMemo(() => workouts.filter((w) => !!w.completedAt).length, [workouts]);
-  const lastDate      = useMemo(() => {
-    const last = workouts.find((w) => !!w.completedAt);
-    if (!last?.date) return "—";
-    const safe = /^\d{4}-\d{2}-\d{2}$/.test(last.date) ? last.date + "T12:00:00" : last.date;
-    const d = new Date(safe);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }, [workouts]);
-
-  const thisWeekCount = useMemo(() => {
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    weekStart.setHours(0, 0, 0, 0);
-    return workouts.filter((w) => !!w.completedAt && new Date(w.date) >= weekStart).length;
-  }, [workouts]);
-
-  const recentWorkouts = useMemo(() => workouts.filter((w) => !!w.completedAt).slice(0, 3), [workouts]);
 
   // ── Plan helpers ──────────────────────────────────────────────────────────
 
@@ -791,7 +776,7 @@ export default function HomeScreen() {
         [
           { text: "Start Anyway", style: "cancel", onPress: () => doStartPlanSession(next) },
           { text: "Enter Manually", onPress: () => router.push("/onboarding?retake=1&step=manual") },
-          { text: "Take 1RM Test", onPress: () => router.push("/orm-test?source=home") },
+          { text: "Take Strength Trial", onPress: () => router.push("/orm-test?source=home") },
         ]
       );
       return;
@@ -824,7 +809,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.rootContainer, { backgroundColor: theme.colors.bg }]}>
       {/* STICKY HEADER — outside ScrollView */}
-      <HeaderSection topInset={insets.top} onCycleSpeech={cycleSpeech} onReset={async () => { await clearAllData(); DevSettings.reload(); }} />
+      <HeaderSection topInset={insets.top} onCycleSpeech={cycleSpeech} onReset={async () => { await clearAllData(); DevSettings.reload(); }} notifCount={unreadCount} onNotifPress={() => setShowNotifs(true)} />
 
       <ScrollView
         style={styles.scrollView}
@@ -855,11 +840,16 @@ export default function HomeScreen() {
           onStreakPress={() => setStreakSheetOpen(true)}
         />
 
-        {/* 2. ACTIVE SESSION BANNER — above primary CTA */}
+        {/* 1b. READINESS INDICATOR — lightweight cached badge */}
+        <ReadinessIndicator onPress={() => router.push("/(tabs)/recovery")} />
+
+        {/* 2. ACTIVE SESSION BANNER — highest priority */}
         {activeSession && (
           <Pressable
             style={[styles.activeBanner, { backgroundColor: theme.colors.accent }]}
             onPress={() => router.push(`/session/${activeSession.id}`)}
+            accessibilityLabel="Resume active session"
+            accessibilityRole="button"
           >
             <Text style={[styles.activeBannerTitle, { color: theme.colors.accentText }]}>
               · Session in Progress
@@ -870,23 +860,7 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* 3. LOCKE PANEL — hidden when BaselineCTA is showing (avoids double Locke) */}
-        {has1RM && (
-          <LockePanel
-            mood={lockeMood}
-            microcopy={microcopy}
-          />
-        )}
-
-        {/* Locke banner from session-end events */}
-        <LockeBanner />
-
-        {/* 4. 1RM BASELINE CTA */}
-        {!has1RM && profile.onboardingComplete && (
-          <BaselineCTA onTake={() => router.push("/orm-test?source=home")} onManual={() => router.push("/onboarding?retake=1&step=manual")} />
-        )}
-
-        {/* 5. TODAY'S WORKOUT CARD (PRIMARY CTA) */}
+        {/* 3. TODAY'S WORKOUT CARD (PRIMARY CTA) — always near top */}
         {planExercises.length > 0 ? (
           <TodayWorkoutCard
             planName={planName || "Workout"}
@@ -906,21 +880,64 @@ export default function HomeScreen() {
           />
         )}
 
-        {/* 6. QUICK ACTIONS ROW */}
+        {/* 4. 1RM BASELINE CTA */}
+        {!has1RM && profile.onboardingComplete && (
+          <BaselineCTA onTake={() => router.push("/orm-test?source=home")} onManual={() => router.push("/onboarding?retake=1&step=manual")} />
+        )}
+
+        {/* 5. LOCKE PANEL — wolf personality */}
+        {has1RM && (
+          <LockePanel
+            mood={lockeMood}
+            microcopy={microcopy}
+          />
+        )}
+
+        {/* Locke banner from session-end events */}
+        <LockeBanner />
+
+        {/* 6. ACTIVITY CARD — single card linking to quests screen */}
+        <Pressable
+          style={[styles.activityCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+          onPress={() => router.push("/quests")}
+        >
+          <View style={styles.activityCardHeader}>
+            <View style={[styles.activityIconWrap, { backgroundColor: theme.colors.accent + "18" }]}>
+              <Ionicons name="compass" size={18} color={theme.colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.activityCardTitle, { color: theme.colors.text }]}>Activity</Text>
+              <Text style={[styles.activityCardSub, { color: theme.colors.muted }]}>Quests, events & challenges</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+          </View>
+        </Pressable>
+
+        {/* 7. CONDITIONAL CARDS — gifts, review */}
+        <GiftBanner
+          gifts={pendingGifts}
+          onClaim={(giftId, itemId) => claimGift(giftId, itemId)}
+        />
+
+        {weekReview && new Date().getDay() === 1 && (
+          <WeekInReviewCard review={weekReview} />
+        )}
+
+        {/* 8. QUICK ACTIONS ROW */}
         <SectionLabel label="QUICK ACTIONS" style={{ marginTop: 24 }} />
         <QuickActionsRow actions={quickActions} />
 
-        {/* 7. PROGRESS SNAPSHOT */}
-        <ProgressSnapshot
-          totalSessions={totalCount}
-          thisWeekSessions={thisWeekCount}
-          lastWorkoutDate={lastDate}
-          recentWorkouts={recentWorkouts}
-          onWorkoutPress={(id) => router.push(`/session/${id}`)}
-        />
-
         {/* DEV: Tools — subtle, bottom */}
       </ScrollView>
+
+      {/* Notification sheet */}
+      <NotificationSheet
+        visible={showNotifs}
+        notifications={notifications}
+        onClose={() => setShowNotifs(false)}
+        onMarkRead={markNotifRead}
+        onMarkAllRead={markAllNotifsRead}
+      />
 
       {/* Streak bottom sheet — must be outside ScrollView for gorhom */}
       <AppBottomSheet visible={streakSheetOpen} onClose={() => setStreakSheetOpen(false)}>
@@ -982,6 +999,24 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  // Readiness indicator (below greeting block)
+  readinessBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  readinessDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  readinessText: {
+    ...typography.caption,
+    fontWeight: "600",
+  },
+
   // Rank/XP/Streak row
   rankXPRow: {
     flexDirection: "row",
@@ -1019,7 +1054,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   activeBannerTitle: { fontSize: 14, fontWeight: "700" },
-  activeBannerSub:   { fontSize: 13, marginTop: 2, opacity: 0.85 },
+  activeBannerSub:   { fontSize: 13, marginTop: spacing.xs, opacity: 0.85 },
 
   // Locke panel
   lockePanel: {
@@ -1092,7 +1127,7 @@ const styles = StyleSheet.create({
   baselineOption: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1.5, paddingVertical: 12, paddingHorizontal: 16 },
   baselineOptionText: { flex: 1 },
   baselineOptionLabel: { fontSize: 15, fontWeight: "700" },
-  baselineOptionHint: { fontSize: 12, marginTop: 2 },
+  baselineOptionHint: { fontSize: 12, marginTop: spacing.xs },
 
   // Section label
   sectionLabel: {
@@ -1135,25 +1170,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Progress snapshot
-  progressSection: { marginTop: 8 },
-  statsRow: {
-    flexDirection: "row",
+  // Activity card
+  activityCard: {
     borderRadius: 16,
     borderWidth: 1,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
   },
-  statCell: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 16 },
-  statDivider: { width: 1, alignSelf: "stretch", marginVertical: 12 },
-  statValue: { fontSize: 18, fontWeight: "700", marginBottom: 2 },
-  statLabel: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 },
-
-  recentCard:  { marginBottom: 8, padding: 14 },
-  recentName:  { fontSize: 15, fontWeight: "600" },
-  recentMeta:  { fontSize: 12, marginTop: 2 },
+  activityCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  activityIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activityCardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  activityCardSub: {
+    fontSize: 12,
+    marginTop: 1,
+  },
 });

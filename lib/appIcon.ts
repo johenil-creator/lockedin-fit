@@ -61,7 +61,8 @@ export async function maybeUpdateIcon(_mood: IconMood): Promise<void> {
       AsyncStorage.setItem(STORAGE_KEYS.lastMood, mood),
       AsyncStorage.setItem(STORAGE_KEYS.lastChanged, String(Date.now())),
     ]);
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[appIcon] caught:", e);
     // Swallow — icon change is non-critical
   }
 }

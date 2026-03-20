@@ -15,6 +15,7 @@ type PlanContextValue = {
   isPlanComplete: boolean;
   totalPlanDays: number;
   recalculateWeights: (profile: UserProfile, workouts: WorkoutSession[]) => Promise<number>;
+  updateDayExercises: (week: string, day: string, updater: (prev: Exercise[]) => Exercise[]) => void;
 };
 
 const PlanCtx = createContext<PlanContextValue>({
@@ -29,6 +30,7 @@ const PlanCtx = createContext<PlanContextValue>({
   isPlanComplete: false,
   totalPlanDays: 0,
   recalculateWeights: async () => 0,
+  updateDayExercises: () => {},
 });
 
 export function PlanProvider({ children }: { children: React.ReactNode }) {
@@ -115,6 +117,17 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     return updatedCount;
   }, [exercises, planName]);
 
+  const updateDayExercises = useCallback((week: string, day: string, updater: (prev: Exercise[]) => Exercise[]) => {
+    setExercises((prev) => {
+      const dayExercises = prev.filter((e) => (e.week || "Week 1") === week && (e.day || "Day 1") === day);
+      const otherExercises = prev.filter((e) => !((e.week || "Week 1") === week && (e.day || "Day 1") === day));
+      const updated = updater(dayExercises);
+      const all = [...otherExercises, ...updated];
+      queueMicrotask(() => savePlan({ name: planName, data: all }));
+      return all;
+    });
+  }, [planName]);
+
   // Compute total unique plan days and whether all are complete
   const { isPlanComplete, totalPlanDays } = useMemo(() => {
     if (exercises.length === 0) return { isPlanComplete: false, totalPlanDays: 0 };
@@ -128,7 +141,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
   }, [exercises, completedDays]);
 
   return (
-    <PlanCtx.Provider value={{ planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted, isPlanComplete, totalPlanDays, recalculateWeights }}>
+    <PlanCtx.Provider value={{ planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted, isPlanComplete, totalPlanDays, recalculateWeights, updateDayExercises }}>
       {children}
     </PlanCtx.Provider>
   );

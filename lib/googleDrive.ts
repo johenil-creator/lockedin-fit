@@ -128,7 +128,7 @@ async function driveRequest(url: string, options: RequestInit = {}): Promise<Res
     try {
       const body = await res.json();
       detail = body?.error?.message ?? JSON.stringify(body);
-    } catch {}
+    } catch (e) { if (__DEV__) console.warn("[googleDrive] caught:", e); }
     throw new DriveError(
       detail ? `Drive API ${res.status}: ${detail}` : `Drive API error ${res.status}`,
       res.status,

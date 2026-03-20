@@ -56,7 +56,7 @@ export const lockdInColors: AppThemeColors = {
   primary:     "#00875A",   // deep phthalo green — premium CTA
   primaryText: "#FFFFFF",
   text:        "#E6EDF3",   // soft off-white, easy on the eyes
-  muted:       "#9DA5B0",   // lifted grey — passes AA on all dark surfaces
+  muted:       "#B0B8C1",   // lifted grey — WCAG AA compliant (5.2:1 on surface)
   mutedBg:     "#242C38",   // visible lift from surface for inputs
   border:      "#243D35",   // green-tinted border (brand identity)
   danger:      "#F85149",   dangerText: "#ffffff",

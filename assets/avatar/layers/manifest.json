@@ -1,0 +1,120 @@
+{
+  "version": 3,
+  "canvas": { "width": 1024, "height": 1536 },
+  "masterTemplate": "Master_Avatar_Template.png",
+  "characterBounds": { "top": 227, "bottom": 1203, "left": 200, "right": 921 },
+  "anchors": {
+    "head_center": [556, 627],
+    "body_center": [589, 919],
+    "left_iris": [394, 624],
+    "right_iris": [651, 624],
+    "eye_midpoint": [522, 624],
+    "brow_center": [532, 605],
+    "nose_mouth_center": [522, 731],
+    "collar_center": [511, 756],
+    "left_ear_tip": [310, 227],
+    "right_ear_tip": [745, 227],
+    "left_earring_attach": [420, 736],
+    "right_earring_attach": [625, 723],
+    "aura_center": [511, 800]
+  },
+  "layerOrder": [
+    "aura",
+    "body_fur",
+    "neck_accessory",
+    "head_fur",
+    "eyes",
+    "brows",
+    "nose_mouth",
+    "ear_accessory"
+  ],
+  "categories": {
+    "body_fur": {
+      "path": "base/body",
+      "required": true,
+      "default": "brown",
+      "variants": {
+        "brown":        { "file": "body_fur_brown.png",        "rarity": "common",   "price": 0 },
+        "black":        { "file": "body_fur_black.png",        "rarity": "uncommon", "price": 50 },
+        "arctic_white": { "file": "body_fur_arctic_white.png", "rarity": "rare",     "price": 75 },
+        "merle":        { "file": "body_fur_merle.png",        "rarity": "epic",     "price": 100 }
+      }
+    },
+    "head_fur": {
+      "path": "base/head",
+      "required": true,
+      "default": "brown",
+      "variants": {
+        "brown":        { "file": "head_fur_brown.png",        "rarity": "common",   "price": 0 },
+        "black":        { "file": "head_fur_black.png",        "rarity": "uncommon", "price": 50 },
+        "arctic_white": { "file": "head_fur_arctic_white.png", "rarity": "rare",     "price": 75 },
+        "merle":        { "file": "head_fur_merle.png",        "rarity": "epic",     "price": 100 }
+      }
+    },
+    "eyes": {
+      "path": "face/eyes",
+      "required": true,
+      "default": "green",
+      "variants": {
+        "green":  { "file": "eyes_green.png",  "rarity": "common",   "price": 0 },
+        "blue":   { "file": "eyes_blue.png",   "rarity": "uncommon", "price": 30 },
+        "red":    { "file": "eyes_red.png",    "rarity": "rare",     "price": 75 },
+        "purple": { "file": "eyes_purple.png", "rarity": "uncommon", "price": 50 }
+      }
+    },
+    "brows": {
+      "path": "face/brows",
+      "required": true,
+      "default": "neutral",
+      "variants": {
+        "neutral": { "file": "brows_neutral.png", "rarity": "common", "price": 0 },
+        "happy":   { "file": "brows_happy.png",   "rarity": "common", "price": 20 },
+        "angry":   { "file": "brows_angry.png",   "rarity": "common", "price": 20 }
+      }
+    },
+    "nose_mouth": {
+      "path": "face/nose_mouth",
+      "required": true,
+      "default": "neutral",
+      "variants": {
+        "neutral": { "file": "nose_mouth_neutral.png", "rarity": "common",   "price": 0 },
+        "smile":   { "file": "nose_mouth_smile.png",   "rarity": "common",   "price": 20 },
+        "smirk":   { "file": "nose_mouth_smirk.png",   "rarity": "uncommon", "price": 30 }
+      }
+    },
+    "neck_accessory": {
+      "path": "accessories/neck",
+      "required": false,
+      "default": null,
+      "variants": {
+        "collar_diamond": { "file": "collar_diamond.png", "rarity": "rare",     "price": 125 },
+        "collar_round":   { "file": "collar_round.png",   "rarity": "uncommon", "price": 75 },
+        "collar_spikes":  { "file": "collar_spikes.png",  "rarity": "epic",     "price": 150 }
+      }
+    },
+    "ear_accessory": {
+      "path": "accessories/ears",
+      "required": false,
+      "default": null,
+      "mirrored": false,
+      "pairable": true,
+      "variants": {
+        "earring_left":  { "file": "earring_left.png",  "side": "left",  "rarity": "uncommon", "price": 100 },
+        "earring_right": { "file": "earring_right.png", "side": "right", "rarity": "uncommon", "price": 100 }
+      }
+    },
+    "aura": {
+      "path": "auras",
+      "required": false,
+      "default": null,
+      "variants": {
+        "blue":    { "file": "aura_blue.png",    "rarity": "rare",      "price": 150 },
+        "green":   { "file": "aura_green.png",   "rarity": "rare",      "price": 150 },
+        "purple":  { "file": "aura_purple.png",  "rarity": "epic",      "price": 200 },
+        "red":     { "file": "aura_red.png",     "rarity": "epic",      "price": 200 },
+        "yellow":  { "file": "aura_yellow.png",  "rarity": "legendary", "price": 250 },
+        "outline": { "file": "aura_outline.png", "rarity": "uncommon",  "price": 100 }
+      }
+    }
+  }
+}

@@ -23,7 +23,7 @@ export default function TabLayout() {
       <Tabs.Screen name="workout-log" options={{ title: "Log", tabBarTestID: "tab-log", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "calendar" : "calendar-outline"} size={22} color={color} /> }} />
       <Tabs.Screen name="plan" options={{ title: "Plan", tabBarTestID: "tab-plan", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "clipboard" : "clipboard-outline"} size={22} color={color} /> }} />
       <Tabs.Screen name="leagues" options={{ title: "Leagues", tabBarTestID: "tab-leagues", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "trophy" : "trophy-outline"} size={22} color={color} /> }} />
-      <Tabs.Screen name="progress" options={{ href: null, title: "Progress", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "trending-up" : "trending-up-outline"} size={22} color={color} /> }} />
+      <Tabs.Screen name="progress" options={{ href: null }} />
     </Tabs>
   );
 }

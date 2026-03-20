@@ -1,5 +1,6 @@
 import type { WorkoutSession, XPRecord, XPHistoryEntry, RankLevel, Badge } from "./types";
 import { rankForXP, didRankUp, rankProgress, xpToNextRank, nextRank } from "./rankService";
+import { calculateSessionFangs } from "./fangsService";
 
 // ── XP award amounts ──────────────────────────────────────────────────────────
 
@@ -93,6 +94,7 @@ export type SessionXPResult = {
   previousTotalXP: number;
   newRank:       RankLevel;
   newTotalXP:    number;
+  fangsEarned:   number;
 };
 
 /**
@@ -137,7 +139,11 @@ export function awardSessionXP(
   // 3. Duration bonus — reward time invested
   const startMs = session.startedAt ? new Date(session.startedAt).getTime() : 0;
   const endMs = session.completedAt ? new Date(session.completedAt).getTime() : Date.now();
-  const durationSec = startMs > 0 ? Math.floor((endMs - startMs) / 1000) : 0;
+  const totalPausedSec = (session.totalPausedMs ?? 0) / 1000;
+  const durationSec =
+    startMs > 0 && !isNaN(startMs) && !isNaN(endMs)
+      ? Math.floor((endMs - startMs) / 1000 - totalPausedSec)
+      : 0;
 
   if (completedSets > 0 && durationSec > 0) {
     for (const [threshold, xp] of DURATION_TIERS) {
@@ -174,6 +180,10 @@ export function awardSessionXP(
   }
 
   const awarded = current.total - oldTotal;
+
+  // Calculate fangs earned alongside XP
+  const { total: fangsEarned } = calculateSessionFangs(completedSets, isPR);
+
   return {
     updatedRecord: current,
     awarded,
@@ -183,6 +193,7 @@ export function awardSessionXP(
     previousTotalXP: oldTotal,
     newRank: current.rank,
     newTotalXP: current.total,
+    fangsEarned,
   };
 }
 
@@ -215,6 +226,7 @@ export type WorkoutCompleteParams = {
   cardioDistanceKm?: number;    // estimated distance (null for non-linear modalities)
   newPRs?:          string[];   // PR keys to display on complete screen
   newBadges?:       Badge[];
+  fangsEarned?:     number;     // Fangs currency earned this session
 };
 
 export function buildWorkoutCompleteParams(
@@ -254,5 +266,6 @@ export function buildWorkoutCompleteParams(
     nextRankName:    next ? next.rank : null,
     isPR,
     streakDays,
+    fangsEarned:     xpResult.fangsEarned,
   };
 }

@@ -1,11 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -19,8 +18,17 @@ import { TierCarousel } from "../../components/leagues/TierCarousel";
 import { LeagueStandings } from "../../components/leagues/LeagueStandings";
 import { PromotionBanner } from "../../components/leagues/PromotionBanner";
 import { ProfileButton } from "../../components/ProfileButton";
+import { sendReaction } from "../../lib/reactionService";
 import { spacing, typography, radius } from "../../lib/theme";
-import type { RankLevel } from "../../lib/types";
+import { useGlobalLeaderboard } from "../../hooks/useGlobalLeaderboard";
+import { useNotifications } from "../../hooks/useNotifications";
+import { useSeasonalEvent } from "../../hooks/useSeasonalEvent";
+import { GlobalLeaderboardCard } from "../../components/social/GlobalLeaderboardCard";
+import { NotificationBell } from "../../components/social/NotificationBell";
+import { NotificationSheet } from "../../components/social/NotificationSheet";
+import { EventLeaderboard } from "../../components/events/EventLeaderboard";
+import { Skeleton } from "../../components/Skeleton";
+import type { RankLevel, ReactionType } from "../../lib/types";
 
 // ── Countdown to next Monday 00:00 UTC ──────────────────────────────────────
 
@@ -65,10 +73,24 @@ export default function LeaguesScreen() {
     refresh,
   } = useLeague(rank);
 
+  const { entries: globalEntries, period: globalPeriod, setPeriod: setGlobalPeriod } = useGlobalLeaderboard();
+  const { notifications, unreadCount, markRead: markNotifRead, markAllRead: markAllNotifsRead } = useNotifications();
+  const { event: activeEvent, leaderboard: eventLeaderboard } = useSeasonalEvent();
+  const [activeTab, setActiveTab] = useState<"league" | "global">("league");
   const [showFriendsOnly, setShowFriendsOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [leagueHelpOpen, setLeagueHelpOpen] = useState(false);
+  const [globalHelpOpen, setGlobalHelpOpen] = useState(false);
 
   const countdown = useMemo(() => getTimeUntilReset(), []);
+
+  const handleReact = useCallback(async (toUserId: string, type: ReactionType) => {
+    if (!user) return;
+    // Use a pseudo activity ID based on user+week for league reactions
+    const activityId = `league__${toUserId}`;
+    await sendReaction(user.uid, toUserId, activityId, type);
+  }, [user]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -122,25 +144,11 @@ export default function LeaguesScreen() {
     );
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <View
-        style={[
-          styles.centered,
-          { backgroundColor: theme.colors.bg, paddingTop: insets.top },
-        ]}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
-
   return (
     <ScrollView
       style={[
         styles.container,
-        { backgroundColor: theme.colors.bg, paddingTop: insets.top + 12 },
+        { backgroundColor: theme.colors.bg, paddingTop: insets.top + spacing.md },
       ]}
       contentContainerStyle={styles.content}
       refreshControl={
@@ -151,18 +159,11 @@ export default function LeaguesScreen() {
         />
       }
     >
-      {/* ── Last Week Result Banner (floating, before header) ──────────── */}
-      {lastWeekResult && (
-        <View style={styles.bannerWrapper}>
-          <PromotionBanner result={lastWeekResult} />
-        </View>
-      )}
-
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.leagueTitle, { color: theme.colors.text }]}>
-            {rank} League
+            Leaderboards
           </Text>
           <View style={styles.countdownRow}>
             <Ionicons
@@ -175,95 +176,241 @@ export default function LeaguesScreen() {
             </Text>
           </View>
         </View>
+        <NotificationBell unreadCount={unreadCount} onPress={() => setShowNotifs(true)} />
         <ProfileButton />
       </View>
 
-      {/* ── Tier Carousel ──────────────────────────────────────────────── */}
-      <View style={styles.carouselSection}>
-        <TierCarousel currentRank={rank} />
+      {/* ── Segmented Toggle ─────────────────────────────────────────── */}
+      <View style={[styles.segmentRow, { backgroundColor: theme.colors.mutedBg }]}>
+        {(["league", "global"] as const).map((tab) => (
+          <Pressable
+            key={tab}
+            style={[
+              styles.segmentPill,
+              activeTab === tab && { backgroundColor: theme.colors.primary },
+            ]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                { color: activeTab === tab ? theme.colors.primaryText : theme.colors.muted },
+              ]}
+            >
+              {tab === "league" ? `${rank} League` : "Global"}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
-      {/* ── Friend Filter Toggle ───────────────────────────────────────── */}
-      {friendIds.length > 0 && (
-        <View style={styles.filterRow}>
-          <Pressable
-            style={[
-              styles.filterPill,
-              {
-                backgroundColor: !showFriendsOnly
-                  ? theme.colors.primary
-                  : theme.colors.mutedBg,
-                borderColor: !showFriendsOnly
-                  ? theme.colors.primary
-                  : theme.colors.border,
-              },
-            ]}
-            onPress={() => setShowFriendsOnly(false)}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                {
-                  color: !showFriendsOnly
-                    ? theme.colors.primaryText
-                    : theme.colors.text,
-                },
-              ]}
-            >
-              All
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.filterPill,
-              {
-                backgroundColor: showFriendsOnly
-                  ? theme.colors.primary
-                  : theme.colors.mutedBg,
-                borderColor: showFriendsOnly
-                  ? theme.colors.primary
-                  : theme.colors.border,
-              },
-            ]}
-            onPress={() => setShowFriendsOnly(true)}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                {
-                  color: showFriendsOnly
-                    ? theme.colors.primaryText
-                    : theme.colors.text,
-                },
-              ]}
-            >
-              Friends
-            </Text>
-          </Pressable>
+      {loading ? (
+        <View style={{ padding: spacing.md }}>
+          <Skeleton.Group>
+            <Skeleton.Card />
+            <Skeleton.Card />
+            <Skeleton.Card />
+          </Skeleton.Group>
         </View>
+      ) : activeTab === "league" ? (
+        <>
+          {/* ── League Explainer (collapsible) ────────────────────────── */}
+          <Pressable
+            style={[
+              styles.explainerCard,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+            ]}
+            onPress={() => setLeagueHelpOpen((v) => !v)}
+          >
+            <View style={styles.explainerTrigger}>
+              <Ionicons name="help-circle-outline" size={16} color={theme.colors.muted} />
+              <Text style={[typography.small, { color: theme.colors.muted, flex: 1 }]}>
+                How do leagues work?
+              </Text>
+              <Ionicons
+                name={leagueHelpOpen ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={theme.colors.muted}
+              />
+            </View>
+            {leagueHelpOpen && (
+              <View style={styles.explainerBody}>
+                <Text style={[typography.caption, { color: theme.colors.text, marginBottom: 4 }]}>
+                  {"\u2022"} Compete weekly against ~30 players at your rank tier.
+                </Text>
+                <Text style={[typography.caption, { color: theme.colors.text, marginBottom: 4 }]}>
+                  {"\u2022"} Top 5 ascend to the next tier. Bottom 5 fall.
+                </Text>
+                <Text style={[typography.caption, { color: theme.colors.text, marginBottom: 4 }]}>
+                  {"\u2022"} Rankings reset every Monday at midnight UTC.
+                </Text>
+                <Text style={[typography.caption, { color: theme.colors.text }]}>
+                  {"\u2022"} Earn XP from workouts to climb the standings.
+                </Text>
+              </View>
+            )}
+          </Pressable>
+
+          {/* ── Last Week Result Banner ──────────────────────────────── */}
+          {lastWeekResult && (
+            <View style={styles.bannerWrapper}>
+              <PromotionBanner result={lastWeekResult} />
+            </View>
+          )}
+
+          {/* ── Tier Carousel ────────────────────────────────────────── */}
+          <View style={styles.carouselSection}>
+            <TierCarousel currentRank={rank} />
+          </View>
+
+          {/* ── Friend Filter Toggle ─────────────────────────────────── */}
+          {friendIds.length > 0 && (
+            <View style={styles.filterRow}>
+              <Pressable
+                style={[
+                  styles.filterPill,
+                  {
+                    backgroundColor: !showFriendsOnly
+                      ? theme.colors.primary
+                      : theme.colors.mutedBg,
+                    borderColor: !showFriendsOnly
+                      ? theme.colors.primary
+                      : theme.colors.border,
+                  },
+                ]}
+                onPress={() => setShowFriendsOnly(false)}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    {
+                      color: !showFriendsOnly
+                        ? theme.colors.primaryText
+                        : theme.colors.text,
+                    },
+                  ]}
+                >
+                  All
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.filterPill,
+                  {
+                    backgroundColor: showFriendsOnly
+                      ? theme.colors.primary
+                      : theme.colors.mutedBg,
+                    borderColor: showFriendsOnly
+                      ? theme.colors.primary
+                      : theme.colors.border,
+                  },
+                ]}
+                onPress={() => setShowFriendsOnly(true)}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    {
+                      color: showFriendsOnly
+                        ? theme.colors.primaryText
+                        : theme.colors.text,
+                    },
+                  ]}
+                >
+                  Friends
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* ── League Standings ──────────────────────────────────────── */}
+          <View style={styles.standingsSection}>
+            {standings.length > 0 ? (
+              <LeagueStandings
+                standings={standings}
+                friendIds={friendIds}
+                showFriendsOnly={showFriendsOnly}
+                onReact={handleReact}
+              />
+            ) : (
+              <View style={styles.emptyStandings}>
+                <Text
+                  style={[
+                    typography.body,
+                    { color: theme.colors.muted, textAlign: "center" },
+                  ]}
+                >
+                  No standings yet. Complete a workout to earn XP!
+                </Text>
+              </View>
+            )}
+          </View>
+        </>
+      ) : (
+        <>
+          {/* ── Global Explainer (collapsible) ──────────────────────── */}
+          <Pressable
+            style={[
+              styles.explainerCard,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+            ]}
+            onPress={() => setGlobalHelpOpen((v) => !v)}
+          >
+            <View style={styles.explainerTrigger}>
+              <Ionicons name="help-circle-outline" size={16} color={theme.colors.muted} />
+              <Text style={[typography.small, { color: theme.colors.muted, flex: 1 }]}>
+                How does the global leaderboard work?
+              </Text>
+              <Ionicons
+                name={globalHelpOpen ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={theme.colors.muted}
+              />
+            </View>
+            {globalHelpOpen && (
+              <View style={styles.explainerBody}>
+                <Text style={[typography.caption, { color: theme.colors.text, marginBottom: 4 }]}>
+                  {"\u2022"} All-time and weekly rankings across every player.
+                </Text>
+                <Text style={[typography.caption, { color: theme.colors.text }]}>
+                  {"\u2022"} Toggle between weekly and all-time to see different standings.
+                </Text>
+              </View>
+            )}
+          </Pressable>
+
+          {/* ── Global Leaderboard ────────────────────────────────────── */}
+          <View style={{ paddingHorizontal: spacing.md }}>
+            <GlobalLeaderboardCard
+              entries={globalEntries}
+              period={globalPeriod}
+              onTogglePeriod={() => setGlobalPeriod(globalPeriod === "weekly" ? "alltime" : "weekly")}
+              currentUserId={user?.uid}
+            />
+          </View>
+
+          {/* Event Leaderboard — shown during active events */}
+          {activeEvent && eventLeaderboard.length > 0 && (
+            <View style={{ paddingHorizontal: spacing.md, marginTop: spacing.md }}>
+              <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+                {activeEvent.name} Leaderboard
+              </Text>
+              <EventLeaderboard
+                entries={eventLeaderboard}
+                currentUserId={user?.uid}
+              />
+            </View>
+          )}
+        </>
       )}
 
-      {/* ── Leaderboard (full-bleed, no Card wrapper) ──────────────────── */}
-      <View style={styles.standingsSection}>
-        {standings.length > 0 ? (
-          <LeagueStandings
-            standings={standings}
-            friendIds={friendIds}
-            showFriendsOnly={showFriendsOnly}
-          />
-        ) : (
-          <View style={styles.emptyStandings}>
-            <Text
-              style={[
-                typography.body,
-                { color: theme.colors.muted, textAlign: "center" },
-              ]}
-            >
-              No standings yet. Complete a workout to earn XP!
-            </Text>
-          </View>
-        )}
-      </View>
+      {/* Notification sheet */}
+      <NotificationSheet
+        visible={showNotifs}
+        notifications={notifications}
+        onClose={() => setShowNotifs(false)}
+        onMarkRead={markNotifRead}
+        onMarkAllRead={markAllNotifsRead}
+      />
     </ScrollView>
   );
 }
@@ -355,6 +502,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  // ── Explainer card ─────────────────────────────────────────────────────
+  explainerCard: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm,
+  },
+  explainerTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  explainerBody: {
+    marginTop: spacing.sm,
+    paddingLeft: 22,
+  },
+
   // ── Standings ───────────────────────────────────────────────────────────
   standingsSection: {
     paddingHorizontal: spacing.sm,
@@ -362,5 +528,24 @@ const styles = StyleSheet.create({
   },
   emptyStandings: {
     padding: spacing.xl,
+  },
+
+  // ── Segmented toggle ─────────────────────────────────────────────────
+  segmentRow: {
+    flexDirection: "row",
+    borderRadius: radius.md,
+    padding: 3,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  segmentPill: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: radius.md - 2,
+    alignItems: "center",
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

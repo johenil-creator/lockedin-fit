@@ -744,27 +744,21 @@ export default function OrmTestScreen() {
 
         <View style={styles.modalActions}>
           <Button
-            label={completedCount > 0 ? "Save & Exit" : "Exit"}
-            onPress={handleSaveAndExit}
-          />
-          <View style={{ height: 10 }} />
-          <Button
-            label="Restart Test"
+            label="Back"
             onPress={() => {
               Alert.alert(
-                "Restart Test?",
-                "This will discard your current progress and start fresh.",
+                "Leave Test?",
+                "Your session progress will be lost.",
                 [
                   { text: "Cancel", style: "cancel" },
                   {
-                    text: "Restart",
+                    text: "Leave",
                     style: "destructive",
-                    onPress: handleRestart,
+                    onPress: () => { setExitModalVisible(false); router.back(); },
                   },
                 ]
               );
             }}
-            variant="danger"
           />
           <View style={{ height: 10 }} />
           <Button

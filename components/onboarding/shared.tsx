@@ -25,8 +25,8 @@ export const onboardingStyles = StyleSheet.create({
   skipTextBtn: { alignItems: "center", paddingVertical: 4 },
   skipText: { fontSize: 14, fontWeight: "500" },
 
-  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24, marginTop: -60 },
-  lockeIntro: { fontSize: 28, fontWeight: "800", marginBottom: 8 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
+  lockeIntro: { fontSize: 28, fontWeight: "800", marginTop: 4, marginBottom: 8 },
   welcomeTitle: { fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 12, lineHeight: 30 },
   nameInput: { width: "100%", fontSize: 18, fontWeight: "600", borderWidth: 1, borderRadius: 14, padding: 14, textAlign: "center", marginTop: 16 },
   welcomeSub: { fontSize: 15, textAlign: "center", lineHeight: 22 },

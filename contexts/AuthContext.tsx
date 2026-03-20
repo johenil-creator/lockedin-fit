@@ -3,12 +3,14 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInAnonymously,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
   type User,
 } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "../lib/firebase";
 import { flushSyncQueue } from "../lib/xpSync";
+import { flushSocialQueue } from "../lib/socialSync";
 import NetInfo from "@react-native-community/netinfo";
 
 type AuthContextValue = {
@@ -33,6 +35,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, (u) => {
+      if (!u && __DEV__) {
+        // Auto sign-in anonymously in dev so social features work without manual auth
+        signInAnonymously(auth).catch(() => setLoading(false));
+        return;
+      }
       setUser(u);
       setLoading(false);
     });
@@ -45,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = NetInfo.addEventListener((state) => {
       if (state.isConnected && user) {
         flushSyncQueue().catch(() => {});
+        flushSocialQueue().catch(() => {});
       }
     });
     return () => unsubscribe();

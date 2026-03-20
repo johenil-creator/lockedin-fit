@@ -42,7 +42,8 @@ export function checkAvailability(): boolean {
   try {
     getAppleHealthKit();
     return true;
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[HealthKitService] caught:", e);
     return false;
   }
 }

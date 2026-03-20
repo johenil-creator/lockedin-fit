@@ -351,7 +351,8 @@ export function parseJsonPlan(
     }
 
     return null;
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[importPlan] caught:", e);
     return null;
   }
 }

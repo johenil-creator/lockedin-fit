@@ -144,7 +144,8 @@ export async function syncCompletedSession(
 
     await writeWorkout(workout);
     return true;
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[healthIntegration] caught:", e);
     return false;
   }
 }

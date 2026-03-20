@@ -27,6 +27,7 @@ export type LeagueStanding = {
   xpEarned: number;
   position: number;
   isCurrentUser?: boolean;
+  lockeCustomization?: { bodyFur: string; headFur: string; eyes: string; brows: string; noseMouth: string; neckAccessory: string | null; earAccessory: string | null; aura: string | null };
 };
 
 export type WeekResult = {
@@ -160,16 +161,18 @@ export async function getLeagueStandings(
 
   // Get user display names + ranks
   const usersRef = collection(db, "users");
-  const userMap = new Map<string, { displayName: string; rank: string }>();
+  const userMap = new Map<string, { displayName: string; rank: string; lockeCustomization?: { bodyFur: string; headFur: string; eyes: string; brows: string; noseMouth: string; neckAccessory: string | null; earAccessory: string | null; aura: string | null } }>();
 
   // Batch fetch users (max 30 per `in` query)
   if (userIds.length > 0) {
     const usersQ = query(usersRef, where("__name__", "in", userIds));
     const usersSnap = await getDocs(usersQ);
     for (const d of usersSnap.docs) {
+      const data = d.data();
       userMap.set(d.id, {
-        displayName: d.data().displayName ?? "Unknown",
-        rank: d.data().rank ?? "Runt",
+        displayName: data.displayName ?? "Unknown",
+        rank: data.rank ?? "Runt",
+        lockeCustomization: data.lockeCustomization ?? undefined,
       });
     }
   }
@@ -183,6 +186,7 @@ export async function getLeagueStandings(
       rank: userInfo?.rank ?? "Runt",
       xpEarned: finalXpMap.get(uid) ?? xpMap.get(uid) ?? 0,
       position: 0,
+      lockeCustomization: userInfo?.lockeCustomization ?? undefined,
     };
   });
 

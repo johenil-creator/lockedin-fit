@@ -79,7 +79,8 @@ export async function getCached<T>(type: string): Promise<T | null> {
     }
 
     return entry.data;
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[healthCache] caught:", e);
     return null;
   }
 }
@@ -101,7 +102,8 @@ export async function setCached<T>(
   };
   try {
     await AsyncStorage.setItem(storageKey(type), JSON.stringify(entry));
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[healthCache] caught:", e);
     // Cache is best-effort — swallow errors
   }
 }
@@ -110,7 +112,8 @@ export async function setCached<T>(
 export async function invalidateType(type: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(storageKey(type));
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[healthCache] caught:", e);
     // best-effort
   }
 }
@@ -120,7 +123,8 @@ export async function invalidateAll(): Promise<void> {
   try {
     const keys = KNOWN_TYPES.map((t) => storageKey(t));
     await AsyncStorage.multiRemove([...keys]);
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[healthCache] caught:", e);
     // best-effort
   }
 }

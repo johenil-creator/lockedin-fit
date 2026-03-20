@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -20,10 +20,27 @@ import Animated, {
   FadeIn,
   Easing,
   interpolate,
+  useReducedMotion,
 } from "react-native-reanimated";
 import { hapticWorkoutComplete, hapticRankUp, hapticTap } from "../lib/hapticFeedback";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useAuth } from "../contexts/AuthContext";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { InfoTooltip } from "../components/InfoTooltip";
+import { earnFangs } from "../lib/fangsService";
+import { postActivity } from "../lib/activityService";
+import { updateChallengeProgress } from "../lib/packChallengeService";
+import { updateChallengeScore } from "../lib/friendChallengeService";
+import { updateQuestProgress } from "../lib/questService";
+import { checkMilestones, postMilestoneActivity, loadAchievedMilestones, saveAchievedMilestones } from "../lib/milestoneService";
+import { checkBattleBreaks } from "../lib/streakBattleService";
+import { updateMutualStreak } from "../lib/accountabilityService";
+import { updateWarXp, getActiveWar } from "../lib/packWarService";
+import { dealDamage, getBossStatus } from "../lib/packBossService";
+import { addPackXpAndLevel } from "../lib/packLevelService";
+import { updateEventScore, getActiveEvent, getEventFangsMultiplier } from "../lib/seasonalEventService";
+import { trackEvent } from "../lib/engagementTracker";
+import { loadPackInfo, loadWorkouts, loadStreak } from "../lib/storage";
 import { glowColors, spacing, radius } from "../lib/theme";
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { RANK_IMAGES } from "../components/RankEvolutionPath";
@@ -471,6 +488,7 @@ function AnimatedXPCounter({ targetXP }: { targetXP: number }) {
 export default function WorkoutCompleteScreen() {
   const { data } = useLocalSearchParams<{ data: string }>();
   const router = useRouter();
+  const { user } = useAuth();
   const { theme } = useAppTheme();
   const { width: screenWidth } = useWindowDimensions();
   const statCardWidth = (screenWidth - 48 - STAT_CARD_GAP * 2) / 3;
@@ -480,9 +498,18 @@ export default function WorkoutCompleteScreen() {
     if (__DEV__) console.warn("Failed to parse workout-complete params:", e);
   }
 
+  const reducedMotion = useReducedMotion();
   const [claimed, setClaimed] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // ── Clean up timeouts on unmount ───────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach(clearTimeout);
+    };
+  }, []);
 
   // ── Block hardware back button ─────────────────────────────────────────────
   useEffect(() => {
@@ -619,6 +646,94 @@ export default function WorkoutCompleteScreen() {
 
     hapticWorkoutComplete();
 
+    // Credit fangs + post activity + update challenges (fire-and-forget)
+    if (user && params.fangsEarned) {
+      earnFangs(user.uid, params.fangsEarned, "workout_complete").catch(() => {});
+      postActivity(user.uid, user.displayName ?? "Unknown", "workout_complete", {
+        sessionName: params.sessionName,
+        setsCompleted: params.setsCompleted,
+        xpEarned: params.xpAwarded,
+      }).catch(() => {});
+
+      // Pack challenge progress (fire-and-forget)
+      loadPackInfo().then((packInfo) => {
+        if (packInfo) {
+          updateChallengeProgress(packInfo.id, "sets", params!.setsCompleted).catch(() => {});
+          updateChallengeProgress(packInfo.id, "sessions", 1).catch(() => {});
+          updateChallengeProgress(packInfo.id, "xp", params!.xpAwarded).catch(() => {});
+        }
+      }).catch(() => {});
+
+      // 1v1 challenge scores (fire-and-forget)
+      updateChallengeScore(user.uid, "sets", params.setsCompleted).catch(() => {});
+      updateChallengeScore(user.uid, "sessions", 1).catch(() => {});
+      updateChallengeScore(user.uid, "xp", params.xpAwarded).catch(() => {});
+
+      // Quest progress (fire-and-forget)
+      updateQuestProgress("sets", params.setsCompleted).catch(() => {});
+      updateQuestProgress("sessions", 1).catch(() => {});
+      updateQuestProgress("xp", params.xpAwarded).catch(() => {});
+      updateQuestProgress("exercises", params.exerciseCount).catch(() => {});
+
+      // Milestone checks (fire-and-forget)
+      (async () => {
+        try {
+          const [allWorkouts, streakData, achieved] = await Promise.all([
+            loadWorkouts(),
+            loadStreak(),
+            loadAchievedMilestones(),
+          ]);
+          const workoutCount = allWorkouts.filter((w) => !!w.completedAt).length;
+          const prCount = allWorkouts.filter((w) => w.prAwarded).length;
+          const rank = params!.newRank || params!.previousRank || "Runt";
+          const newMilestones = checkMilestones(
+            workoutCount,
+            streakData?.current ?? 0,
+            prCount,
+            rank as any,
+            achieved
+          );
+          if (newMilestones.length > 0) {
+            const updatedAchieved = [...achieved, ...newMilestones];
+            await saveAchievedMilestones(updatedAchieved);
+            for (const m of newMilestones) {
+              postMilestoneActivity(user!.uid, user!.displayName ?? "Unknown", m, 0).catch(() => {});
+            }
+          }
+        } catch {}
+      })();
+
+      // Streak battle checks (fire-and-forget)
+      loadStreak().then((s) => {
+        if (s) checkBattleBreaks(user!.uid, s.current).catch(() => {});
+      }).catch(() => {});
+
+      // Accountability partner mutual streak (fire-and-forget)
+      updateMutualStreak(user!.uid).catch(() => {});
+
+      // Pack war XP + boss damage + pack level (fire-and-forget)
+      loadPackInfo().then((packInfo) => {
+        if (packInfo) {
+          getActiveWar(packInfo.id).then((war) => {
+            if (war) updateWarXp(war.id, packInfo.id, params!.xpAwarded).catch(() => {});
+          }).catch(() => {});
+          getBossStatus(packInfo.id).then((boss) => {
+            if (boss && boss.status === "active") {
+              dealDamage(boss.id, user!.uid, user!.displayName ?? "Unknown", params!.setsCompleted).catch(() => {});
+            }
+          }).catch(() => {});
+          addPackXpAndLevel(packInfo.id, params!.xpAwarded).catch(() => {});
+        }
+      }).catch(() => {});
+
+      // Seasonal event score + engagement tracking (fire-and-forget)
+      const activeEvt = getActiveEvent();
+      if (activeEvt) {
+        updateEventScore(user!.uid, activeEvt.event.id, params!.setsCompleted).catch(() => {});
+      }
+      trackEvent("workout_complete").catch(() => {});
+    }
+
     // Button press spring
     btnScale.value = withSequence(
       withSpring(0.95, { damping: 12, stiffness: 200, mass: 0.6 }),
@@ -642,12 +757,14 @@ export default function WorkoutCompleteScreen() {
 
     if (params.rankedUp) {
       // Show level-up overlay after claim animation (1200ms)
-      setTimeout(() => {
+      const t = setTimeout(() => {
         setShowLevelUp(true);
       }, 1200);
+      timeoutRefs.current.push(t);
     } else {
       // No rank-up — navigate home after claim animation finishes
-      setTimeout(() => navigateHome(), 1200);
+      const t = setTimeout(() => navigateHome(), 1200);
+      timeoutRefs.current.push(t);
     }
   }, [claimed, params]);
 
@@ -659,7 +776,8 @@ export default function WorkoutCompleteScreen() {
 
   const handleLevelUpContinue = useCallback(() => {
     setShowLevelUp(false);
-    setTimeout(() => navigateHome(), 300);
+    const t = setTimeout(() => navigateHome(), 300);
+    timeoutRefs.current.push(t);
   }, [navigateHome]);
 
 
@@ -725,10 +843,23 @@ export default function WorkoutCompleteScreen() {
         </Animated.View>
       </View>
 
+      {/* Fangs earned */}
+      {(params.fangsEarned ?? 0) > 0 && (
+        <Animated.View entering={FadeIn.delay(650).duration(300)} style={styles.fangsSection}>
+          <View style={styles.fangsPill}>
+            <Text style={{ fontSize: 14 }}>{"\u26A1"}</Text>
+            <Text style={styles.fangsText}>+{params.fangsEarned} Fangs</Text>
+          </View>
+        </Animated.View>
+      )}
+
       {/* PR pills (cardio) */}
       {params.isCardio && params.newPRs && params.newPRs.length > 0 && (
         <Animated.View entering={FadeIn.delay(600).duration(300)} style={styles.prSection}>
-          <Text style={[styles.prSectionLabel, { color: theme.colors.muted }]}>NEW RECORDS</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+            <Text style={[styles.prSectionLabel, { color: theme.colors.muted }]}>NEW RECORDS</Text>
+            <InfoTooltip term="PR" definition="Personal Record — your best performance for an exercise, whether that's heaviest weight, most reps, or highest volume." />
+          </View>
           <View style={styles.prPills}>
             {params.newPRs.map((key) => (
               <View key={key} style={[styles.prPill, { backgroundColor: theme.colors.primary + "20", borderColor: theme.colors.primary + "40" }]}>
@@ -751,7 +882,7 @@ export default function WorkoutCompleteScreen() {
               <Text style={[styles.badgeDesc, { color: theme.colors.muted }]}>{badge.description}</Text>
             </View>
           ))}
-          <Pressable onPress={() => router.push("/badges")} style={styles.viewAllBadges}>
+          <Pressable onPress={() => router.push("/evolution")} style={styles.viewAllBadges}>
             <Text style={[styles.viewAllBadgesText, { color: theme.colors.primary }]}>
               View All Badges →
             </Text>
@@ -780,8 +911,8 @@ export default function WorkoutCompleteScreen() {
         </Pressable>
       </Animated.View>
 
-      {/* Confetti overlay */}
-      <ConfettiBurst active={confettiActive} />
+      {/* Confetti overlay — respects reduced motion preference */}
+      {!reducedMotion && <ConfettiBurst active={confettiActive} />}
 
       {/* Level-Up Overlay */}
       <LevelUpOverlay
@@ -870,6 +1001,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 1,
+  },
+  // Fangs
+  fangsSection: {
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  fangsPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FFD70020",
+    borderColor: "#FFD70040",
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: radius.full,
+  },
+  fangsText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFD700",
   },
   // PR pills
   prSection: {

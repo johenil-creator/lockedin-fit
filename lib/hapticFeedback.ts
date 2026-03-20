@@ -47,6 +47,13 @@ export function hapticTap(): void {
   impact(ImpactStyle.Light);
 }
 
+/** Success ding for receiving fangs */
+export async function hapticFangReceived(): Promise<void> {
+  impact(ImpactStyle.Light);
+  await delay(100);
+  notification(NotificationType.Success);
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
