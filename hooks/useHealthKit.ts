@@ -49,8 +49,8 @@ export function useHealthKit(): HealthKitResult {
 
         // Initialize (requests permission on first call)
         await new Promise<void>((resolve, reject) => {
-          AppleHealthKit.initHealthKit(permissions, (err: string) => {
-            if (err) reject(new Error(err));
+          AppleHealthKit.initHealthKit(permissions, (err: any) => {
+            if (err) reject(typeof err === "string" ? err : err?.message ?? "HealthKit init failed");
             else resolve();
           });
         });
@@ -60,8 +60,8 @@ export function useHealthKit(): HealthKitResult {
         const value = await new Promise<number>((resolve, reject) => {
           AppleHealthKit.getLatestWeight(
             { unit: hkUnit },
-            (err: string, result: { value: number }) => {
-              if (err) reject(new Error(err));
+            (err: any, result: { value: number }) => {
+              if (err) reject(typeof err === "string" ? err : err?.message ?? "Failed to read weight");
               else resolve(result.value);
             },
           );
@@ -75,10 +75,10 @@ export function useHealthKit(): HealthKitResult {
         setLoading(false);
         return rounded;
       } catch (e: any) {
-        const msg =
-          e?.message?.includes("denied") || e?.message?.includes("not determined")
-            ? "Health access denied. Enable it in Settings > Privacy > Health."
-            : e?.message ?? "Failed to read weight from Health";
+        const raw = typeof e === "string" ? e : typeof e?.message === "string" ? e.message : "";
+        const msg = raw.includes("denied") || raw.includes("not determined")
+          ? "Health access denied. Enable it in Settings > Privacy > Health."
+          : raw || "Failed to read weight from Health";
         setError(msg);
         setLoading(false);
         return null;

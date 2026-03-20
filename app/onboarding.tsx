@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useProfileContext } from "../contexts/ProfileContext";
+import type { UserProfile } from "../lib/types";
 import { usePlanContext } from "../contexts/PlanContext";
 import { useWorkouts } from "../hooks/useWorkouts";
 import { useAppTheme } from "../contexts/ThemeContext";
@@ -26,6 +27,7 @@ import { ExplainStep } from "../components/onboarding/ExplainStep";
 import { HealthStep } from "../components/onboarding/HealthStep";
 import { StepSlide, onboardingStyles as styles } from "../components/onboarding/shared";
 import { sanitizeWeight } from "../lib/sanitizeWeight";
+import { spacing } from "../lib/theme";
 
 const LIFTS = ["Deadlift", "Squat", "Bench Press", "Overhead Press"] as const;
 type LiftKey = "deadlift" | "squat" | "bench" | "ohp";
@@ -53,7 +55,7 @@ function ProgressDots({ current, total }: { current: number; total: number }) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View style={[dotStyles.row, { top: insets.top + 12 }]}>
+    <View style={[dotStyles.row, { top: insets.top + spacing.md }]}>
       {Array.from({ length: total }, (_, i) => (
         <View
           key={i}
@@ -95,14 +97,14 @@ export default function OnboardingScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   async function skip() {
-    await updateProfile({ name: userName.trim(), weightUnit: unit, onboardingComplete: true });
+    await updateProfile({ name: userName.trim() || profile.name, weightUnit: unit, onboardingComplete: true });
     router.replace("/");
   }
 
   async function handleManualSave() {
     if (isSaving) return;
     setIsSaving(true);
-    const manual1RM: Record<string, string> = {};
+    const manual1RM: UserProfile['manual1RM'] = {};
     for (const lift of LIFTS) {
       const val = manualInputs[lift]?.trim();
       if (val && parseFloat(val) > 0) {
@@ -110,7 +112,7 @@ export default function OnboardingScreen() {
         if (key) manual1RM[key] = val;
       }
     }
-    const updatedProfile = { ...profile, name: userName.trim(), weight: "", weightUnit: unit, manual1RM, onboardingComplete: true };
+    const updatedProfile = { ...profile, name: userName.trim() || profile.name, weightUnit: unit, manual1RM, onboardingComplete: true };
     await updateProfile(updatedProfile);
 
     const has1RM = Object.values(manual1RM).some((v) => v && parseFloat(v) > 0);
@@ -123,7 +125,7 @@ export default function OnboardingScreen() {
           {
             text: "Update",
             onPress: async () => {
-              const count = await recalculateWeights(updatedProfile as any, workouts);
+              const count = await recalculateWeights(updatedProfile, workouts);
               if (count > 0) showToast({ message: `Updated weights for ${count} exercise${count !== 1 ? "s" : ""}`, type: "success" });
               router.replace("/");
             },

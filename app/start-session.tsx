@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { BackButton } from "../components/BackButton";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkouts } from "../hooks/useWorkouts";
 import { Button } from "../components/Button";
@@ -46,9 +46,9 @@ export default function StartSessionScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 16 }]}>
       {/* Back */}
-      <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
-        <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
-      </Pressable>
+      <View style={styles.backBtn}>
+        <BackButton />
+      </View>
 
       <Text style={[styles.title, { color: theme.colors.text }]}>Quick Workout</Text>
       <Text style={[styles.subtitle, { color: theme.colors.muted }]}>

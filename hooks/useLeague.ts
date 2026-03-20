@@ -1,10 +1,23 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "../contexts/AuthContext";
 import { getCurrentWeekKey, getUserLeague, getLeagueStandings, getLastWeekResult } from "../lib/leagueService";
 import { assignUserToLeague } from "../lib/leagueMatchmaker";
 import { getFriendIds } from "../lib/xpSync";
 import type { League, LeagueStanding, WeekResult } from "../lib/leagueService";
 import type { RankLevel } from "../lib/types";
+
+const CACHE_KEY = "@lockedinfit/league-cache";
+
+type CachedLeagueData = {
+  weekKey: string;
+  league: League;
+  standings: LeagueStanding[];
+  userPosition: number | null;
+  lastWeekResult: WeekResult | null;
+  friendIds: string[];
+  cachedAt: number;
+};
 
 export type UseLeagueResult = {
   league: League | null;
@@ -26,6 +39,33 @@ export function useLeague(rank: RankLevel): UseLeagueResult {
   const [friendIds, setFriendIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const didHydrate = useRef(false);
+
+  // Step 1: Hydrate from cache instantly
+  useEffect(() => {
+    if (!user) { setLoading(false); return; }
+    AsyncStorage.getItem(CACHE_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const cached: CachedLeagueData = JSON.parse(raw);
+        const weekKey = getCurrentWeekKey();
+        // Only use cache from the current week
+        if (cached.weekKey === weekKey) {
+          const marked = cached.standings.map((s) => ({
+            ...s,
+            isCurrentUser: s.userId === user.uid,
+          }));
+          setLeague(cached.league);
+          setStandings(marked);
+          setUserPosition(cached.userPosition);
+          setLastWeekResult(cached.lastWeekResult);
+          setFriendIds(cached.friendIds);
+          didHydrate.current = true;
+          setLoading(false);
+        }
+      } catch { /* corrupt cache, ignore */ }
+    });
+  }, [user, rank]);
 
   const fetchLeagueData = useCallback(async () => {
     if (!user) {
@@ -34,7 +74,8 @@ export function useLeague(rank: RankLevel): UseLeagueResult {
     }
 
     try {
-      setLoading(true);
+      // Only show loading skeleton if we have no cached data
+      if (!didHydrate.current) setLoading(true);
       setError(null);
       const weekKey = getCurrentWeekKey();
 
@@ -69,6 +110,18 @@ export function useLeague(rank: RankLevel): UseLeagueResult {
       setUserPosition(myPos);
       setLastWeekResult(weekResult);
       setFriendIds(friends);
+
+      // Persist to cache for instant next load
+      const cachePayload: CachedLeagueData = {
+        weekKey,
+        league: currentLeague,
+        standings: standingsData,
+        userPosition: myPos,
+        lastWeekResult: weekResult,
+        friendIds: friends,
+        cachedAt: Date.now(),
+      };
+      AsyncStorage.setItem(CACHE_KEY, JSON.stringify(cachePayload)).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load league");
     } finally {
@@ -76,6 +129,7 @@ export function useLeague(rank: RankLevel): UseLeagueResult {
     }
   }, [user, rank]);
 
+  // Step 2: Always fetch fresh data (background refresh if cache hit)
   useEffect(() => {
     fetchLeagueData();
   }, [fetchLeagueData]);

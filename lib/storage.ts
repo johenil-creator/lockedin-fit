@@ -13,6 +13,9 @@ import type {
   DailySnapshot,
   CachedFatigueState,
   RecoveryBundle,
+  FangsRecord,
+  LockeCustomization,
+  PackInfo,
 } from "./types";
 import type { ExerciseCatalogEntry } from "../src/lib/exerciseMatch";
 
@@ -35,6 +38,20 @@ const KEYS = {
   // Distinct from muscleFatigue (raw MuscleFatigueMap) — use fatigueState for the
   // recovery dashboard so decay can be applied with exact elapsed hours on every read.
   fatigueState: "@lockedinfit/fatigue-state",
+  fangs: "@lockedinfit/fangs",
+  lockeCustomization: "@lockedinfit/locke-customization",
+  packInfo: "@lockedinfit/pack-info",
+  ownedCosmetics: "@lockedinfit/owned-cosmetics",
+  packChallenge: "@lockedinfit/pack-challenge",
+  friendChallenges: "@lockedinfit/friend-challenges",
+  questState: "@lockedinfit/quest-state",
+  weeklyObjective: "@lockedinfit/weekly-objective",
+  pendingGifts: "@lockedinfit/pending-gifts",
+  globalLeaderboardCache: "@lockedinfit/global-leaderboard-cache",
+  notificationsCache: "@lockedinfit/notifications-cache",
+  publicProfileCache: "@lockedinfit/public-profile-cache",
+  planDraft: "@lockedinfit/plan-draft",
+  planDrafts: "@lockedinfit/plan-drafts",
 } as const;
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
@@ -44,7 +61,8 @@ async function load<T>(key: string): Promise<T | null> {
   if (!raw) return null;
   try {
     return JSON.parse(raw);
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[storage] caught:", e);
     return null;
   }
 }
@@ -71,6 +89,52 @@ export async function loadPlan(): Promise<PlanData | null> {
 
 export async function savePlan(data: PlanData): Promise<void> {
   await save(KEYS.plan, data);
+}
+
+export async function loadPlanDraft(): Promise<any | null> {
+  return load<any>(KEYS.planDraft);
+}
+
+export async function savePlanDraft(data: any): Promise<void> {
+  await save(KEYS.planDraft, data);
+}
+
+export async function clearPlanDraft(): Promise<void> {
+  await AsyncStorage.removeItem(KEYS.planDraft);
+}
+
+// ── Saved Plan Drafts (multiple) ─────────────────────────────────────────────
+
+export type SavedPlanDraft = {
+  id: string;
+  name: string;
+  goal: string;
+  daysPerWeek: number;
+  numWeeks: number;
+  totalExercises: number;
+  updatedAt: string;
+  draft: any;
+};
+
+export async function loadSavedDrafts(): Promise<SavedPlanDraft[]> {
+  return (await load<SavedPlanDraft[]>(KEYS.planDrafts)) ?? [];
+}
+
+export async function saveSavedDraft(entry: SavedPlanDraft): Promise<void> {
+  const existing = await loadSavedDrafts();
+  const filtered = existing.filter((d) => d.id !== entry.id);
+  const updated = [entry, ...filtered].slice(0, 20);
+  await save(KEYS.planDrafts, updated);
+}
+
+export async function deleteSavedDraft(id: string): Promise<void> {
+  const existing = await loadSavedDrafts();
+  await save(KEYS.planDrafts, existing.filter((d) => d.id !== id));
+}
+
+export async function loadSavedDraftById(id: string): Promise<SavedPlanDraft | null> {
+  const all = await loadSavedDrafts();
+  return all.find((d) => d.id === id) ?? null;
 }
 
 export async function clearPlan(): Promise<void> {
@@ -230,6 +294,80 @@ export async function loadRecoveryBundle(): Promise<RecoveryBundle> {
     ? JSON.parse(pairs[1][1])
     : [];
   return { fatigueState, dailySnapshots };
+}
+
+// ── Fangs ────────────────────────────────────────────────────────────────────
+
+export async function loadFangs(): Promise<FangsRecord> {
+  return (await load<FangsRecord>(KEYS.fangs)) ?? { balance: 0, lastUpdated: "" };
+}
+
+export async function saveFangs(data: FangsRecord): Promise<void> {
+  await save(KEYS.fangs, data);
+}
+
+// ── Locke Customization ──────────────────────────────────────────────────────
+
+export const DEFAULT_CUSTOMIZATION: LockeCustomization = {
+  bodyFur: null,
+  headFur: null,
+  eyes: null,
+  brows: null,
+  noseMouth: null,
+  headAccessory: null,
+  neckAccessory: null,
+  earAccessory: null,
+  aura: null,
+};
+
+let _customizationCache: LockeCustomization | null = null;
+let _hasCustomization = false;
+
+export async function loadLockeCustomization(): Promise<LockeCustomization> {
+  if (_customizationCache) return _customizationCache;
+  const raw = await load<LockeCustomization>(KEYS.lockeCustomization);
+  _hasCustomization = raw !== null;
+  const data = raw ?? DEFAULT_CUSTOMIZATION;
+  _customizationCache = data;
+  return data;
+}
+
+export function getLockeCustomizationSync(): LockeCustomization {
+  return _customizationCache ?? DEFAULT_CUSTOMIZATION;
+}
+
+export function hasLockeCustomization(): boolean {
+  return _hasCustomization;
+}
+
+export async function saveLockeCustomization(data: LockeCustomization): Promise<void> {
+  _customizationCache = data;
+  _hasCustomization = true;
+  await save(KEYS.lockeCustomization, data);
+}
+
+// ── Owned Cosmetics ──────────────────────────────────────────────────────────
+
+export async function loadOwnedCosmetics(): Promise<string[]> {
+  return (await load<string[]>(KEYS.ownedCosmetics)) ?? [];
+}
+
+export async function saveOwnedCosmetics(items: string[]): Promise<void> {
+  await save(KEYS.ownedCosmetics, items);
+}
+
+// ── Pack Info (local cache) ──────────────────────────────────────────────────
+
+export async function loadPackInfo(): Promise<PackInfo | null> {
+  return load<PackInfo>(KEYS.packInfo);
+}
+
+export async function savePackInfo(data: PackInfo): Promise<void> {
+  await save(KEYS.packInfo, data);
+}
+
+export async function clearPackInfo(): Promise<void> {
+  await AsyncStorage.removeItem(KEYS.packInfo);
 }
 
 // ── Clear All ─────────────────────────────────────────────────────────────────

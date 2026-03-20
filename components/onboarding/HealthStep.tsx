@@ -43,16 +43,15 @@ export function HealthStep({ unit, onSynced, onSkip, onBack }: Props) {
     setConnecting(true);
     // Request enhanced permissions (weight + workouts + HR + steps + active energy)
     // in a single dialog — no second screen needed
-    await requestEnhancedPermissions();
-    // Then fetch weight (uses the permissions we just requested)
-    const w = await fetchWeight(unit);
-    setConnecting(false);
-    // If weight fetch failed (denied or no data), auto-advance anyway
-    // since the enhanced permissions may still have been granted
-    if (!w && !error) {
-      onSynced("");
+    const granted = await requestEnhancedPermissions();
+    if (granted) {
+      // Then fetch weight (uses the permissions we just requested)
+      await fetchWeight(unit);
     }
-    // If weight was fetched, useEffect above handles the advance
+    setConnecting(false);
+    // If weight was fetched, the useEffect above handles auto-advance.
+    // If no weight (denied or no data), stay on this screen —
+    // user can tap Skip to proceed without syncing.
   }
 
   const synced = !!weight;

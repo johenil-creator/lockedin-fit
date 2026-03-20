@@ -38,7 +38,8 @@ try {
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(AsyncStorage),
   });
-} catch {
+} catch (e) {
+    if (__DEV__) console.warn("[firebase] caught:", e);
   // Already initialized (hot reload) — fall back to getAuth
   auth = getAuth(app);
 }

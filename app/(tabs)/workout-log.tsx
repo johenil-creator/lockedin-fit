@@ -7,6 +7,7 @@ import {
   ScrollView,
   RefreshControl,
   TextInput,
+  Alert,
 } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -104,7 +105,7 @@ export default function WorkoutLogScreen() {
   }, [reload]);
 
   return (
-      <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 12 }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + spacing.md }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Log</Text>
           <ProfileButton />
@@ -202,7 +203,16 @@ export default function WorkoutLogScreen() {
               ) : (
                 displayedWorkouts.map((item, index) => (
                   <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(300)}>
-                    <Swipeable renderRightActions={() => renderRightActions(() => deleteWorkout(item.id))}>
+                    <Swipeable renderRightActions={() => renderRightActions(() =>
+                      Alert.alert(
+                        "Delete Workout?",
+                        "This will permanently remove this session from your log.",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          { text: "Delete", style: "destructive", onPress: () => deleteWorkout(item.id) },
+                        ]
+                      )
+                    )}>
                       <Pressable onPress={() => router.push(`/session/${item.id}`)}>
                         <Card style={styles.row}>
                           <View style={styles.rowContent}>
@@ -236,7 +246,7 @@ export default function WorkoutLogScreen() {
             <EmptyState
               icon="📈"
               title="No data yet"
-              subtitle="Complete sessions to track your progress."
+              subtitle="Complete sessions to track your progress. Even wolves start somewhere."
             />
           ) : (
             <ScrollView
@@ -391,14 +401,14 @@ const styles = StyleSheet.create({
   row: { marginBottom: 0, flexDirection: "row", alignItems: "center" },
   rowContent: { flex: 1 },
   rowName: { fontSize: 16, fontWeight: "600" },
-  rowMeta: { fontSize: 12, marginTop: 2 },
+  rowMeta: { fontSize: 12, marginTop: spacing.xs },
   chevron: { fontSize: 20 },
   deleteAction: {
     justifyContent: "center",
     alignItems: "center",
     width: 80,
     borderRadius: radius.md,
-    marginBottom: spacing.sm + 4,
+    marginBottom: spacing.md,
   },
   deleteText: { fontWeight: "700", fontSize: 14 },
   listHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8, marginTop: 4 },

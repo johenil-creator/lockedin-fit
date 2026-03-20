@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Modal,
   useWindowDimensions,
   type LayoutChangeEvent,
 } from "react-native";
@@ -21,17 +22,114 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { BackButton } from "../components/BackButton";
 import { useXP } from "../hooks/useXP";
 import { useStreak } from "../hooks/useStreak";
+import { useProfileContext } from "../contexts/ProfileContext";
+import { useWorkouts } from "../hooks/useWorkouts";
 import { XP_AWARDS } from "../lib/xpService";
+import { BADGE_DEFINITIONS, getBadgeProgress, type BadgeStats } from "../lib/badgeService";
 import { glowColors, spacing, radius, typography } from "../lib/theme";
 import { RANK_IMAGES, EVOLUTION_RANKS } from "../components/RankEvolutionPath";
 import { rankDisplayName } from "../lib/rankService";
-import type { RankLevel } from "../lib/types";
+import { Skeleton } from "../components/Skeleton";
+import type { RankLevel, Badge } from "../lib/types";
+
+// ── Badge constants ─────────────────────────────────────────────────────────
+
+const BADGE_ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
+  footprint: "footsteps-outline", flag: "flag-outline", fire: "flame-outline",
+  zap: "flash-outline", heart: "heart-outline", dumbbell: "barbell-outline",
+  layers: "layers-outline", trophy: "trophy-outline", flame: "flame-outline",
+  award: "ribbon-outline", calendar: "calendar-outline", map: "map-outline",
+  stopwatch: "stopwatch-outline", body: "body-outline", fitness: "fitness-outline",
+  "swap-horizontal": "swap-horizontal-outline", star: "star-outline",
+  diamond: "diamond-outline", medal: "medal-outline",
+};
+
+const BADGE_CATEGORIES: { label: string; ids: string[] }[] = [
+  { label: "Cardio", ids: ["first_run", "5k_finisher", "10k_finisher", "60_min_beast", "marathon_prep", "interval_warrior", "consistent_cardio"] },
+  { label: "Strength", ids: ["first_lift", "100_sets_club", "500_sets_club", "1rm_breaker", "iron_regular"] },
+  { label: "Consistency", ids: ["streak_7", "streak_30", "streak_100", "streak_365"] },
+  { label: "Milestones", ids: ["double_threat", "quarter_century", "half_century", "centurion"] },
+];
+
+function formatBadgeDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function BadgeRow({ def, unlocked, progress }: {
+  def: (typeof BADGE_DEFINITIONS)[number];
+  unlocked: Badge | undefined;
+  progress: string | null;
+}) {
+  const { theme } = useAppTheme();
+  const isUnlocked = !!unlocked;
+  const iconName = BADGE_ICON_MAP[def.icon] ?? "help-circle-outline";
+  return (
+    <View style={[styles.badgeRow, { opacity: isUnlocked ? 1 : 0.4 }]}>
+      <View style={[styles.badgeIconCircle, { backgroundColor: isUnlocked ? glowColors.viridianDim : theme.colors.mutedBg }]}>
+        <Ionicons name={iconName} size={20} color={isUnlocked ? glowColors.viridian : theme.colors.muted} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.badgeName, { color: theme.colors.text }]}>{def.name}</Text>
+        <Text style={[styles.badgeDesc, { color: theme.colors.muted }]}>{def.description}</Text>
+        {isUnlocked && unlocked.unlockedAt && (
+          <Text style={[styles.badgeDate, { color: glowColors.viridian }]}>{formatBadgeDate(unlocked.unlockedAt)}</Text>
+        )}
+        {!isUnlocked && progress && (
+          <Text style={[styles.badgeProgress, { color: theme.colors.primary }]}>{progress}</Text>
+        )}
+      </View>
+      {isUnlocked && <Ionicons name="checkmark-circle" size={20} color={glowColors.viridian} />}
+    </View>
+  );
+}
+
+function BadgeCategoryCard({ cat, defs, unlockedMap, badgeStats }: {
+  cat: { label: string };
+  defs: (typeof BADGE_DEFINITIONS)[number][];
+  unlockedMap: Map<string, Badge>;
+  badgeStats: BadgeStats;
+}) {
+  const { theme } = useAppTheme();
+  const earned = defs.filter((d) => unlockedMap.has(d.id)).length;
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <View style={[styles.detailCard, { backgroundColor: theme.colors.surface }]}>
+      <Pressable style={styles.badgeCategoryHeader} onPress={() => setExpanded((v) => !v)}>
+        <Text style={[styles.detailTitle, { color: theme.colors.text, marginBottom: 0, flex: 1 }]}>{cat.label}</Text>
+        <Text style={[styles.badgeCategoryCount, { color: theme.colors.muted }]}>
+          {earned}/{defs.length}
+        </Text>
+        <Ionicons
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={theme.colors.muted}
+          style={{ marginLeft: 6 }}
+        />
+      </Pressable>
+      {expanded && defs.map((def) => (
+        <BadgeRow
+          key={def.id}
+          def={def}
+          unlocked={unlockedMap.get(def.id)}
+          progress={unlockedMap.has(def.id) ? null : getBadgeProgress(def.id, badgeStats)}
+        />
+      ))}
+    </View>
+  );
+}
 
 const NODE_SIZE = 64;
+
+// Pre-index ranks for O(1) lookups
+const RANK_INDEX_MAP: Record<string, number> = {};
+EVOLUTION_RANKS.forEach((t, i) => { RANK_INDEX_MAP[t.rank] = i; });
 const NODE_COLUMN_WIDTH = 96;
 const CONNECTOR_WIDTH = 28;
 
@@ -203,20 +301,47 @@ export default function EvolutionScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
   const { theme } = useAppTheme();
-  const { xp, rank, progress, toNext, nextTier } = useXP();
+  const { xp, rank, progress, toNext, nextTier, loading } = useXP();
   const { streak } = useStreak();
+  const { profile } = useProfileContext();
+  const { workouts } = useWorkouts();
+
+  // Badge data
+  const unlockedMap = useMemo(() => {
+    const map = new Map<string, Badge>();
+    for (const b of profile.badges ?? []) map.set(b.id, b);
+    return map;
+  }, [profile.badges]);
+
+  const badgeStats: BadgeStats = useMemo(() => {
+    const completed = workouts.filter((w) => !!w.completedAt);
+    return {
+      cardioCount: completed.filter((w) => w.sessionType === "cardio").length,
+      strengthCount: completed.filter(
+        (w) => w.sessionType === "strength" || (w.sessionType !== "cardio" && w.exercises.some((e) => e.sets.some((s) => s.completed)))
+      ).length,
+      totalWorkouts: completed.length,
+      totalSets: completed.reduce((sum, w) => sum + w.exercises.flatMap((e) => e.sets).filter((s) => s.completed).length, 0),
+      streakDays: streak.current,
+      has1RM: !!(profile.estimated1RM && Object.values(profile.estimated1RM).some((v) => v != null && v !== "")),
+    };
+  }, [workouts, streak.current, profile.estimated1RM]);
+
+  const badgeEarned = unlockedMap.size;
+  const badgeTotal = BADGE_DEFINITIONS.length;
 
   const displayRank = rank === "Runt" ? "Scout" : rank;
-  const currentIdx = EVOLUTION_RANKS.findIndex((t) => t.rank === displayRank);
+  const currentIdx = RANK_INDEX_MAP[displayRank] ?? 0;
 
   const scrollRef = useRef<ScrollView>(null);
   const nodePositions = useRef<Record<string, number>>({});
   const [containerWidth, setContainerWidth] = useState(screenWidth);
+  const [showRankTips, setShowRankTips] = useState(false);
 
   const getNodeState = useCallback(
     (tierRank: RankLevel): "completed" | "current" | "locked" => {
-      const cIdx = EVOLUTION_RANKS.findIndex((t) => t.rank === displayRank);
-      const tIdx = EVOLUTION_RANKS.findIndex((t) => t.rank === tierRank);
+      const cIdx = RANK_INDEX_MAP[displayRank] ?? 0;
+      const tIdx = RANK_INDEX_MAP[tierRank] ?? 0;
       if (tIdx < cIdx) return "completed";
       if (tIdx === cIdx) return "current";
       return "locked";
@@ -261,8 +386,8 @@ export default function EvolutionScreen() {
     width: `${Math.max(barWidth.value * 100, 2)}%`,
   }));
 
-  // XP breakdown from history
-  const xpBreakdown = (() => {
+  // XP breakdown from history (memoized)
+  const xpBreakdown = useMemo(() => {
     const cats: Record<string, { label: string; icon: string; total: number }> = {
       sessions: { label: "Sessions",        icon: "~", total: 0 },
       sets:     { label: "Sets Completed",   icon: "#", total: 0 },
@@ -283,7 +408,7 @@ export default function EvolutionScreen() {
       else                                       cats.other.total += entry.amount;
     }
     return Object.values(cats).filter((c) => c.total > 0);
-  })();
+  }, [xp.history]);
 
   const rankUpTips = [
     { text: "Complete a workout session", xp: `+${XP_AWARDS.SESSION_BASE}–${XP_AWARDS.SESSION_MAX} XP` },
@@ -291,6 +416,28 @@ export default function EvolutionScreen() {
     { text: "Build a 3-day streak",      xp: `+${XP_AWARDS.STREAK_3_DAYS} XP` },
     { text: "Build a 7-day streak",      xp: `+${XP_AWARDS.STREAK_7_DAYS} XP` },
   ];
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, { backgroundColor: theme.colors.bg, paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <BackButton />
+          <Text style={[typography.heading, { color: theme.colors.text }]}>
+            Evolution Path
+          </Text>
+          <View style={{ width: 44 }} />
+        </View>
+        <View style={{ padding: spacing.md }}>
+          <Skeleton.Group>
+            <Skeleton.Card />
+            <Skeleton.Rect width="80%" height={16} />
+            <Skeleton.Rect width="100%" height={10} />
+            <Skeleton.Card />
+          </Skeleton.Group>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.bg, paddingTop: insets.top }]}>
@@ -300,8 +447,40 @@ export default function EvolutionScreen() {
         <Text style={[typography.heading, { color: theme.colors.text }]}>
           Evolution Path
         </Text>
-        <View style={{ width: 44 }} />
+        {nextTier ? (
+          <Pressable hitSlop={12} onPress={() => setShowRankTips(true)} style={{ width: 44, alignItems: "flex-end" }}>
+            <Ionicons name="help-circle-outline" size={22} color="#FFD700" />
+          </Pressable>
+        ) : (
+          <View style={{ width: 44 }} />
+        )}
       </View>
+
+      <Modal visible={showRankTips} transparent animationType="fade" onRequestClose={() => setShowRankTips(false)}>
+        <Pressable style={styles.tipModalOverlay} onPress={() => setShowRankTips(false)}>
+          <View style={[styles.tipModalCard, { backgroundColor: theme.colors.surface }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.sm }}>
+              <Ionicons name="trending-up-outline" size={22} color={glowColors.viridian} />
+              <Text style={[typography.heading, { color: theme.colors.text, marginLeft: 8 }]}>
+                How to Rank Up
+              </Text>
+            </View>
+            {rankUpTips.map((tip) => (
+              <View key={tip.text} style={styles.tipRow}>
+                <Text style={[typography.caption, { color: glowColors.viridian }]}>{">"}</Text>
+                <Text style={[typography.caption, { color: theme.colors.text, flex: 1 }]}>{tip.text}</Text>
+                <Text style={[typography.caption, { color: theme.colors.muted, fontWeight: "600" }]}>{tip.xp}</Text>
+              </View>
+            ))}
+            <Pressable
+              style={[styles.tipModalButton, { backgroundColor: theme.colors.primary }]}
+              onPress={() => setShowRankTips(false)}
+            >
+              <Text style={[typography.body, { color: theme.colors.primaryText, fontWeight: "700" }]}>Got it</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
 
       <ScrollView contentContainerStyle={styles.scrollBody}>
         {/* Current rank hero */}
@@ -421,21 +600,35 @@ export default function EvolutionScreen() {
           </View>
         )}
 
-        {/* How to rank up */}
-        {nextTier && (
-          <View style={[styles.detailCard, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.detailTitle, { color: theme.colors.text }]}>
-              How to Rank Up
+        {/* How to rank up — modal tooltip */}
+
+        {/* Badges */}
+        <View style={[styles.detailCard, { backgroundColor: theme.colors.surface }]}>
+          <View style={styles.badgeSummaryRow}>
+            <Text style={[styles.detailTitle, { color: theme.colors.text, marginBottom: 0 }]}>Badges</Text>
+            <Text style={[styles.badgeSummaryCount, { color: glowColors.viridian }]}>
+              {badgeEarned} / {badgeTotal}
             </Text>
-            {rankUpTips.map((tip) => (
-              <View key={tip.text} style={styles.tipRow}>
-                <Text style={[typography.caption, { color: glowColors.viridian }]}>{">"}</Text>
-                <Text style={[typography.caption, { color: theme.colors.text, flex: 1 }]}>{tip.text}</Text>
-                <Text style={[typography.caption, { color: theme.colors.muted, fontWeight: "600" }]}>{tip.xp}</Text>
-              </View>
-            ))}
           </View>
-        )}
+          <View style={[styles.badgeTrack, { backgroundColor: theme.colors.mutedBg }]}>
+            <View style={[styles.badgeFill, { backgroundColor: glowColors.viridian, width: `${Math.max((badgeEarned / badgeTotal) * 100, 2)}%` }]} />
+          </View>
+        </View>
+
+        {BADGE_CATEGORIES.map((cat) => {
+          const defs = cat.ids
+            .map((id) => BADGE_DEFINITIONS.find((d) => d.id === id))
+            .filter(Boolean) as (typeof BADGE_DEFINITIONS)[number][];
+          return (
+            <BadgeCategoryCard
+              key={cat.label}
+              cat={cat}
+              defs={defs}
+              unlockedMap={unlockedMap}
+              badgeStats={badgeStats}
+            />
+          );
+        })}
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
@@ -461,7 +654,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     alignItems: "center",
-    marginBottom: spacing.sm + 4,
+    marginBottom: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
@@ -557,7 +750,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 10,
     fontWeight: "600",
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   statDivider: {
     width: 1,
@@ -569,7 +762,7 @@ const styles = StyleSheet.create({
   pathCard: {
     borderRadius: radius.lg,
     paddingVertical: spacing.md,
-    marginBottom: spacing.sm + 4,
+    marginBottom: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -665,7 +858,7 @@ const styles = StyleSheet.create({
   detailCard: {
     borderRadius: radius.lg,
     padding: spacing.md,
-    marginBottom: spacing.sm + 4,
+    marginBottom: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -699,5 +892,90 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: 4,
+  },
+  tipModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  tipModalCard: {
+    width: "100%",
+    maxWidth: 340,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  tipModalButton: {
+    marginTop: spacing.lg,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    alignItems: "center",
+  },
+
+  // Badges
+  badgeCategoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  badgeCategoryCount: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  badgeSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  badgeSummaryCount: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  badgeTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  badgeFill: {
+    height: "100%",
+    borderRadius: 999,
+    minWidth: 4,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: spacing.sm,
+  },
+  badgeIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeName: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  badgeDesc: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  badgeDate: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: spacing.xs,
+  },
+  badgeProgress: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: spacing.xs,
   },
 });

@@ -17,6 +17,7 @@ import {
 } from "../lib/notifications";
 import { isSignedIn, signOut, signInWithGoogle, getStoredEmail } from "../lib/googleAuth";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { deleteAccount, clearLocalData as deleteLocalData } from "../lib/accountDeletion";
 
 const KG_TO_LBS = 2.20462;
@@ -45,6 +46,7 @@ export default function SettingsScreen() {
   const { profile, updateProfile } = useProfileContext();
   const [exporting, setExporting] = useState(false);
   const { user, signOut: authSignOut } = useAuth();
+  const { showToast } = useToast();
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
 
@@ -80,6 +82,18 @@ export default function SettingsScreen() {
       weight: convertedWeight,
       manual1RM: convertedManual,
       ...(profile.estimated1RM ? { estimated1RM: convertedEstimated } : {}),
+    });
+
+    const oldWeight = profile.weight ? parseFloat(profile.weight) : null;
+    const newWeight = convertedWeight ? parseFloat(convertedWeight) : null;
+    const oldUnit = profile.weightUnit ?? "kg";
+    const weightDetail =
+      oldWeight && newWeight && !isNaN(oldWeight) && !isNaN(newWeight)
+        ? `\nWeight converted: ${Math.round(oldWeight * 10) / 10} ${oldUnit} → ${Math.round(newWeight * 10) / 10} ${newUnit}`
+        : "";
+    showToast({
+      message: `Converted to ${newUnit}${weightDetail}`,
+      type: "success",
     });
   }
 

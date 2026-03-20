@@ -59,7 +59,8 @@ export async function clearLocalData(): Promise<void> {
     const allKeys = await AsyncStorage.getAllKeys();
     const appKeys = allKeys.filter((k) => k.startsWith("@lockedinfit/"));
     if (appKeys.length > 0) await AsyncStorage.multiRemove(appKeys);
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[accountDeletion] caught:", e);
     // Best-effort — local data will be gone when the app is uninstalled anyway
   }
 }
@@ -68,7 +69,8 @@ async function clearHealthCache(): Promise<void> {
   try {
     const { invalidateAll } = await import("./healthkit/cache");
     await invalidateAll();
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[accountDeletion] caught:", e);
     // HealthKit module may not be available on Android
   }
 }
@@ -76,7 +78,8 @@ async function clearHealthCache(): Promise<void> {
 async function clearGoogleTokens(): Promise<void> {
   try {
     await googleSignOut();
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[accountDeletion] caught:", e);
     // Best-effort
   }
 }

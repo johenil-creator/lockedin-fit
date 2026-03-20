@@ -29,7 +29,8 @@ async function loadQueue(): Promise<QueuedSync[]> {
   if (!raw) return [];
   try {
     return JSON.parse(raw);
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[xpSync] caught:", e);
     return [];
   }
 }
@@ -60,7 +61,8 @@ export async function syncWeeklyXP(
 
   try {
     await syncWeeklyXPDirect(userId, weekKey, xpAmount);
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn("[xpSync] caught:", e);
     const queue = await loadQueue();
     queue.push({ userId, weekKey, xpAmount, queuedAt: new Date().toISOString() });
     await saveQueue(queue);
@@ -125,6 +127,40 @@ export async function lookupFriend(
 }
 
 /**
+ * Add a friend by their userId directly (bidirectional).
+ * Used when viewing a public profile where userId is already known.
+ */
+export async function addFriendById(
+  currentUserId: string,
+  friendUserId: string
+): Promise<boolean> {
+  if (!isFirebaseConfigured) return false;
+  if (currentUserId === friendUserId) return false;
+
+  try {
+    const friendshipsRef = collection(db, "friendships");
+    const id1 = `${currentUserId}__${friendUserId}`;
+    const id2 = `${friendUserId}__${currentUserId}`;
+
+    await setDoc(doc(friendshipsRef, id1), {
+      userId: currentUserId,
+      friendId: friendUserId,
+      createdAt: serverTimestamp(),
+    });
+    await setDoc(doc(friendshipsRef, id2), {
+      userId: friendUserId,
+      friendId: currentUserId,
+      createdAt: serverTimestamp(),
+    });
+
+    return true;
+  } catch (e) {
+    if (__DEV__) console.warn("[xpSync] caught:", e);
+    return false;
+  }
+}
+
+/**
  * Get all friend user IDs for the current user.
  */
 export async function getFriendIds(userId: string): Promise<string[]> {
@@ -162,7 +198,8 @@ export async function flushSyncQueue(): Promise<void> {
   for (const item of aggregated.values()) {
     try {
       await syncWeeklyXPDirect(item.userId, item.weekKey, item.xpAmount);
-    } catch {
+    } catch (e) {
+    if (__DEV__) console.warn("[xpSync] caught:", e);
       failures.push(item);
     }
   }

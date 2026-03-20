@@ -16,6 +16,7 @@ import {
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { BackButton } from "../components/BackButton";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import Papa from "papaparse";
@@ -361,9 +362,9 @@ export default function ImportDriveScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={goBack} style={styles.backBtn} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
-        </Pressable>
+        <View style={styles.backBtn}>
+          <BackButton onPress={goBack} />
+        </View>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
           {stepLabel}
         </Text>

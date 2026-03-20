@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { spacing, radius } from "../../lib/theme";
+import type { LockeCustomization } from "../../lib/types";
 
 // ── Deterministic avatar background palette ─────────────────────────────────
 const AVATAR_COLORS = [
@@ -31,14 +32,23 @@ type Props = {
   userId: string;
   position: number;
   isCurrentUser?: boolean;
+  lockeCustomization?: LockeCustomization;
 };
 
-function UserAvatarInner({ displayName, userId, position, isCurrentUser }: Props) {
+function UserAvatarInner({ displayName, userId, position, isCurrentUser, lockeCustomization }: Props) {
   const { theme } = useAppTheme();
 
   const initial = (displayName.charAt(0) || "?").toUpperCase();
   const bgColor = getAvatarColor(userId);
   const medal = MEDALS[position];
+
+  // Use primary color as border for users with customization
+  const hasCustomization = !!lockeCustomization;
+  const borderColor = isCurrentUser
+    ? theme.colors.primary
+    : hasCustomization
+    ? theme.colors.primary
+    : undefined;
 
   return (
     <View style={styles.wrapper}>
@@ -46,9 +56,9 @@ function UserAvatarInner({ displayName, userId, position, isCurrentUser }: Props
         style={[
           styles.avatar,
           { backgroundColor: bgColor },
-          isCurrentUser && {
+          (isCurrentUser || hasCustomization) && {
             borderWidth: 2,
-            borderColor: theme.colors.primary,
+            borderColor: borderColor ?? theme.colors.primary,
           },
         ]}
       >

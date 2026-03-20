@@ -18,9 +18,11 @@ export function normalize(str: string): string {
 const indexStart = typeof performance !== "undefined" ? performance.now() : Date.now();
 const nameIndex = new Map<string, ExerciseCatalogEntry>();
 for (const entry of exerciseCatalog) {
-  nameIndex.set(normalize(entry.canonicalName), entry);
+  const canon = normalize(entry.canonicalName);
+  if (!nameIndex.has(canon)) nameIndex.set(canon, entry);
   for (const alias of entry.aliases) {
-    nameIndex.set(normalize(alias), entry);
+    const key = normalize(alias);
+    if (!nameIndex.has(key)) nameIndex.set(key, entry);
   }
 }
 const indexMs = (typeof performance !== "undefined" ? performance.now() : Date.now()) - indexStart;

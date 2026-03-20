@@ -58,6 +58,9 @@ export type WorkoutSession = {
   cardioIntervalsCompleted?: number;
   cardioIntervalConfig?: { rounds: number; workSeconds: number; restSeconds: number };
   virtualSets?: number;              // for XP calculation
+  // ── Pause state (persists across navigation) ─────────────────────────────
+  pausedAt?: string;              // ISO timestamp when paused
+  totalPausedMs?: number;         // accumulated paused milliseconds
   // ── Idempotency flags ─────────────────────────────────────────────────────
   prAwarded?: boolean;
   badgesUnlocked?: string[];         // badge IDs already awarded for this session
@@ -355,6 +358,497 @@ export type ExerciseLoadResult = {
   workingSets: { weight: string; reps: string }[];
   targetRPE: number;
   classification: ExerciseClassification;
+};
+
+// ── Social & Customization ──────────────────────────────────────────────────
+
+export type ReactionType = 'howl' | 'fire' | 'flex' | 'crown';
+
+export type ActivityType =
+  | 'workout_complete'
+  | 'rank_up'
+  | 'pr_hit'
+  | 'streak_milestone'
+  | 'pack_joined'
+  | 'user_post'
+  | 'milestone';
+
+/** Layer-swap avatar customization — each field is a variant key from the manifest. */
+export type LockeCustomization = {
+  /** Body fur color variant: 'brown' | 'black' | 'arctic_white' | 'merle' | null (shows master base) */
+  bodyFur: string | null;
+  /** Head fur color variant (same options as body) */
+  headFur: string | null;
+  /** Eye variant: 'green' | 'blue' | 'red' | 'purple' | null */
+  eyes: string | null;
+  /** Eyebrow expression: 'neutral' | 'happy' | 'angry' | null */
+  brows: string | null;
+  /** Nose + mouth expression: 'neutral' | 'smile' | 'smirk' | null */
+  noseMouth: string | null;
+  /** Head accessory: 'flower_crown' | null */
+  headAccessory: string | null;
+  /** Neck accessory: 'collar_diamond' | 'collar_round' | 'collar_spikes' | null */
+  neckAccessory: string | null;
+  /** Ear accessory: 'earring_left' | 'earring_right' | null */
+  earAccessory: string | null;
+  /** Aura effect: 'blue' | 'green' | 'purple' | 'red' | 'yellow' | 'outline' | null */
+  aura: string | null;
+};
+
+// ── Avatar Expansion ────────────────────────────────────────────────────────
+
+export type ElementalEffect = 'fire' | 'frost' | 'lightning' | 'shadow' | 'nature';
+export type ArmorTier = 'none' | 'light' | 'medium' | 'heavy' | 'legendary' | 'mythic';
+export type EmoteId = 'howl' | 'flex' | 'meditate' | 'sprint' | 'celebrate' | 'challenge';
+
+export type AuraCosmeticItem = {
+  id: string;
+  effect: ElementalEffect;
+  name: string;
+  price: number;
+  earnMethod?: string;
+};
+
+export type ArmorUnlock = {
+  tier: ArmorTier;
+  requiredRank: RankLevel;
+  name: string;
+  description: string;
+};
+
+export type EmoteItem = {
+  id: EmoteId;
+  name: string;
+  price: number;
+  animationAsset: string;
+};
+
+export type MilestoneType =
+  | 'workout_100'
+  | 'workout_250'
+  | 'workout_500'
+  | 'rank_sentinel'
+  | 'rank_alpha'
+  | 'rank_apex'
+  | 'streak_30'
+  | 'streak_100'
+  | 'streak_365'
+  | 'pr_count_10'
+  | 'pr_count_50';
+
+export type MilestoneEvent = {
+  id: string;
+  userId: string;
+  displayName: string;
+  milestoneType: MilestoneType;
+  value: number;
+  createdAt: string;
+};
+
+// ── Community Depth ─────────────────────────────────────────────────────────
+
+export type Comment = {
+  id: string;
+  activityId: string;
+  userId: string;
+  displayName: string;
+  text: string;
+  createdAt: string;
+};
+
+export type StreakBattleStatus = 'active' | 'completed';
+
+export type StreakBattle = {
+  id: string;
+  player1Id: string;
+  player1Name: string;
+  player2Id: string;
+  player2Name: string;
+  player1StreakStart: number;
+  player2StreakStart: number;
+  player1Broke: boolean;
+  player2Broke: boolean;
+  winnerId: string | null;
+  status: StreakBattleStatus;
+  fangsReward: number;
+  createdAt: string;
+};
+
+export type AccountabilityPartner = {
+  partnerId: string;
+  partnerName: string;
+  pairedAt: string;
+  mutualStreakDays: number;
+};
+
+export type CheckInNudge = {
+  id: string;
+  fromUserId: string;
+  fromDisplayName: string;
+  toUserId: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+};
+
+// ── Pack Expansion ──────────────────────────────────────────────────────────
+
+export type PackWarStatus = 'matchmaking' | 'active' | 'completed';
+
+export type PackWar = {
+  id: string;
+  pack1Id: string;
+  pack1Name: string;
+  pack1Xp: number;
+  pack2Id: string;
+  pack2Name: string;
+  pack2Xp: number;
+  weekKey: string;
+  status: PackWarStatus;
+  winnerId: string | null;
+  fangsReward: number;
+  createdAt: string;
+};
+
+export type PackBossStatus = 'active' | 'defeated' | 'escaped';
+
+export type PackBoss = {
+  id: string;
+  packId: string;
+  bossName: string;
+  bossEmoji: string;
+  healthTotal: number;
+  healthRemaining: number;
+  metric: PackChallengeType;
+  weekKey: string;
+  status: PackBossStatus;
+  rewards: number;
+  createdAt: string;
+};
+
+export type PackBossContribution = {
+  userId: string;
+  displayName: string;
+  damage: number;
+};
+
+export type PackLevel = {
+  level: number;
+  totalXp: number;
+  memberCap: number;
+  unlockedPerks: string[];
+};
+
+export type PackAchievementId =
+  | 'first_challenge'
+  | 'collective_100_workouts'
+  | 'collective_500_workouts'
+  | 'all_active_week'
+  | 'boss_defeated'
+  | '5_bosses_defeated'
+  | 'war_won'
+  | '5_wars_won'
+  | '10_member_pack'
+  | 'pack_level_5'
+  | 'pack_level_10';
+
+export type PackAchievement = {
+  id: PackAchievementId;
+  name: string;
+  description: string;
+  icon: string;
+  unlockedAt: string | null;
+};
+
+// ── Events & Insights ───────────────────────────────────────────────────────
+
+export type SeasonalEventStatus = 'upcoming' | 'active' | 'ended';
+
+export type SeasonalEvent = {
+  id: string;
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  metric: PackChallengeType;
+  rewards: number[];
+  fangsMultiplier?: number;
+};
+
+export type EventLeaderboardEntry = {
+  userId: string;
+  displayName: string;
+  rank: number;
+  score: number;
+  lockeCustomization?: LockeCustomization;
+};
+
+export type EventParticipation = {
+  eventId: string;
+  userId: string;
+  score: number;
+  joinedAt: string;
+  rewardsClaimed: boolean;
+};
+
+export type WeekInReview = {
+  weekKey: string;
+  workoutsCompleted: number;
+  totalSets: number;
+  totalXpEarned: number;
+  prsHit: number;
+  streakDays: number;
+  avgSessionDurationMin: number;
+  topExercise: string;
+  socialStats: { reactionsGiven: number; reactionsReceived: number; commentsPosted: number };
+  recommendations: string[];
+  comparedToLastWeek: { workouts: number; sets: number; xp: number };
+};
+
+export type InsightTip = {
+  id: string;
+  text: string;
+  category: string;
+};
+
+export type CosmeticCategory = 'body_fur' | 'head_fur' | 'eyes' | 'brows' | 'nose_mouth' | 'head_accessory' | 'neck_accessory' | 'ear_accessory' | 'aura';
+
+export type CosmeticUnlockType = 'free' | 'purchase' | 'achievement' | 'seasonal' | 'event' | 'milestone';
+
+export type CosmeticItem = {
+  id: string;
+  category: CosmeticCategory;
+  name: string;
+  price: number;
+  preview: string; // color hex or icon name
+  rarity?: CosmeticRarity;
+  unlockType?: CosmeticUnlockType;
+  assetPath?: string; // overlay PNG path for cosmetic items
+};
+
+export type FangsRecord = {
+  balance: number;
+  lastUpdated: string;
+};
+
+export type PackRole = 'leader' | 'member';
+
+export type PackInfo = {
+  id: string;
+  name: string;
+  code: string;
+  motto: string;
+  memberCount: number;
+  weeklyXp: number;
+  weekKey: string;
+  role: PackRole;
+  createdBy: string;
+  isPublic?: boolean;
+};
+
+export type PackMember = {
+  userId: string;
+  displayName: string;
+  rank: RankLevel;
+  role: PackRole;
+  weeklyXp: number;
+  lockeCustomization?: LockeCustomization;
+};
+
+export type ActivityEvent = {
+  id: string;
+  userId: string;
+  displayName: string;
+  type: ActivityType;
+  payload: Record<string, any>;
+  createdAt: string;
+  weekKey: string;
+};
+
+export type Reaction = {
+  fromUserId: string;
+  toUserId: string;
+  activityId: string;
+  reactionType: ReactionType;
+  createdAt: string;
+};
+
+export type FriendProfile = {
+  userId: string;
+  displayName: string;
+  rank: RankLevel;
+  lastActiveAt: string;
+  lastWorkoutSummary?: {
+    sessionName: string;
+    setsCompleted: number;
+    xpEarned: number;
+    completedAt: string;
+  };
+  lockeCustomization?: LockeCustomization;
+};
+
+// ── Pack Challenges & Competitions ───────────────────────────────────────────
+
+export type PackChallengeType = 'sets' | 'sessions' | 'xp' | 'streak';
+export type PackChallengeStatus = 'active' | 'completed' | 'failed';
+
+export type PackChallenge = {
+  id: string;
+  packId: string;
+  type: PackChallengeType;
+  target: number;
+  current: number;
+  weekKey: string;
+  status: PackChallengeStatus;
+  createdBy: string;
+  createdAt: string;
+};
+
+export type PackLeaderboardEntry = {
+  packId: string;
+  packName: string;
+  memberCount: number;
+  weeklyXp: number;
+  weekKey: string;
+};
+
+export type FriendChallengeMetric = 'xp' | 'sets' | 'sessions';
+export type FriendChallengeStatus = 'pending' | 'active' | 'completed' | 'declined';
+
+export type FriendChallenge = {
+  id: string;
+  challengerId: string;
+  challengerName: string;
+  opponentId: string;
+  opponentName: string;
+  metric: FriendChallengeMetric;
+  weekKey: string;
+  status: FriendChallengeStatus;
+  challengerScore: number;
+  opponentScore: number;
+  winnerId: string | null;
+  createdAt: string;
+};
+
+export type PackMessage = {
+  id: string;
+  packId: string;
+  userId: string;
+  displayName: string;
+  text: string;
+  createdAt: string;
+};
+
+// ── Quests & Enhanced Progression ───────────────────────────────────────────
+
+export type QuestType = 'daily' | 'weekly';
+export type QuestMetric = 'sets' | 'sessions' | 'xp' | 'exercises' | 'streak_maintain' | 'pr_attempt' | 'cardio_minutes';
+
+export type Quest = {
+  id: string;
+  title: string;
+  description: string;
+  metric: QuestMetric;
+  target: number;
+  reward: number; // Fangs
+  type: QuestType;
+};
+
+export type QuestProgress = {
+  questId: string;
+  current: number;
+  completed: boolean;
+  claimedAt: string | null;
+};
+
+export type DailyQuestState = {
+  date: string;
+  quests: QuestProgress[];
+  refreshedAt: string;
+};
+
+export type WeeklyObjective = {
+  weekKey: string;
+  quest: Quest;
+  progress: QuestProgress;
+};
+
+export type CosmeticRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'prestige';
+
+export type SeasonalCosmeticItem = CosmeticItem & {
+  rarity: CosmeticRarity;
+  availableFrom: string;
+  availableUntil: string;
+  requiredRank?: RankLevel;
+};
+
+export type CosmeticGiftStatus = 'pending' | 'claimed';
+
+export type CosmeticGift = {
+  id: string;
+  fromUserId: string;
+  fromDisplayName: string;
+  toUserId: string;
+  itemId: string;
+  message: string;
+  status: CosmeticGiftStatus;
+  createdAt: string;
+};
+
+// ── Community & Discovery ───────────────────────────────────────────────────
+
+export type GlobalLeaderboardEntry = {
+  userId: string;
+  displayName: string;
+  rank: RankLevel;
+  weeklyXp: number;
+  allTimeXp: number;
+  lockeCustomization?: LockeCustomization;
+};
+
+export type PublicProfile = {
+  userId: string;
+  displayName: string;
+  rank: RankLevel;
+  totalXp: number;
+  totalWorkouts: number;
+  streakDays: number;
+  badges: Badge[];
+  lockeCustomization?: LockeCustomization;
+  packName?: string;
+  isFriend: boolean;
+};
+
+export type PublicPack = {
+  id: string;
+  name: string;
+  motto: string;
+  memberCount: number;
+  weeklyXp: number;
+  isPublic: boolean;
+  tags: string[];
+};
+
+export type NotificationType =
+  | 'friend_workout'
+  | 'challenge_received'
+  | 'challenge_update'
+  | 'gift_received'
+  | 'pack_challenge_complete'
+  | 'quest_expiring'
+  | 'nudge_received'
+  | 'streak_battle_lost'
+  | 'milestone_friend'
+  | 'comment_received';
+
+export type InAppNotification = {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+  data?: Record<string, any>;
 };
 
 // ── Adaptive Training — Recovery & Fatigue System ────────────────────────────

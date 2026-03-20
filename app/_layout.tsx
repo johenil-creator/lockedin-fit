@@ -20,6 +20,8 @@ import { PlanProvider } from "../contexts/PlanContext";
 import { ProfileProvider } from "../contexts/ProfileContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { preloadLockeAssets } from "../components/Locke/LockeMascot";
+import { AvatarPrewarmer } from "../components/avatar/LockeAvatarBuilder";
+import { loadLockeCustomization } from "../lib/storage";
 import { useHealthWeightSync } from "../hooks/useHealthWeightSync";
 
 /** Runs app-level background syncs that need context providers. */
@@ -32,7 +34,7 @@ function AppSyncEffects() {
 export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
   return (
     <View style={{ flex: 1, backgroundColor: "#0D1117", justifyContent: "center", alignItems: "center", padding: 24 }}>
-      <Text style={{ color: "#E63946", fontSize: 20, fontWeight: "700", marginBottom: 12 }}>Something went wrong</Text>
+      <Text style={{ color: "#E63946", fontSize: 20, fontWeight: "700", marginBottom: 12 }}>Even wolves hit walls</Text>
       <ScrollView style={{ maxHeight: 300, marginBottom: 24 }}>
         <Text selectable style={{ color: "#9DA5B0", fontSize: 14, textAlign: "center" }}>{error.message}</Text>
         <Text selectable style={{ color: "#6A737D", fontSize: 11, textAlign: "center", marginTop: 8 }}>{error.stack}</Text>
@@ -45,9 +47,10 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
 }
 
 export default function RootLayout() {
-  useEffect(() => { preloadLockeAssets(); }, []);
+  useEffect(() => { preloadLockeAssets(); loadLockeCustomization(); }, []);
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <AvatarPrewarmer />
       <AuthProvider>
         <ProfileProvider>
           <AppSyncEffects />
@@ -63,8 +66,8 @@ export default function RootLayout() {
                     <Stack.Screen name="catalog" />
                     <Stack.Screen name="orm-test" />
                     <Stack.Screen name="evolution" />
-                    <Stack.Screen name="badges" />
                     <Stack.Screen name="plan-builder" />
+                    <Stack.Screen name="saved-plans" />
                     <Stack.Screen name="workout-complete" options={{ gestureEnabled: false, animation: "slide_from_bottom" }} />
                     <Stack.Screen name="cardio-setup" />
                     <Stack.Screen name="cardio-session" options={{ gestureEnabled: false }} />
@@ -73,6 +76,16 @@ export default function RootLayout() {
                     <Stack.Screen name="exercise-library" options={{ headerShown: false }} />
                     <Stack.Screen name="import-drive" />
                     <Stack.Screen name="auth" options={{ animation: "slide_from_bottom" }} />
+                    <Stack.Screen name="locke-studio" options={{ animation: "slide_from_bottom" }} />
+                    <Stack.Screen name="pack-detail" />
+                    <Stack.Screen name="create-pack" options={{ animation: "slide_from_bottom" }} />
+                    <Stack.Screen name="join-pack" options={{ animation: "slide_from_bottom" }} />
+                    <Stack.Screen name="friends" />
+                    <Stack.Screen name="user-profile" />
+                    <Stack.Screen name="pack-discovery" />
+                    <Stack.Screen name="lifts" />
+                    <Stack.Screen name="quests" />
+                    <Stack.Screen name="event" />
                   </Stack>
                 </PlanProvider>
               </LockeProvider>

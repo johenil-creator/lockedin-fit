@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { View, StyleSheet, ViewStyle } from "react-native";
 import Animated, {
   useSharedValue,
@@ -107,6 +107,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     height: 80,
-    marginBottom: spacing.sm + 4,
+    marginBottom: spacing.md,
   },
 });

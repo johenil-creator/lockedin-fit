@@ -10,7 +10,16 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import RNAnimated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import RNAnimated, {
+  FadeIn,
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LockeMascot } from "../../components/Locke/LockeMascot";
 import * as DocumentPicker from "expo-document-picker";
@@ -27,6 +36,7 @@ import { Skeleton } from "../../components/Skeleton";
 import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { ProfileButton } from "../../components/ProfileButton";
+import { ExercisePicker } from "../../components/plan-builder/ExercisePicker";
 import { useToast } from "../../contexts/ToastContext";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { spacing, radius } from "../../lib/theme";
@@ -44,24 +54,7 @@ import type { DayGroup, WeekGroup } from "../../lib/importPlan";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type DayCardState = "completed" | "next-up" | "available" | "locked";
-type BlockName = "Accumulation" | "Intensification" | "Realization";
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const BLOCK_LABELS: BlockName[] = ["Accumulation", "Intensification", "Realization"];
-
-const BLOCK_COLORS: Record<BlockName, { color: string; bg: string }> = {
-  Accumulation:    { color: "#006B47", bg: "#006B4722" },
-  Intensification: { color: "#FF9F0A", bg: "#FF9F0A22" },
-  Realization:     { color: "#F85149", bg: "#F8514922" },
-};
-
-const BLOCK_BANNERS: Record<BlockName, { icon: IoniconName; description: string }> = {
-  Accumulation:    { icon: "layers-outline",  description: "High volume · Build work capacity" },
-  Intensification: { icon: "flame-outline",   description: "Heavier loads · Fewer reps · Stronger" },
-  Realization:     { icon: "trophy-outline",  description: "Peak intensity · Show your strength" },
-};
 
 // ── ExerciseCard ──────────────────────────────────────────────────────────────
 
@@ -92,393 +85,416 @@ const exStyles = StyleSheet.create({
   comments: { marginTop: 8, fontSize: 13, fontStyle: "italic" },
 });
 
-// ── BlockTabs ─────────────────────────────────────────────────────────────────
+// ── WeekPills — horizontal scrollable week selector ──────────────────────────
 
-function BlockTabs({ weeks, blockSize, selectedBlock, onSelect }: {
+function WeekPills({ weeks, selectedWeek, onSelect, isDayCompleted }: {
   weeks: WeekGroup[];
-  blockSize: number;
-  selectedBlock: number;
+  selectedWeek: number;
   onSelect: (idx: number) => void;
-}) {
-  const { theme } = useAppTheme();
-  const numBlocks = Math.min(3, Math.ceil(weeks.length / blockSize));
-
-  return (
-    <View style={btStyles.row}>
-      {BLOCK_LABELS.slice(0, numBlocks).map((label, i) => {
-        const isActive = i === selectedBlock;
-        const { color, bg } = BLOCK_COLORS[label];
-        const count = Math.min(blockSize, weeks.length - i * blockSize);
-        return (
-          <Pressable
-            key={label}
-            onPress={() => onSelect(i)}
-            style={[
-              btStyles.tab,
-              {
-                backgroundColor: isActive ? bg : theme.colors.mutedBg,
-                borderColor: isActive ? color : "transparent",
-              },
-            ]}
-          >
-            <Text style={[btStyles.label, { color: isActive ? color : theme.colors.muted }]}>
-              {label}
-            </Text>
-            <Text style={[btStyles.count, { color: isActive ? color : theme.colors.muted, opacity: 0.75 }]}>
-              {count}w
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-const btStyles = StyleSheet.create({
-  row:   { flexDirection: "row", gap: 8, marginBottom: 10 },
-  tab:   { flex: 1, borderRadius: radius.full, borderWidth: 1.5, paddingVertical: 8, alignItems: "center" },
-  label: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
-  count: { fontSize: 10, marginTop: 1 },
-});
-
-// ── WeekStepper ───────────────────────────────────────────────────────────────
-
-function WeekStepper({ weeksInBlock, selectedWeekInBlock, canGoPrev, canGoNext, onPrev, onNext, isDayCompleted }: {
-  weeksInBlock: WeekGroup[];
-  selectedWeekInBlock: number;
-  canGoPrev: boolean;
-  canGoNext: boolean;
-  onPrev: () => void;
-  onNext: () => void;
   isDayCompleted: (week: string, day: string) => boolean;
 }) {
   const { theme } = useAppTheme();
-  const selectedWg = weeksInBlock[selectedWeekInBlock];
 
-  const isBlockDone = (wg: WeekGroup) =>
+  const isWeekComplete = (wg: WeekGroup) =>
     wg.days.length > 0 && wg.days.every((d) => isDayCompleted(wg.week, d.day));
 
+  const weekHasProgress = (wg: WeekGroup) =>
+    wg.days.some((d) => isDayCompleted(wg.week, d.day));
+
   return (
-    <View style={wsStyles.row}>
-      <Pressable onPress={onPrev} disabled={!canGoPrev} style={[wsStyles.arrow, { opacity: canGoPrev ? 1 : 0.25 }]} accessibilityRole="button" accessibilityLabel="Previous week">
-        <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
-      </Pressable>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={wpStyles.container}
+    >
+      {weeks.map((wg, i) => {
+        const isActive = i === selectedWeek;
+        const complete = isWeekComplete(wg);
+        const hasProgress = weekHasProgress(wg);
+        const doneDays = wg.days.filter((d) => isDayCompleted(wg.week, d.day)).length;
 
-      <View style={wsStyles.center}>
-        <Text style={[wsStyles.weekLabel, { color: theme.colors.text }]}>
-          {selectedWg?.week ?? ""}
-          <Text style={[wsStyles.ofLabel, { color: theme.colors.muted }]}>
-            {" "}of {weeksInBlock.length}
-          </Text>
-        </Text>
-        <View style={wsStyles.dots}>
-          {weeksInBlock.map((wg, i) => {
-            const done = isBlockDone(wg);
-            const isCurrent = i === selectedWeekInBlock;
-            return (
-              <View
-                key={wg.week}
-                style={[
-                  wsStyles.dot,
-                  {
-                    width: isCurrent ? 18 : 6,
-                    backgroundColor: done
-                      ? theme.colors.success
-                      : isCurrent
-                      ? theme.colors.primary
-                      : "transparent",
-                    borderColor: done || isCurrent ? "transparent" : theme.colors.muted,
-                    borderWidth: done || isCurrent ? 0 : 1.5,
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
-      </View>
-
-      <Pressable onPress={onNext} disabled={!canGoNext} style={[wsStyles.arrow, { opacity: canGoNext ? 1 : 0.25 }]} accessibilityRole="button" accessibilityLabel="Next week">
-        <Ionicons name="chevron-forward" size={20} color={theme.colors.text} />
-      </Pressable>
-    </View>
+        return (
+          <Pressable
+            key={wg.week}
+            onPress={() => onSelect(i)}
+            style={[
+              wpStyles.pill,
+              {
+                backgroundColor: isActive
+                  ? theme.colors.primary + "18"
+                  : complete
+                  ? theme.colors.success + "12"
+                  : theme.colors.surface,
+                borderColor: isActive
+                  ? theme.colors.primary
+                  : complete
+                  ? theme.colors.success + "55"
+                  : theme.colors.border,
+              },
+            ]}
+          >
+            {complete && (
+              <Ionicons name="checkmark-circle" size={14} color={theme.colors.success} style={{ marginRight: 4 }} />
+            )}
+            <Text
+              style={[
+                wpStyles.pillText,
+                {
+                  color: isActive
+                    ? theme.colors.primary
+                    : complete
+                    ? theme.colors.success
+                    : theme.colors.muted,
+                },
+              ]}
+            >
+              W{i + 1}
+            </Text>
+            {!complete && hasProgress && (
+              <View style={[wpStyles.progressDot, { backgroundColor: theme.colors.primary }]} />
+            )}
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 
-const wsStyles = StyleSheet.create({
-  row:       { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-  arrow:     { padding: 12 },
-  center:    { flex: 1, alignItems: "center" },
-  weekLabel: { fontSize: 15, fontWeight: "700" },
-  ofLabel:   { fontSize: 13, fontWeight: "400" },
-  dots:      { flexDirection: "row", gap: 4, marginTop: 5 },
-  dot:       { height: 6, borderRadius: 3 },
+const wpStyles = StyleSheet.create({
+  container:   { gap: 8, paddingVertical: 4, paddingHorizontal: 2 },
+  pill:        {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    minWidth: 52,
+    justifyContent: "center",
+  },
+  pillText:    { fontSize: 13, fontWeight: "700" },
+  progressDot: { width: 5, height: 5, borderRadius: 3, marginLeft: 5 },
 });
 
-// ── DayCard ───────────────────────────────────────────────────────────────────
+// ── DayCard (redesigned) ─────────────────────────────────────────────────────
 
-function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart }: {
+function inferMuscleTags(exercises: Exercise[]): string[] {
+  const tags = new Set<string>();
+  for (const ex of exercises) {
+    const n = ex.exercise.toLowerCase();
+    if (/bench|push.?up|chest\s?fly|dip/i.test(n))           tags.add("Chest");
+    if (/squat|leg\s?press|lunge|split\s?squat/i.test(n))    tags.add("Legs");
+    if (/deadlift|rdl|hip\s?thrust|good\s?morning/i.test(n)) tags.add("Posterior");
+    if (/row|pull.?up|chin.?up|lat/i.test(n))                tags.add("Back");
+    if (/ohp|press|shoulder|lateral\s?raise|delt/i.test(n))   tags.add("Shoulders");
+    if (/curl|bicep/i.test(n))                                tags.add("Biceps");
+    if (/tricep|skull\s?crush|pushdown/i.test(n))             tags.add("Triceps");
+    if (/ab|crunch|plank|core/i.test(n))                      tags.add("Core");
+  }
+  return Array.from(tags).slice(0, 3);
+}
+
+function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart, onEdit, onRemoveExercise }: {
   dayGroup: DayGroup;
   state: DayCardState;
   isStarting: boolean;
   isExpanded: boolean;
   onToggle: () => void;
   onStart: () => void;
+  onEdit?: () => void;
+  onRemoveExercise?: (exerciseName: string, index: number) => void;
 }) {
   const { theme } = useAppTheme();
   const isCompleted = state === "completed";
   const isNextUp    = state === "next-up";
   const isLocked    = state === "locked";
-  const isAvailable = state === "available";
 
-  const previewExercises = dayGroup.exercises.slice(0, 2).map((e) => e.exercise);
-
-  const headerIcon: IoniconName = isCompleted ? "checkmark-circle"
-    : isNextUp   ? "play-circle-outline"
-    : isLocked   ? "lock-closed-outline"
-    : "ellipse-outline";
-
-  const headerIconColor = isCompleted ? theme.colors.success
-    : isNextUp   ? theme.colors.primary
-    : theme.colors.muted;
-
-  const labelColor = isCompleted ? theme.colors.success
-    : isNextUp   ? theme.colors.primary
-    : theme.colors.text;
+  // Show up to 3 exercise names in preview
+  const previewNames = dayGroup.exercises.slice(0, 3).map((e) => e.exercise);
+  const moreCount = Math.max(0, dayGroup.exercises.length - 3);
+  const muscleTags = useMemo(() => inferMuscleTags(dayGroup.exercises), [dayGroup.exercises]);
+  const totalSets = useMemo(() => dayGroup.exercises.reduce((s, e) => s + (parseInt(e.sets, 10) || 3), 0), [dayGroup.exercises]);
 
   return (
-    <View
+    <Pressable
+      onPress={isLocked ? undefined : isNextUp ? onStart : onToggle}
+      disabled={isLocked}
       style={[
         dcStyles.container,
         {
-          backgroundColor: isCompleted
-            ? theme.colors.success + "0A"
+          backgroundColor: isNextUp
+            ? theme.colors.primary + "0D"
+            : isCompleted
+            ? theme.colors.surface
             : theme.colors.surface,
           borderColor: isNextUp
-            ? theme.colors.primary
-            : isCompleted
-            ? theme.colors.success + "55"
-            : theme.colors.border,
-          borderWidth: isNextUp ? 2 : 1,
-          opacity: isLocked ? 0.4 : 1,
+            ? theme.colors.primary + "66"
+            : "transparent",
+          opacity: isLocked ? 0.35 : 1,
         },
         isNextUp && dcStyles.nextUpShadow,
       ]}
     >
-      {/* Left accent bar for completed + next-up */}
-      {(isCompleted || isNextUp) && (
-        <View
-          style={[
-            dcStyles.accentBar,
-            { backgroundColor: isCompleted ? theme.colors.success : theme.colors.primary },
-          ]}
-        />
-      )}
+      {/* Left accent bar */}
+      <View
+        style={[
+          dcStyles.accentBar,
+          {
+            backgroundColor: isCompleted
+              ? theme.colors.success
+              : isNextUp
+              ? theme.colors.primary
+              : theme.colors.border + "44",
+          },
+        ]}
+      />
 
       <View style={dcStyles.inner}>
-        {/* Header row — tap to toggle exercises */}
-        <Pressable onPress={isLocked ? undefined : onToggle} style={dcStyles.header}>
+        {/* Header row */}
+        <View style={dcStyles.header}>
           <View style={dcStyles.headerLeft}>
             <View style={dcStyles.titleRow}>
-              <Ionicons name={headerIcon} size={15} color={headerIconColor} />
-              <Text style={[dcStyles.dayLabel, { color: labelColor }]}>{dayGroup.day}</Text>
+              {isCompleted ? (
+                <View style={[dcStyles.statusIcon, { backgroundColor: theme.colors.success + "22" }]}>
+                  <Ionicons name="checkmark" size={12} color={theme.colors.success} />
+                </View>
+              ) : isNextUp ? (
+                <View style={[dcStyles.statusIcon, { backgroundColor: theme.colors.primary + "22" }]}>
+                  <Ionicons name="play" size={10} color={theme.colors.primary} />
+                </View>
+              ) : (
+                <View style={[dcStyles.statusIcon, { backgroundColor: theme.colors.mutedBg }]}>
+                  <Text style={{ color: theme.colors.muted, fontSize: 10, fontWeight: "700" }}>
+                    {dayGroup.day.replace(/\D/g, "")}
+                  </Text>
+                </View>
+              )}
+              <Text style={[dcStyles.dayLabel, { color: isCompleted ? theme.colors.success : isNextUp ? theme.colors.primary : theme.colors.text }]}>
+                {dayGroup.day}
+              </Text>
               <Text style={[dcStyles.exCount, { color: theme.colors.muted }]}>
-                · {dayGroup.exercises.length} exercise{dayGroup.exercises.length !== 1 ? "s" : ""}
+                {dayGroup.exercises.length} exercise{dayGroup.exercises.length !== 1 ? "s" : ""} · {totalSets} sets
               </Text>
             </View>
-            {!isExpanded && previewExercises.length > 0 && (
+
+            {/* Muscle group tags */}
+            {muscleTags.length > 0 && !isCompleted && !isExpanded && (
+              <View style={{ flexDirection: "row", gap: 5, marginTop: 4, marginLeft: 30 }}>
+                {muscleTags.map((tag) => (
+                  <View key={tag} style={[dcStyles.muscleTag, { backgroundColor: isNextUp ? theme.colors.primary + "20" : theme.colors.mutedBg }]}>
+                    <Text style={{ fontSize: 10, fontWeight: "600", color: isNextUp ? theme.colors.primary : theme.colors.muted }}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Exercise preview — compact list */}
+            {!isExpanded && !isNextUp && previewNames.length > 0 && (
               <Text style={[dcStyles.preview, { color: theme.colors.muted }]} numberOfLines={1}>
-                {previewExercises.join(" · ")}{dayGroup.exercises.length > 2 ? " + more" : ""}
+                {previewNames.join(" · ")}{moreCount > 0 ? ` +${moreCount}` : ""}
               </Text>
             )}
           </View>
 
           <View style={dcStyles.headerRight}>
-            {!isLocked && !isNextUp && (
+            {isCompleted && (
+              <Text style={[dcStyles.doneLabel, { color: theme.colors.success }]}>Done</Text>
+            )}
+            {!isLocked && !isNextUp && !isCompleted && (
               <Ionicons
                 name={isExpanded ? "chevron-up" : "chevron-down"}
                 size={16}
                 color={theme.colors.muted}
               />
             )}
-            {isAvailable && (
-              <Pressable
-                style={[dcStyles.smallBtn, { backgroundColor: theme.colors.mutedBg }]}
-                onPress={onStart}
-              >
-                <Text style={[dcStyles.smallBtnText, { color: theme.colors.text }]}>Start</Text>
-              </Pressable>
-            )}
-            {isCompleted && (
-              <View style={[dcStyles.smallBtn, { backgroundColor: theme.colors.success + "22" }]}>
-                <Text style={[dcStyles.smallBtnText, { color: theme.colors.success }]}>Done ✓</Text>
-              </View>
-            )}
           </View>
-        </Pressable>
+        </View>
 
-        {/* Expanded exercise list */}
-        {isExpanded && !isLocked && (
+        {/* Next-up: show exercises + prominent CTA */}
+        {isNextUp && (
+          <View style={{ marginTop: 10 }}>
+            {previewNames.map((name, i) => (
+              <View key={i} style={dcStyles.nextUpExRow}>
+                <View style={[dcStyles.nextUpDot, { backgroundColor: theme.colors.primary }]} />
+                <Text style={[dcStyles.nextUpExName, { color: theme.colors.text }]}>{name}</Text>
+              </View>
+            ))}
+            {moreCount > 0 && (
+              <Text style={[dcStyles.nextUpMore, { color: theme.colors.muted }]}>
+                +{moreCount} more
+              </Text>
+            )}
+            <Pressable
+              style={[dcStyles.startBtn, { backgroundColor: theme.colors.primary, opacity: isStarting ? 0.5 : 1 }]}
+              disabled={isStarting}
+              onPress={onStart}
+            >
+              {isStarting ? (
+                <ActivityIndicator size="small" color={theme.colors.primaryText} />
+              ) : (
+                <View style={dcStyles.startBtnInner}>
+                  <Ionicons name="play" size={14} color={theme.colors.primaryText} />
+                  <Text style={[dcStyles.startBtnText, { color: theme.colors.primaryText }]}>
+                    Start Workout
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
+        )}
+
+        {/* Expanded exercise list (non-next-up) */}
+        {isExpanded && !isLocked && !isNextUp && (
           <View style={{ marginTop: 8 }}>
             {dayGroup.exercises.map((ex, i) => (
-              <ExerciseCard key={`${ex.exercise}-${i}`} exercise={ex} />
+              <View key={`${ex.exercise}-${i}`} style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={{ flex: 1 }}>
+                  <ExerciseCard exercise={ex} />
+                </View>
+                {!isCompleted && onRemoveExercise && (
+                  <Pressable
+                    onPress={() => onRemoveExercise(ex.exercise, i)}
+                    hitSlop={8}
+                    style={{ paddingLeft: 8 }}
+                  >
+                    <Ionicons name="close-circle" size={18} color={theme.colors.danger} />
+                  </Pressable>
+                )}
+              </View>
             ))}
+
+            {/* Action row: Add exercise + Start */}
+            <View style={dcStyles.expandedActions}>
+              {!isCompleted && onEdit && (
+                <Pressable onPress={onEdit} style={dcStyles.addExBtn}>
+                  <Ionicons name="add-circle-outline" size={15} color={theme.colors.accent} />
+                  <Text style={{ color: theme.colors.accent, fontSize: 12, fontWeight: "600", marginLeft: 5 }}>Add</Text>
+                </Pressable>
+              )}
+              {!isCompleted && (
+                <Pressable
+                  onPress={onStart}
+                  disabled={isStarting}
+                  style={[dcStyles.inlineStartBtn, { backgroundColor: theme.colors.primary, opacity: isStarting ? 0.5 : 1 }]}
+                >
+                  <Ionicons name="play" size={12} color={theme.colors.primaryText} />
+                  <Text style={{ color: theme.colors.primaryText, fontSize: 12, fontWeight: "700", marginLeft: 5 }}>Start</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
         )}
-
-        {/* Full-width CTA — next-up state only */}
-        {isNextUp && (
-          <Pressable
-            style={[
-              dcStyles.startBtn,
-              { backgroundColor: theme.colors.primary, opacity: isStarting ? 0.5 : 1 },
-            ]}
-            disabled={isStarting}
-            onPress={onStart}
-          >
-            {isStarting ? (
-              <ActivityIndicator size="small" color={theme.colors.primaryText} />
-            ) : (
-              <View style={dcStyles.startBtnInner}>
-                <Ionicons name="play-circle" size={16} color={theme.colors.primaryText} />
-                <Text style={[dcStyles.startBtnText, { color: theme.colors.primaryText }]}>
-                  Start Workout
-                </Text>
-              </View>
-            )}
-          </Pressable>
-        )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const dcStyles = StyleSheet.create({
-  container:    { flexDirection: "row", borderRadius: 14, overflow: "hidden" },
-  nextUpShadow: { shadowColor: "#00875A", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
-  accentBar:    { width: 3 },
-  inner:        { flex: 1, padding: 12 },
-  header:       { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerLeft:   { flex: 1, paddingRight: 8 },
-  titleRow:     { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
-  dayLabel:     { fontSize: 14, fontWeight: "700" },
-  exCount:      { fontSize: 11 },
-  preview:      { fontSize: 12, lineHeight: 16 },
-  headerRight:  { flexDirection: "row", alignItems: "center", gap: 8 },
-  smallBtn:     { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  smallBtnText: { fontSize: 12, fontWeight: "600" },
-  startBtn:     { borderRadius: 10, paddingVertical: 11, marginTop: 10, alignItems: "center" },
-  startBtnInner:{ flexDirection: "row", alignItems: "center", gap: 8 },
-  startBtnText: { fontSize: 14, fontWeight: "700" },
+  container:      { flexDirection: "row", borderRadius: 14, overflow: "hidden", borderWidth: 1 },
+  nextUpShadow:   { shadowColor: "#00875A", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 4 },
+  accentBar:      { width: 3 },
+  inner:          { flex: 1, padding: 14 },
+  header:         { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  headerLeft:     { flex: 1, paddingRight: 8 },
+  titleRow:       { flexDirection: "row", alignItems: "center", gap: 8 },
+  statusIcon:     { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  dayLabel:       { fontSize: 15, fontWeight: "700" },
+  exCount:        { fontSize: 12 },
+  preview:        { fontSize: 12, lineHeight: 16, marginTop: 4, marginLeft: 30 },
+  headerRight:    { flexDirection: "row", alignItems: "center", gap: 6 },
+  doneLabel:      { fontSize: 12, fontWeight: "600" },
+  muscleTag:      { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  nextUpExRow:    { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 30, marginBottom: 4 },
+  nextUpDot:      { width: 5, height: 5, borderRadius: 3 },
+  nextUpExName:   { fontSize: 13 },
+  nextUpMore:     { fontSize: 12, marginLeft: 43, marginBottom: 4 },
+  startBtn:       { borderRadius: 10, paddingVertical: 12, marginTop: 10, alignItems: "center" },
+  startBtnInner:  { flexDirection: "row", alignItems: "center", gap: 8 },
+  startBtnText:   { fontSize: 14, fontWeight: "700" },
+  expandedActions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 6, paddingTop: 6 },
+  addExBtn:       { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingHorizontal: 10 },
+  inlineStartBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingHorizontal: 14, borderRadius: 8 },
 });
 
 // ── Coach encouragement based on progress ────────────────────────────────────
 
-function getCoachLine(pct: number): { text: string; mood: "encouraging" | "celebrating" | "intense" | "neutral" } {
-  if (pct >= 1)    return { text: "You crushed this plan. Absolute alpha.", mood: "celebrating" };
-  if (pct >= 0.75) return { text: "Almost there — finish what you started.", mood: "intense" };
-  if (pct >= 0.5)  return { text: "Halfway through. No slowing down.", mood: "encouraging" };
-  if (pct >= 0.25) return { text: "Building momentum. Keep showing up.", mood: "encouraging" };
-  if (pct > 0)     return { text: "Good start. Consistency is everything.", mood: "encouraging" };
-  return { text: "Let's get this plan moving.", mood: "neutral" };
+function getCoachLine(pct: number): string {
+  if (pct >= 1)    return "You crushed this plan. Absolute alpha.";
+  if (pct >= 0.75) return "Almost there — finish what you started.";
+  if (pct >= 0.5)  return "Halfway through. No slowing down.";
+  if (pct >= 0.25) return "Building momentum. Keep showing up.";
+  if (pct > 0)     return "Good start. Consistency is everything.";
+  return "Let's get this plan moving.";
 }
 
-// ── ProgressCard ──────────────────────────────────────────────────────────────
+// ── ProgressBar — compact inline progress ────────────────────────────────────
 
-function ProgressCard({ doneDays, totalDays }: {
+function ProgressBar({ doneDays, totalDays, currentWeek, totalWeeks }: {
   doneDays: number;
   totalDays: number;
+  currentWeek: number;
+  totalWeeks: number;
 }) {
   const { theme } = useAppTheme();
   const pct = totalDays > 0 ? doneDays / totalDays : 0;
   const pctStr = `${Math.round(pct * 100)}%` as `${number}%`;
-  const coach = getCoachLine(pct);
+  const coachLine = getCoachLine(pct);
+  const isComplete = doneDays === totalDays && totalDays > 0;
 
   return (
-    <View style={[pcStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-      {/* Coach row — mini Locke + speech bubble */}
-      <View style={pcStyles.coachRow}>
-        <LockeMascot size={120} mood={coach.mood} />
-        <View style={[pcStyles.coachBubble, { backgroundColor: theme.colors.mutedBg }]}>
-          <View style={[pcStyles.coachTail, { backgroundColor: theme.colors.mutedBg }]} />
-          <Text style={[pcStyles.coachText, { color: theme.colors.text }]}>{coach.text}</Text>
+    <View style={[pbStyles.container, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+      <View style={pbStyles.topRow}>
+        <View style={pbStyles.leftInfo}>
+          {isComplete ? (
+            <View style={pbStyles.completeRow}>
+              <Ionicons name="trophy" size={14} color={theme.colors.success} />
+              <Text style={[pbStyles.completeText, { color: theme.colors.success }]}>Plan Complete!</Text>
+            </View>
+          ) : (
+            <Text style={[pbStyles.statusText, { color: theme.colors.text }]}>
+              Day {doneDays + 1} of {totalDays}
+              {totalWeeks > 1 && (
+                <Text style={{ color: theme.colors.muted }}> · Week {currentWeek}</Text>
+              )}
+            </Text>
+          )}
         </View>
+        <Text style={[pbStyles.pctText, { color: theme.colors.primary }]}>{pctStr}</Text>
       </View>
 
-      <View style={pcStyles.topRow}>
-        <Text style={[pcStyles.countText, { color: theme.colors.muted }]}>{doneDays}/{totalDays} days</Text>
-        <Text style={[pcStyles.pctText, { color: theme.colors.primary }]}>{pctStr}</Text>
+      {/* Thin progress bar */}
+      <View style={[pbStyles.track, { backgroundColor: theme.colors.mutedBg }]}>
+        <View
+          style={[
+            pbStyles.fill,
+            {
+              backgroundColor: isComplete ? theme.colors.success : theme.colors.primary,
+              width: pctStr,
+            },
+          ]}
+        />
       </View>
 
-      {/* 8px progress bar with milestone dots at 25 / 50 / 75 % */}
-      <View style={[pcStyles.track, { backgroundColor: theme.colors.mutedBg }]}>
-        <View style={[pcStyles.fill, { backgroundColor: theme.colors.primary, width: pctStr }]} />
-        {([25, 50, 75] as const).map((m) => (
-          <View
-            key={m}
-            style={[
-              pcStyles.milestone,
-              {
-                left: `${m}%` as `${number}%`,
-                backgroundColor: pct * 100 >= m ? theme.colors.primary : theme.colors.border,
-              },
-            ]}
-          />
-        ))}
-      </View>
-
-      {doneDays === totalDays && totalDays > 0 && (
-        <View style={pcStyles.completeRow}>
-          <Ionicons name="trophy" size={15} color={theme.colors.success} />
-          <Text style={[pcStyles.completeText, { color: theme.colors.success }]}>Plan Complete!</Text>
-        </View>
-      )}
+      {/* Coach line — subtle, one line */}
+      <Text style={[pbStyles.coachLine, { color: theme.colors.muted }]} numberOfLines={1}>
+        {coachLine}
+      </Text>
     </View>
   );
 }
 
-const pcStyles = StyleSheet.create({
-  card:             { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 14 },
-  coachRow:         { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-  coachBubble:      { flex: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
-  coachTail:        { position: "absolute", left: -4, top: 12, width: 8, height: 8, borderRadius: 2, transform: [{ rotate: "45deg" }] },
-  coachText:        { fontSize: 13, fontWeight: "600", lineHeight: 18 },
-  topRow:           { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  countText:        { fontSize: 12, fontWeight: "600" },
-  pctText:          { fontSize: 14, fontWeight: "700" },
-  track:            { height: 8, borderRadius: 999, overflow: "hidden" },
-  fill:             { height: "100%", borderRadius: 999, position: "absolute", left: 0, top: 0 },
-  milestone:        { position: "absolute", width: 4, height: 4, borderRadius: 2, top: 2 },
-  completeRow:      { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingTop: 10 },
-  completeText:     { fontSize: 14, fontWeight: "700" },
+const pbStyles = StyleSheet.create({
+  container:    { borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12 },
+  topRow:       { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  leftInfo:     { flex: 1 },
+  statusText:   { fontSize: 14, fontWeight: "600" },
+  pctText:      { fontSize: 14, fontWeight: "700" },
+  track:        { height: 4, borderRadius: 999, overflow: "hidden" },
+  fill:         { height: "100%", borderRadius: 999, position: "absolute", left: 0, top: 0 },
+  coachLine:    { fontSize: 12, marginTop: 6 },
+  completeRow:  { flexDirection: "row", alignItems: "center", gap: 5 },
+  completeText: { fontSize: 14, fontWeight: "700" },
 });
-
-// ── BlockBanner ───────────────────────────────────────────────────────────────
-
-function BlockBanner({ blockName }: { blockName: BlockName }) {
-  const { theme } = useAppTheme();
-  const { color, bg } = BLOCK_COLORS[blockName];
-  const { icon, description } = BLOCK_BANNERS[blockName];
-  return (
-    <View style={[banStyles.banner, { backgroundColor: bg, borderColor: color + "55" }]}>
-      <Ionicons name={icon} size={16} color={color} />
-      <View style={banStyles.text}>
-        <Text style={[banStyles.phase, { color }]}>{blockName}</Text>
-        <Text style={[banStyles.desc, { color: theme.colors.muted }]}>{description}</Text>
-      </View>
-    </View>
-  );
-}
-
-const banStyles = StyleSheet.create({
-  banner: { flexDirection: "row", alignItems: "center", borderRadius: 10, borderWidth: 1, padding: 10, marginBottom: 12 },
-  text:   { marginLeft: 10, flex: 1 },
-  phase:  { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 },
-  desc:   { fontSize: 12, marginTop: 1 },
-});
-
-// ImportMethodSheet removed — replaced with native Alert to avoid BottomSheet
-// race conditions (closing one sheet while opening file picker / another sheet).
-
 
 // ── EmptyPlanState ────────────────────────────────────────────────────────────
 
@@ -488,95 +504,235 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
   onImport: () => void;
 }) {
   const { theme } = useAppTheme();
+
+  // Press feedback
+  const customScale = useSharedValue(1);
+  const catalogScale = useSharedValue(1);
+  const importScale = useSharedValue(1);
+
+  const customPress = useAnimatedStyle(() => ({
+    transform: [{ scale: customScale.value }],
+    opacity: customScale.value < 1 ? 0.9 : 1,
+  }));
+  const catalogPress = useAnimatedStyle(() => ({
+    transform: [{ scale: catalogScale.value }],
+    opacity: catalogScale.value < 1 ? 0.9 : 1,
+  }));
+  const importPress = useAnimatedStyle(() => ({
+    transform: [{ scale: importScale.value }],
+    opacity: importScale.value < 1 ? 0.9 : 1,
+  }));
+
+  const onIn = (sv: typeof customScale) => { sv.value = withTiming(0.96, { duration: 100 }); };
+  const onOut = (sv: typeof customScale) => { sv.value = withTiming(1, { duration: 150 }); };
+
   return (
     <View style={epStyles.container}>
-      <RNAnimated.View entering={FadeIn.duration(400)}>
-        <LockeMascot size={280} mood="encouraging" />
+      {/* Mascot with glow */}
+      <RNAnimated.View entering={FadeIn.duration(200)} style={epStyles.mascotWrap}>
+        <View style={[epStyles.mascotGlow, { backgroundColor: theme.colors.primary + "12" }]} />
+        <LockeMascot size={160} mood="encouraging" />
       </RNAnimated.View>
 
-      {/* Speech bubble */}
-      <RNAnimated.View
-        entering={FadeInDown.delay(200).duration(350)}
-        style={[epStyles.bubble, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-      >
-        <View style={[epStyles.bubbleTail, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]} />
-        <Text style={[epStyles.bubbleText, { color: theme.colors.text }]}>
-          Ready to get locked in?
+      {/* Greeting — no bubble */}
+      <RNAnimated.View entering={FadeInDown.delay(100).duration(250)} style={epStyles.greetingWrap}>
+        <Text style={[epStyles.headline, { color: theme.colors.text }]}>
+          Time to hunt.
         </Text>
-        <Text style={[epStyles.bubbleSub, { color: theme.colors.muted }]}>
-          Load a plan and I'll guide you through every session.
+        <Text style={[epStyles.subline, { color: theme.colors.muted }]}>
+          Pick a plan and I'll coach you through it.
         </Text>
       </RNAnimated.View>
 
-      <RNAnimated.View
-        entering={FadeInDown.delay(350).duration(350)}
-        style={epStyles.cardsWrap}
-      >
+      {/* Section label */}
+      <RNAnimated.View entering={FadeIn.delay(200).duration(200)} style={epStyles.sectionLabelWrap}>
+        <Text style={[epStyles.sectionLabel, { color: theme.colors.muted }]}>GET STARTED</Text>
+      </RNAnimated.View>
+
+      {/* Action cards — vertical stack */}
+      <RNAnimated.View entering={FadeInDown.delay(250).duration(300)} style={epStyles.cardsWrap}>
+        {/* Primary: Custom Plans */}
         <Pressable
-          style={[epStyles.featuredCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + "55" }]}
           onPress={onCreate}
+          onPressIn={() => onIn(customScale)}
+          onPressOut={() => onOut(customScale)}
         >
-          <Ionicons name="create-outline" size={26} color={theme.colors.primary} style={{ marginRight: 12 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Create Plan</Text>
-            <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Build your own program</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+          <RNAnimated.View
+            style={[
+              epStyles.primaryCard,
+              {
+                backgroundColor: theme.colors.primary + "0A",
+                borderColor: theme.colors.primary + "44",
+              },
+              customPress,
+            ]}
+          >
+            <View style={[epStyles.cardIconWrap, { backgroundColor: theme.colors.primary + "18" }]}>
+              <Ionicons name="hammer-outline" size={26} color={theme.colors.primary} />
+            </View>
+            <View style={epStyles.cardContent}>
+              <Text style={[epStyles.primaryLabel, { color: theme.colors.text }]}>Custom Plans</Text>
+              <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Build from scratch or continue a saved draft</Text>
+            </View>
+            <View style={[epStyles.arrowWrap, { backgroundColor: theme.colors.primary + "15" }]}>
+              <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
+            </View>
+          </RNAnimated.View>
         </Pressable>
-        <View style={epStyles.cards}>
-          <Pressable
-            style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-            onPress={onCatalog}
+
+        {/* Secondary: Browse Catalog */}
+        <Pressable
+          onPress={onCatalog}
+          onPressIn={() => onIn(catalogScale)}
+          onPressOut={() => onOut(catalogScale)}
+        >
+          <RNAnimated.View
+            style={[
+              epStyles.secondaryCard,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+              catalogPress,
+            ]}
           >
-            <Ionicons name="library-outline" size={26} color={theme.colors.muted} style={{ marginBottom: 8 }} />
-            <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Browse Catalog</Text>
-            <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Ready-to-use plans</Text>
-          </Pressable>
-          <Pressable
-            style={[epStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-            onPress={onImport}
+            <View style={[epStyles.cardIconWrap, { backgroundColor: "#8B5CF6" + "15" }]}>
+              <Ionicons name="grid-outline" size={22} color="#8B5CF6" />
+            </View>
+            <View style={epStyles.cardContent}>
+              <Text style={[epStyles.secondaryLabel, { color: theme.colors.text }]}>Browse Catalog</Text>
+              <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Proven programs for strength & hypertrophy</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
+          </RNAnimated.View>
+        </Pressable>
+
+        {/* Tertiary: Import Plan */}
+        <Pressable
+          onPress={onImport}
+          onPressIn={() => onIn(importScale)}
+          onPressOut={() => onOut(importScale)}
+        >
+          <RNAnimated.View
+            style={[
+              epStyles.secondaryCard,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+              importPress,
+            ]}
           >
-            <Ionicons name="cloud-upload-outline" size={26} color={theme.colors.muted} style={{ marginBottom: 8 }} />
-            <Text style={[epStyles.cardLabel, { color: theme.colors.text }]}>Import Plan</Text>
-            <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>CSV, Excel or Sheets</Text>
-          </Pressable>
-        </View>
+            <View style={[epStyles.cardIconWrap, { backgroundColor: "#F59E0B" + "15" }]}>
+              <Ionicons name="document-text-outline" size={22} color="#F59E0B" />
+            </View>
+            <View style={epStyles.cardContent}>
+              <Text style={[epStyles.secondaryLabel, { color: theme.colors.text }]}>Import Plan</Text>
+              <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Upload a CSV, Excel, or Google Sheets link</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
+          </RNAnimated.View>
+        </Pressable>
       </RNAnimated.View>
     </View>
   );
 }
 
 const epStyles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 40, paddingHorizontal: 4 },
-  bubble: {
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginTop: -8,
-    marginBottom: 20,
+  container: {
+    flex: 1,
     alignItems: "center",
-    maxWidth: 300,
+    justifyContent: "center",
+    paddingBottom: 48,
+    paddingHorizontal: spacing.md,
   },
-  bubbleTail: {
+  // Mascot
+  mascotWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  mascotGlow: {
     position: "absolute",
-    top: -6,
-    width: 12,
-    height: 12,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderRightWidth: 0,
-    borderRadius: 2,
-    transform: [{ rotate: "45deg" }],
+    width: 180,
+    height: 180,
+    borderRadius: 90,
   },
-  bubbleText: { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 4 },
-  bubbleSub:  { fontSize: 13, textAlign: "center", lineHeight: 18 },
-  cardsWrap:  { gap: 12, width: "100%" },
-  featuredCard: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: 1.5, padding: 16 },
-  cards:      { flexDirection: "row", gap: 12 },
-  card:       { flex: 1, borderRadius: 14, borderWidth: 1, padding: 16, alignItems: "center" },
-  cardLabel:  { fontSize: 14, fontWeight: "700", textAlign: "center" },
-  cardHint:   { fontSize: 11, textAlign: "center", marginTop: 4 },
+  // Greeting
+  greetingWrap: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  headline: {
+    fontSize: 24,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+  subline: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  // Section label
+  sectionLabelWrap: {
+    alignSelf: "flex-start",
+    marginBottom: 10,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  // Cards
+  cardsWrap: {
+    gap: 10,
+    width: "100%",
+  },
+  primaryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 16,
+    gap: 14,
+  },
+  secondaryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  cardIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardContent: {
+    flex: 1,
+  },
+  primaryLabel: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+  secondaryLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  cardHint: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  arrowWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -585,7 +741,7 @@ export default function PlanScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { planName, exercises, loading, clearPlan, isDayCompleted, completedDays, setPlan, recalculateWeights } = usePlanContext();
+  const { planName, exercises, loading, clearPlan, isDayCompleted, completedDays, setPlan, recalculateWeights, updateDayExercises } = usePlanContext();
   const { workouts, startSessionFromPlan, getActiveSession } = useWorkouts();
   const { profile } = useProfileContext();
   const { showToast } = useToast();
@@ -598,24 +754,11 @@ export default function PlanScreen() {
   const [expandedDays, setExpandedDays]           = useState<Record<string, boolean>>({});
   const [recalculating, setRecalculating]         = useState(false);
   const [ormPromptData, setOrmPromptData]         = useState<{ week: string; day: string; exs: Exercise[] } | null>(null);
-
+  const [editingDay, setEditingDay]               = useState<{ week: string; day: string } | null>(null);
+  const [editPickerVisible, setEditPickerVisible] = useState(false);
+  const [menuVisible, setMenuVisible]             = useState(false);
 
   const weeks = useMemo(() => groupByWeekDay(exercises), [exercises]);
-
-  // ── Block / stepper calculations ───────────────────────────────────────────
-
-  const blockSize = useMemo(
-    () => (weeks.length <= 3 ? weeks.length : Math.ceil(weeks.length / 3)),
-    [weeks.length]
-  );
-  const selectedBlock = useMemo(
-    () => Math.min(Math.floor(selectedWeek / (blockSize || 1)), 2),
-    [selectedWeek, blockSize]
-  );
-  const blockStart   = selectedBlock * blockSize;
-  const blockEnd     = Math.min(blockStart + blockSize, weeks.length);
-  const weeksInBlock = useMemo(() => weeks.slice(blockStart, blockEnd), [weeks, blockStart, blockEnd]);
-  const selectedWeekInBlock = blockSize > 0 ? selectedWeek - blockStart : 0;
 
   const activeWeek = weeks[selectedWeek];
 
@@ -654,13 +797,6 @@ export default function PlanScreen() {
     if (weeks.length === 0) return;
     if (nextIncompleteTarget) setSelectedWeek(nextIncompleteTarget.weekIndex);
   }, [weeks.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const showBlockTabs = weeks.length > 3;
-  const showStepper   = weeks.length > 1;
-  const currentBlockName: BlockName | null =
-    weeks.length > 3
-      ? (BLOCK_LABELS[selectedBlock] ?? null)
-      : ((getBlockLabel(selectedWeek, weeks.length) as BlockName) || null);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -714,7 +850,6 @@ export default function PlanScreen() {
         Alert.alert("Import Error", validation.error);
         return;
       }
-      // Load the plan directly
       const planDisplayName = file.name.replace(/\.(csv|xlsx?)$/i, "");
       setPlan(planDisplayName, normalized);
       setSelectedWeek(0);
@@ -753,7 +888,6 @@ export default function PlanScreen() {
         Alert.alert("Import Error", validation.error);
         return;
       }
-      // Load the plan directly
       setUrlModalVisible(false);
       setSheetUrl("");
       setPlan("Google Sheet", normalized);
@@ -772,9 +906,9 @@ export default function PlanScreen() {
   }, [sheetUrl]);
 
   function handleClear() {
-    Alert.alert("Clear plan?", "This will remove the imported workout.", [
+    Alert.alert("Leave Plan?", "This will deactivate your current plan. You can find it again in saved plans.", [
       { text: "Cancel", style: "cancel" },
-      { text: "Clear", style: "destructive", onPress: () => { clearPlan(); setSelectedWeek(0); } },
+      { text: "Leave", onPress: () => { clearPlan(); setSelectedWeek(0); } },
     ]);
   }
 
@@ -838,7 +972,7 @@ export default function PlanScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 12 }]}>
+      <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + spacing.md }]}>
         <Skeleton.Group>
           <Skeleton.Rect width="50%" height={24} />
           <View style={{ height: 8 }} />
@@ -852,39 +986,34 @@ export default function PlanScreen() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + 12 }]}>
-      {/* Header */}
+    <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + spacing.md }]}>
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <View style={styles.headerTitle}>
           <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>
             {planName || "Plan"}
           </Text>
-          {currentBlockName && exercises.length > 0 && (
-            <Text style={[styles.phaseSubtitle, { color: BLOCK_COLORS[currentBlockName].color }]}>
-              {currentBlockName} phase
-            </Text>
-          )}
         </View>
         <View style={styles.headerActions}>
-          {exercises.length > 0 && has1RM && (
+          {exercises.length > 0 && (
             <Pressable
-              onPress={handleRecalculate}
-              disabled={recalculating}
-              style={[styles.iconBtn, { backgroundColor: theme.colors.mutedBg, opacity: recalculating ? 0.5 : 1 }]}
+              onPress={() => router.push("/plan-builder")}
+              style={[styles.actionBtn, { backgroundColor: theme.colors.accent + "15" }]}
               accessibilityRole="button"
-              accessibilityLabel="Recalculate weights"
+              accessibilityLabel="Edit plan"
             >
-              <Ionicons name="refresh-outline" size={16} color={theme.colors.muted} />
+              <Ionicons name="pencil-outline" size={14} color={theme.colors.accent} />
+              <Text style={[styles.actionBtnText, { color: theme.colors.accent }]}>Edit</Text>
             </Pressable>
           )}
           {exercises.length > 0 && (
             <Pressable
-              onPress={handleClear}
-              style={[styles.iconBtn, { backgroundColor: theme.colors.mutedBg }]}
+              onPress={() => setMenuVisible(true)}
+              style={[styles.menuBtn, { backgroundColor: theme.colors.mutedBg }]}
               accessibilityRole="button"
-              accessibilityLabel="Clear plan"
+              accessibilityLabel="More options"
             >
-              <Ionicons name="trash-outline" size={16} color={theme.colors.muted} />
+              <Ionicons name="ellipsis-horizontal" size={18} color={theme.colors.muted} />
             </Pressable>
           )}
           <ProfileButton />
@@ -893,118 +1022,139 @@ export default function PlanScreen() {
 
       {exercises.length === 0 ? (
         <EmptyPlanState
-          onCreate={() => router.push("/plan-builder")}
+          onCreate={() => router.push("/saved-plans")}
           onCatalog={() => router.push("/catalog")}
           onImport={showImportPicker}
         />
       ) : (
-        <>
-          {/* Progress card */}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          {/* ── Progress bar ─────────────────────────────────────────────── */}
           {totalDays > 0 && (
-            <RNAnimated.View entering={FadeInDown.duration(350)}>
-              <ProgressCard doneDays={doneDays} totalDays={totalDays} />
-            </RNAnimated.View>
-          )}
-
-          {/* Block phase tabs — plans > 3 weeks only */}
-          {showBlockTabs && (
-            <RNAnimated.View entering={FadeInDown.delay(80).duration(350)}>
-              <BlockTabs
-                weeks={weeks}
-                blockSize={blockSize}
-                selectedBlock={selectedBlock}
-                onSelect={(blockIdx) => {
-                  const firstWeek = blockIdx * blockSize;
-                  if (!isWeekUnlocked(firstWeek)) {
-                    showToast({ message: "Complete previous weeks to unlock this phase.", type: "info" });
-                    return;
-                  }
-                  setSelectedWeek(firstWeek);
-                }}
+            <RNAnimated.View entering={FadeInDown.duration(300)}>
+              <ProgressBar
+                doneDays={doneDays}
+                totalDays={totalDays}
+                currentWeek={selectedWeek + 1}
+                totalWeeks={weeks.length}
               />
             </RNAnimated.View>
           )}
 
-          {/* Week stepper */}
-          {showStepper && (
-            <RNAnimated.View entering={FadeInDown.delay(160).duration(350)}>
-              <WeekStepper
-                weeksInBlock={weeksInBlock}
-                selectedWeekInBlock={selectedWeekInBlock}
-                canGoPrev={selectedWeek > 0}
-                canGoNext={selectedWeek < weeks.length - 1}
-                onPrev={() => setSelectedWeek((w) => Math.max(0, w - 1))}
-                onNext={() => {
-                  const next = selectedWeek + 1;
-                  if (next >= weeks.length) return;
-                  if (!isWeekUnlocked(next)) {
-                    showToast({ message: `Complete all days in ${activeWeek?.week} first.`, type: "info" });
+          {/* ── Week pills ───────────────────────────────────────────────── */}
+          {weeks.length > 1 && (
+            <RNAnimated.View entering={FadeInDown.delay(60).duration(300)} style={{ marginBottom: 12 }}>
+              <WeekPills
+                weeks={weeks}
+                selectedWeek={selectedWeek}
+                onSelect={(idx) => {
+                  if (!isWeekUnlocked(idx)) {
+                    showToast({ message: "Complete previous weeks to unlock this one.", type: "info" });
                     return;
                   }
-                  setSelectedWeek(next);
+                  setSelectedWeek(idx);
                 }}
                 isDayCompleted={isDayCompleted}
               />
             </RNAnimated.View>
           )}
 
-          {/* Phase context banner */}
-          {currentBlockName && (
-            <RNAnimated.View entering={FadeInDown.delay(220).duration(350)}>
-              <BlockBanner blockName={currentBlockName} />
-            </RNAnimated.View>
-          )}
+          {/* ── Day cards ────────────────────────────────────────────────── */}
+          {activeWeek?.days.map((dayGroup, dayIdx) => {
+            const dayKey  = `${activeWeek.week}|${dayGroup.day}`;
+            const dayDone = isDayCompleted(activeWeek.week, dayGroup.day);
+            const isNextUp =
+              !activeWeekLocked &&
+              nextIncompleteTarget?.weekGroup.week === activeWeek.week &&
+              nextIncompleteTarget?.dayGroup.day === dayGroup.day;
 
-          {/* Day cards */}
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-            {activeWeek?.days.map((dayGroup, dayIdx) => {
-              const dayKey  = `${activeWeek.week}|${dayGroup.day}`;
-              const dayDone = isDayCompleted(activeWeek.week, dayGroup.day);
-              const isNextUp =
-                !activeWeekLocked &&
-                nextIncompleteTarget?.weekGroup.week === activeWeek.week &&
-                nextIncompleteTarget?.dayGroup.day === dayGroup.day;
+            const dayState: DayCardState = activeWeekLocked
+              ? "locked"
+              : dayDone
+              ? "completed"
+              : isNextUp
+              ? "next-up"
+              : "available";
 
-              const dayState: DayCardState = activeWeekLocked
-                ? "locked"
-                : dayDone
-                ? "completed"
-                : isNextUp
-                ? "next-up"
-                : "available";
+            const prevDay     = dayIdx > 0 ? activeWeek.days[dayIdx - 1] : null;
+            const prevDayDone = !prevDay || isDayCompleted(activeWeek.week, prevDay.day);
 
-              // Previous day for soft-warning toast (no lock enforced)
-              const prevDay     = dayIdx > 0 ? activeWeek.days[dayIdx - 1] : null;
-              const prevDayDone = !prevDay || isDayCompleted(activeWeek.week, prevDay.day);
-
-              return (
-                <RNAnimated.View
-                  key={dayGroup.day}
-                  entering={FadeInDown.delay(280 + dayIdx * 50).duration(350)}
-                  style={{ marginBottom: 10 }}
-                >
-                  <DayCard
-                    dayGroup={dayGroup}
-                    state={dayState}
-                    isStarting={startingDay === dayKey}
-                    isExpanded={expandedDays[dayKey] ?? false}
-                    onToggle={() => toggleDay(dayKey)}
-                    onStart={async () => {
-                      if (!dayDone && !prevDayDone && prevDay) {
-                        showToast({
-                          message: `Heads up — usually done after ${prevDay.day}`,
-                          type: "info",
-                        });
-                      }
-                      await launchSession(activeWeek.week, dayGroup.day, dayGroup.exercises);
-                    }}
-                  />
-                </RNAnimated.View>
-              );
-            })}
-          </ScrollView>
-        </>
+            return (
+              <RNAnimated.View
+                key={dayGroup.day}
+                entering={FadeInDown.delay(120 + dayIdx * 40).duration(300)}
+                style={{ marginBottom: 10 }}
+              >
+                <DayCard
+                  dayGroup={dayGroup}
+                  state={dayState}
+                  isStarting={startingDay === dayKey}
+                  isExpanded={expandedDays[dayKey] ?? false}
+                  onToggle={() => toggleDay(dayKey)}
+                  onStart={async () => {
+                    if (!dayDone && !prevDayDone && prevDay) {
+                      showToast({
+                        message: `Heads up — usually done after ${prevDay.day}`,
+                        type: "info",
+                      });
+                    }
+                    await launchSession(activeWeek.week, dayGroup.day, dayGroup.exercises);
+                  }}
+                  onEdit={() => {
+                    setEditingDay({ week: activeWeek.week, day: dayGroup.day });
+                    setEditPickerVisible(true);
+                  }}
+                  onRemoveExercise={(name, idx) => {
+                    Alert.alert("Remove Exercise?", `Remove "${name}" from ${dayGroup.day}?`, [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Remove",
+                        style: "destructive",
+                        onPress: () => {
+                          updateDayExercises(activeWeek.week, dayGroup.day, (prev) => prev.filter((_, i) => i !== idx));
+                          showToast({ message: `Removed ${name}`, type: "info" });
+                        },
+                      },
+                    ]);
+                  }}
+                />
+              </RNAnimated.View>
+            );
+          })}
+        </ScrollView>
       )}
+
+      {/* ── Overflow menu ──────────────────────────────────────────────────── */}
+      <AppBottomSheet
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        snapPoints={["30%"]}
+      >
+        <View style={menuStyles.container}>
+          {has1RM && (
+            <Pressable
+              style={menuStyles.item}
+              onPress={() => { setMenuVisible(false); handleRecalculate(); }}
+              disabled={recalculating}
+            >
+              <Ionicons name="refresh-outline" size={20} color={theme.colors.text} />
+              <View style={menuStyles.itemText}>
+                <Text style={[menuStyles.itemLabel, { color: theme.colors.text }]}>Recalculate Weights</Text>
+                <Text style={[menuStyles.itemHint, { color: theme.colors.muted }]}>Update weights from your 1RM data</Text>
+              </View>
+            </Pressable>
+          )}
+          <Pressable
+            style={menuStyles.item}
+            onPress={() => { setMenuVisible(false); handleClear(); }}
+          >
+            <Ionicons name="exit-outline" size={20} color={theme.colors.text} />
+            <View style={menuStyles.itemText}>
+              <Text style={[menuStyles.itemLabel, { color: theme.colors.text }]}>Leave Plan</Text>
+              <Text style={[menuStyles.itemHint, { color: theme.colors.muted }]}>Deactivate — find it again in saved plans</Text>
+            </View>
+          </Pressable>
+        </View>
+      </AppBottomSheet>
 
       {/* Google Sheets URL bottom sheet */}
       <AppBottomSheet
@@ -1086,6 +1236,29 @@ export default function PlanScreen() {
         </View>
       </AppBottomSheet>
 
+      {/* Edit day — exercise picker */}
+      <ExercisePicker
+        visible={editPickerVisible}
+        onClose={() => { setEditPickerVisible(false); setEditingDay(null); }}
+        onSelect={({ name }) => {
+          if (!editingDay) return;
+          updateDayExercises(editingDay.week, editingDay.day, (prev) => [
+            ...prev,
+            { exercise: name, sets: "3", reps: "10", weight: "", comments: "", week: editingDay.week, day: editingDay.day, warmUpSets: "0", restTime: "90" },
+          ]);
+          setEditPickerVisible(false);
+          setEditingDay(null);
+          showToast({ message: `Added ${name}`, type: "success" });
+        }}
+        excludeNames={
+          editingDay
+            ? exercises
+                .filter((e) => (e.week || "Week 1") === editingDay.week && (e.day || "Day 1") === editingDay.day)
+                .map((e) => e.exercise)
+            : []
+        }
+      />
+
     </View>
   );
 }
@@ -1101,13 +1274,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
   headerTitle:   { flex: 1, marginRight: spacing.sm },
   title:         { fontSize: 28, fontWeight: "700" },
-  phaseSubtitle: { fontSize: 12, fontWeight: "600", marginTop: 2 },
-  headerActions: { flexDirection: "row", gap: 8, marginTop: 2 },
-  iconBtn: {
+  headerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  actionBtnText: { fontSize: 13, fontWeight: "600" },
+  menuBtn: {
     width: 34,
     height: 34,
     borderRadius: radius.sm,
@@ -1120,6 +1301,14 @@ const styles = StyleSheet.create({
   modalHint:    { fontSize: 13, marginBottom: spacing.md },
   input:        { borderRadius: radius.md, padding: 14, fontSize: 14, marginBottom: spacing.md },
   modalActions: { flexDirection: "row" },
+});
+
+const menuStyles = StyleSheet.create({
+  container:  { paddingHorizontal: spacing.md, gap: 4 },
+  item:       { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, paddingHorizontal: 4 },
+  itemText:   { flex: 1 },
+  itemLabel:  { fontSize: 16, fontWeight: "600" },
+  itemHint:   { fontSize: 12, marginTop: 2 },
 });
 
 const ormStyles = StyleSheet.create({

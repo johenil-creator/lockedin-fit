@@ -59,6 +59,7 @@ import { LockeMascot } from '../../components/Locke/LockeMascot';
 import { Card } from '../../components/Card';
 import { Skeleton } from '../../components/Skeleton';
 import { AppBottomSheet } from '../../components/AppBottomSheet';
+import { InfoTooltip } from '../../components/InfoTooltip';
 import type { MuscleGroup, MuscleFatigueMap, ReadinessScore, PlateauInsight } from '../../lib/types';
 import type { CoachOutput } from '../../lib/lockeCoachEngine';
 import type { DeloadCard as DeloadCardData } from '../../lib/smartDeload';
@@ -780,9 +781,12 @@ const AcwrBar = React.memo(function AcwrBar({ acwr }: { acwr: number }) {
         <View style={[styles.acwrZoneBadge, { backgroundColor: zone.color + '18', borderColor: zone.color + '40' }]}>
           <Text style={[styles.acwrZoneBadgeText, { color: zone.color }]}>{zone.label}</Text>
         </View>
-        <Text style={[styles.acwrRatioText, { color: theme.colors.muted }]}>
-          ACWR {acwr.toFixed(2)}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={[styles.acwrRatioText, { color: theme.colors.muted }]}>
+            ACWR {acwr.toFixed(2)}
+          </Text>
+          <InfoTooltip term="ACWR" definition="Acute:Chronic Workload Ratio — compares your recent training load (7 days) to your long-term average (28 days). Values above 1.5 indicate high injury risk." />
+        </View>
       </View>
     </View>
   );
@@ -1168,7 +1172,7 @@ const EmptyState = React.memo(function EmptyState() {
         No recovery data yet
       </Text>
       <Text style={[styles.emptySub, { color: theme.colors.muted }]}>
-        Complete your first session to start tracking muscle fatigue and recovery.
+        Complete your first session to start tracking muscle fatigue and recovery. Locke is watching.
       </Text>
 
       {/* CTA button */}
@@ -1299,7 +1303,7 @@ const ScoreDetailSheet = React.memo(function ScoreDetailSheet({
 export default function RecoveryScreen() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { loading, data, refresh } = useRecovery();
+  const { loading, data, refresh, error: recoveryError, staleData } = useRecovery();
 
   // DEV-only fatigue override
   const [devOpen, setDevOpen] = useState(false);
@@ -1406,8 +1410,7 @@ export default function RecoveryScreen() {
     [effectiveFatigueMap],
   );
 
-  // Gracefully read commentary if the recovery systems agent has wired it
-  const commentary = data ? (data as any).commentary as RecoveryCommentary | undefined : undefined;
+  const commentary = data?.commentary ?? undefined;
 
   // Derive plan muscles: muscles targeted by the next planned session
   // (any muscle whose projected fatigue exceeds current fatigue)
@@ -1429,7 +1432,7 @@ export default function RecoveryScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 80 },
+          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 80 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -1481,7 +1484,7 @@ export default function RecoveryScreen() {
         )}
 
         {/* Error banner */}
-        {(data as any)?.error && (
+        {recoveryError && (
           <Animated.View entering={FadeIn.duration(300)} style={[styles.dataBanner, styles.errorBanner]}>
             <Ionicons name="alert-circle" size={16} color={theme.colors.danger} />
             <Text style={styles.errorBannerText}>
@@ -1491,7 +1494,7 @@ export default function RecoveryScreen() {
         )}
 
         {/* Stale data warning */}
-        {(data as any)?.staleData && (
+        {staleData && (
           <Animated.View entering={FadeIn.duration(300)} style={[styles.dataBanner, styles.staleBanner]}>
             <Ionicons name="time-outline" size={16} color="#FF9800" />
             <Text style={styles.staleBannerText}>

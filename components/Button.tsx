@@ -50,6 +50,9 @@ export function Button({ label, onPress, variant = "primary", disabled, loading,
           (disabled || loading) && styles.disabled,
         ]}
         onPress={onPress}
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: disabled || loading }}
         onPressIn={() => {
           if (!disabled && !loading) {
             scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });

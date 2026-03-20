@@ -16,7 +16,7 @@ export function WelcomeStep({ onContinue }: Props) {
     <StepSlide>
       <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
         <View style={styles.center}>
-          <LockeMascot size={400} mood="encouraging" />
+          <LockeMascot size={320} mood="encouraging" />
           <Text style={[styles.lockeIntro, { color: theme.colors.primary }]}>I'm Locke.</Text>
           <Text style={[styles.welcomeSub, { color: theme.colors.muted }]}>
             I'll guide your sessions, track your progress, and help you crush PRs.

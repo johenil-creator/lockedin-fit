@@ -41,5 +41,8 @@ yarn-error.*
 /ios
 /android
 
+# Cloud Functions build output
+functions/lib/
+
 # E2E test automation
 .maestro/
