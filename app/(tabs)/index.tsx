@@ -38,6 +38,8 @@ import { spacing, typography } from "../../lib/theme";
 import type { ReadinessScore } from "../../lib/types";
 import { useGifts } from "../../hooks/useGifts";
 import { GiftBanner } from "../../components/social/GiftBanner";
+import { AdBanner } from "../../components/ads/AdBanner";
+import { useRewardedAd } from "../../hooks/useRewardedAd";
 import { NotificationBell } from "../../components/social/NotificationBell";
 import { NotificationSheet } from "../../components/social/NotificationSheet";
 import { useNotifications } from "../../hooks/useNotifications";
@@ -556,7 +558,8 @@ export default function HomeScreen() {
   const [streakSheetOpen, setStreakSheetOpen] = useState(false);
   const { hydrated, profileRef } = useProfileContext();
   const { xp, rank, progress, toNext, nextTier, bandCurrent, bandTotal } = useXP();
-  const { streak, daysSinceActivity } = useStreak();
+  const { streak, daysSinceActivity, restoreStreak } = useStreak();
+  const { show: showRewardedAd, isReady: isRewardedReady } = useRewardedAd();
   const { fire } = useLocke();
   const {
     exercises: planExercises,
@@ -930,6 +933,9 @@ export default function HomeScreen() {
         {/* DEV: Tools — subtle, bottom */}
       </ScrollView>
 
+      {/* Banner ad */}
+      <AdBanner />
+
       {/* Notification sheet */}
       <NotificationSheet
         visible={showNotifs}
@@ -969,6 +975,33 @@ export default function HomeScreen() {
         <Text style={[styles.sheetCaption, { color: theme.colors.muted }]}>
           Shields protect your streak on rest days. You get 2 each week, resetting Monday.
         </Text>
+        {daysSinceActivity > 1 && streak.current > 0 && (
+          <>
+            <View style={[styles.sheetDivider, { backgroundColor: theme.colors.border }]} />
+            <Text style={[styles.sheetCaption, { color: theme.colors.warning, fontWeight: "600", marginBottom: 8 }]}>
+              Your streak is about to break!
+            </Text>
+            <Pressable
+              onPress={async () => {
+                const earned = await showRewardedAd();
+                if (earned) {
+                  await restoreStreak();
+                  setStreakSheetOpen(false);
+                }
+              }}
+              style={{
+                backgroundColor: theme.colors.primary,
+                paddingVertical: 12,
+                borderRadius: 10,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: theme.colors.bg, fontWeight: "700", fontSize: 15 }}>
+                Watch Ad to Save Streak
+              </Text>
+            </Pressable>
+          </>
+        )}
       </AppBottomSheet>
     </View>
   );

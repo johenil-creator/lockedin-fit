@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Platform } from "react-native";
-import type { HealthPermission, HealthUnit } from "react-native-health";
+import type { HealthUnit } from "react-native-health";
 
 type HealthKitResult = {
   /** Latest weight as a string (same format as UserProfile.weight) */
@@ -9,7 +9,7 @@ type HealthKitResult = {
   error: string | null;
   /** HealthKit is only available on iOS devices */
   available: boolean;
-  /** Request permission & fetch the latest body weight from Apple Health */
+  /** Fetch the latest body weight from Apple Health (assumes permissions already granted) */
   fetchWeight: (unit: "kg" | "lbs") => Promise<string | null>;
 };
 
@@ -34,38 +34,45 @@ export function useHealthKit(): HealthKitResult {
         const AppleHealthKit =
           require("react-native-health") as import("react-native-health").AppleHealthKit;
 
-        if (!AppleHealthKit || typeof AppleHealthKit.initHealthKit !== "function") {
+        if (!AppleHealthKit || typeof AppleHealthKit.getLatestWeight !== "function") {
           throw new Error(
             "HealthKit native module not linked. Rebuild your dev client with: npx expo run:ios",
           );
         }
 
-        const permissions = {
-          permissions: {
-            read: [AppleHealthKit.Constants.Permissions.BodyMass],
-            write: [] as HealthPermission[],
-          },
-        };
-
-        // Initialize (requests permission on first call)
-        await new Promise<void>((resolve, reject) => {
-          AppleHealthKit.initHealthKit(permissions, (err: any) => {
-            if (err) reject(typeof err === "string" ? err : err?.message ?? "HealthKit init failed");
-            else resolve();
-          });
-        });
-
         // Fetch latest weight — HealthKit uses "pound" or "gram" (no "kg")
         const hkUnit: HealthUnit = unit === "lbs" ? ("pound" as HealthUnit) : ("gram" as HealthUnit);
-        const value = await new Promise<number>((resolve, reject) => {
+
+        if (__DEV__) console.log("[useHealthKit] calling getLatestWeight, unit:", hkUnit);
+
+        const value = await new Promise<number | null>((resolve) => {
+          const timeout = setTimeout(() => {
+            if (__DEV__) console.warn("[useHealthKit] getLatestWeight timed out after 10s");
+            resolve(null);
+          }, 10_000);
+
           AppleHealthKit.getLatestWeight(
             { unit: hkUnit },
             (err: any, result: { value: number }) => {
-              if (err) reject(typeof err === "string" ? err : err?.message ?? "Failed to read weight");
-              else resolve(result.value);
+              clearTimeout(timeout);
+              if (__DEV__) console.log("[useHealthKit] getLatestWeight callback:", { err, result });
+              if (err) {
+                // Any error from getLatestWeight likely means no data — treat as null
+                resolve(null);
+              } else if (!result || result.value == null || result.value === 0) {
+                resolve(null);
+              } else {
+                resolve(result.value);
+              }
             },
           );
         });
+
+        if (value == null) {
+          // No weight data in Health — not an error, just skip
+          setLoading(false);
+          return null;
+        }
 
         // Convert grams → kg when needed
         const finalValue = hkUnit === "gram" ? value / 1000 : value;
@@ -76,10 +83,8 @@ export function useHealthKit(): HealthKitResult {
         return rounded;
       } catch (e: any) {
         const raw = typeof e === "string" ? e : typeof e?.message === "string" ? e.message : "";
-        const msg = raw.includes("denied") || raw.includes("not determined")
-          ? "Health access denied. Enable it in Settings > Privacy > Health."
-          : raw || "Failed to read weight from Health";
-        setError(msg);
+        if (__DEV__) console.warn("[useHealthKit] error:", raw, e);
+        setError("Could not read weight from Apple Health.");
         setLoading(false);
         return null;
       }
