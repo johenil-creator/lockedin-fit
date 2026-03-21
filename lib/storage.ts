@@ -52,6 +52,8 @@ const KEYS = {
   publicProfileCache: "@lockedinfit/public-profile-cache",
   planDraft: "@lockedinfit/plan-draft",
   planDrafts: "@lockedinfit/plan-drafts",
+  notificationPrompted: "@lockedinfit/notification-prompted",
+  ormDisclaimer: "@lockedinfit/orm-disclaimer-accepted",
 } as const;
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
@@ -368,6 +370,32 @@ export async function savePackInfo(data: PackInfo): Promise<void> {
 
 export async function clearPackInfo(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.packInfo);
+}
+
+// ── Notification Prompt State ─────────────────────────────────────────────────
+
+/** Check if the user has already been prompted for notification permission. */
+export async function hasBeenPromptedForNotifications(): Promise<boolean> {
+  const val = await AsyncStorage.getItem(KEYS.notificationPrompted);
+  return val === "true";
+}
+
+/** Mark that the user has been prompted for notification permission. */
+export async function markNotificationPrompted(): Promise<void> {
+  await AsyncStorage.setItem(KEYS.notificationPrompted, "true");
+}
+
+// ── ORM Disclaimer ────────────────────────────────────────────────────────────
+
+/** Check if the user has already accepted the 1RM safety disclaimer. */
+export async function hasAcceptedOrmDisclaimer(): Promise<boolean> {
+  const val = await AsyncStorage.getItem(KEYS.ormDisclaimer);
+  return val === "true";
+}
+
+/** Mark that the user has accepted the 1RM safety disclaimer. */
+export async function markOrmDisclaimerAccepted(): Promise<void> {
+  await AsyncStorage.setItem(KEYS.ormDisclaimer, "true");
 }
 
 // ── Clear All ─────────────────────────────────────────────────────────────────

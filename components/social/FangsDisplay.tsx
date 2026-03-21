@@ -30,8 +30,8 @@ function FangsDisplayInner({ balance, size = "md", showInfo = false }: Props) {
         <Image
           source={FANGS_ICON}
           style={{
-            width: isSmall ? 14 : 18,
-            height: isSmall ? 14 : 18,
+            width: isSmall ? 22 : 26,
+            height: isSmall ? 22 : 26,
             tintColor: "#FFD700",
           }}
           resizeMode="contain"

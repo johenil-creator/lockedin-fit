@@ -8,6 +8,8 @@
  * 5. matchPackWars — scheduled Monday 01:00 UTC, matches packs for wars
  * 6. buildEventLeaderboard — daily during active events, top-100 event leaderboard
  * 7. processEventEnd — daily, checks ended events and awards rewards
+ * 8. deleteUserData — callable, GDPR Art. 17 compliant full user data erasure
+ * 9. exportUserData — callable, GDPR Art. 15 compliant full user data export
  */
 
 export { buildGlobalLeaderboard } from "./buildGlobalLeaderboard";
@@ -17,3 +19,5 @@ export { processWeekEnd } from "./processWeekEnd";
 export { matchPackWars } from "./matchPackWars";
 export { buildEventLeaderboard } from "./buildEventLeaderboard";
 export { processEventEnd } from "./processEventEnd";
+export { deleteUserData } from "./deleteUserData";
+export { exportUserData } from "./exportUserData";

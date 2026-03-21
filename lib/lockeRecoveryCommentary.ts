@@ -84,13 +84,13 @@ const RETURN_PHRASES: Record<RecoveryCommentaryTone, PhrasePair[]> = {
   ],
   intense: [
     { headline: "Absence makes the wolf hungrier.",    subtext: "Channel the hunger. Controlled aggression today." },
-    { headline: "You disappeared. Now earn it back.",  subtext: "The pack doesn't wait. Prove you belong." },
+    { headline: "Time off builds hunger.",              subtext: "Fresh energy, fresh start. Let's go." },
     { headline: "Time away sharpens the edge.",        subtext: "Use the rest. Attack with purpose." },
   ],
   savage: [
-    { headline: "You disappeared. Prove your worth.",  subtext: "Words mean nothing. Only reps count now." },
-    { headline: "The pack moved on without you.",      subtext: "Catch up or fall behind. Your call." },
-    { headline: "Back from the dead. Show me why.",    subtext: "No excuses. Just execution." },
+    { headline: "The wolf returns. Time to hunt.",      subtext: "Rest is over. Let the reps do the talking." },
+    { headline: "The pack is stronger with you.",      subtext: "Jump back in. Show what you're made of." },
+    { headline: "Back and ready. Let's make it count.",subtext: "Channel that energy. Pure execution." },
   ],
 };
 
@@ -113,9 +113,9 @@ const STATE_PHRASES: Record<MuscleEnergyState, Record<RecoveryCommentaryTone, Ph
       { headline: "The grid is dark. Light it up.",        subtext: "Training data starts now. No more waiting." },
     ],
     savage: [
-      { headline: "Nothing to show. That bothers me.",     subtext: "A dormant grid is an insult. Get to work." },
-      { headline: "Grid's dead. Are you?",                 subtext: "Prove there's a pulse. Start lifting." },
-      { headline: "All dark. Unacceptable.",               subtext: "Wolves don't sit dormant. Hunt." },
+      { headline: "Empty grid. Opportunity knocks.",        subtext: "A blank slate means pure potential. Seize it." },
+      { headline: "Grid's waiting. Light it up.",           subtext: "One session and the whole picture changes." },
+      { headline: "All dark. Time to spark it.",            subtext: "Wolves are built to move. Start the hunt." },
     ],
     welcoming: [
       { headline: "Fresh start. Let's make it count.",     subtext: "No pressure. Just show up and begin." },
@@ -226,7 +226,7 @@ const STATE_PHRASES: Record<MuscleEnergyState, Record<RecoveryCommentaryTone, Ph
     ],
     savage: [
       { headline: "Overloaded. Even I say pull back.",     subtext: "Pushing through this is stupidity, not strength." },
-      { headline: "Amber zone. Don't be an idiot.",        subtext: "Smart predators rest. Reckless ones get eaten." },
+      { headline: "Amber zone. Respect the signal.",        subtext: "Smart predators rest. That's how they stay on top." },
       { headline: "Your muscles are screaming. Listen.",   subtext: "Ignore this and you'll pay in injuries." },
     ],
     welcoming: [

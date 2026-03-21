@@ -297,6 +297,7 @@ export default function SessionScreen() {
   const { showToast } = useToast();
   const sessionUnit = profile.weightUnit === "lbs" ? "lbs" : "kg";
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [customExerciseVisible, setCustomExerciseVisible] = useState(false);
   const [manualName, setManualName] = useState("");
   const [replacingExerciseId, setReplacingExerciseId] = useState<string | null>(null);
   const [replacePickerVisible, setReplacePickerVisible] = useState(false);
@@ -610,6 +611,7 @@ export default function SessionScreen() {
       setClassifyAnchor("none");
       setClassifyVisible(true);
       setPickerVisible(false);
+      setCustomExerciseVisible(false);
       setManualName("");
       return;
     }
@@ -1301,6 +1303,14 @@ export default function SessionScreen() {
             )}
 
             <Button label="Add Exercise" onPress={() => setPickerVisible(true)} variant="secondary" />
+            <Pressable
+              onPress={() => setCustomExerciseVisible(true)}
+              style={{ alignSelf: "center", paddingVertical: 8, marginTop: 4 }}
+            >
+              <Text style={{ color: theme.colors.muted, fontSize: 13, fontWeight: "500" }}>
+                Can't find it? Add custom exercise
+              </Text>
+            </Pressable>
 
             {session.isActive && (
               <View style={{ marginTop: 28 }}>
@@ -1516,42 +1526,37 @@ export default function SessionScreen() {
         </Pressable>
       </Modal>
 
-      {/* Exercise picker bottom sheet */}
-      <AppBottomSheet visible={pickerVisible} onClose={() => { setPickerVisible(false); setManualName(""); }} snapPoints={["60%"]}>
-        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Exercise</Text>
+      {/* Exercise picker — same component used in plan builder */}
+      <ExercisePicker
+        visible={pickerVisible}
+        onClose={() => { setPickerVisible(false); setManualName(""); }}
+        onSelect={({ name }) => {
+          setPickerVisible(false);
+          addExercise(name);
+        }}
+        excludeNames={session.exercises.map((e) => e.name)}
+      />
 
-        {planExercises.length > 0 ? (
-          <FlatList
-            data={planExercises.filter(
-              (pe) => !session.exercises.some((se) => se.name === pe.exercise)
-            )}
-            keyExtractor={(_, idx) => idx.toString()}
-            style={{ maxHeight: 300 }}
-            renderItem={({ item }) => (
-              <Pressable style={[styles.planRow, { borderBottomColor: theme.colors.border }]} onPress={() => addExercise(item.exercise, item.sets, item.reps)}>
-                <Text style={[styles.planRowName, { color: theme.colors.text }]}>{item.exercise}</Text>
-                {item.sets && <Badge label={`${item.sets}x${item.reps}`} />}
-              </Pressable>
-            )}
-            ListEmptyComponent={<Text style={[styles.noPlanText, { color: theme.colors.muted }]}>All plan exercises added.</Text>}
-          />
-        ) : null}
-
-        <Text style={[styles.orLabel, { color: theme.colors.muted }]}>Or enter manually:</Text>
+      {/* Manual custom exercise entry (fallback) */}
+      <AppBottomSheet visible={customExerciseVisible} onClose={() => { setCustomExerciseVisible(false); setManualName(""); }} snapPoints={["35%"]}>
+        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Custom Exercise</Text>
+        <Text style={{ color: theme.colors.muted, fontSize: 13, marginBottom: 12 }}>
+          Can't find it? Enter the name manually.
+        </Text>
         <TextInput
           style={[styles.manualInput, { backgroundColor: theme.colors.mutedBg, color: theme.colors.text }]}
           placeholder="Exercise name"
           placeholderTextColor={theme.colors.muted}
           value={manualName}
           onChangeText={setManualName}
+          autoFocus
           returnKeyType="done"
-          onSubmitEditing={() => addExercise(manualName)}
+          onSubmitEditing={() => { addExercise(manualName); setCustomExerciseVisible(false); }}
         />
-
         <View style={styles.modalActions}>
-          <Button label="Cancel" onPress={() => { setPickerVisible(false); setManualName(""); }} variant="secondary" />
+          <Button label="Cancel" onPress={() => { setCustomExerciseVisible(false); setManualName(""); }} variant="secondary" />
           <View style={{ width: 12 }} />
-          <Button label="Add" onPress={() => addExercise(manualName)} disabled={!manualName.trim()} />
+          <Button label="Add" onPress={() => { addExercise(manualName); setCustomExerciseVisible(false); }} disabled={!manualName.trim()} />
         </View>
       </AppBottomSheet>
 

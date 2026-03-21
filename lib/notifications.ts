@@ -29,55 +29,55 @@ const INACTIVITY_NUDGE_ID = "inactivity-nudge";
 // ── Locke-themed message pools ────────────────────────────────────────────────
 
 const WORKOUT_REMINDER_TITLES = [
-  "Locke is watching.",
   "Time to hunt.",
-  "No excuses today.",
-  "The pack awaits.",
-  "Rise and grind.",
+  "The pack is rallying.",
+  "Today's your day.",
   "Lock in.",
-  "Prove yourself today.",
+  "Ready to level up?",
+  "The hunt begins.",
+  "Let's build something.",
 ];
 
 const WORKOUT_REMINDER_BODIES = [
-  "Your workout is waiting. Lock in.",
+  "A session today keeps the momentum going.",
   "The pack trains today. You in?",
   "Another day, another chance to level up.",
-  "Weights don't lift themselves. Let's go.",
+  "Your next PR could be waiting. Let's go.",
   "One session closer to the top.",
-  "Locke doesn't skip days. Neither should you.",
-  "Show up. That's step one.",
+  "Consistency is your superpower. Keep it rolling.",
+  "Show up and surprise yourself.",
 ];
 
 const STREAK_RISK_TITLES = [
-  "Streak in danger",
-  "Don't break the chain",
-  "Locke is disappointed.",
-  "Your streak is fading",
-  "Warning from the pack",
+  "Keep the streak alive!",
+  "Still time today",
+  "Locke believes in you.",
+  "Your streak is going strong",
+  "One more day to add",
 ];
 
 const STREAK_RISK_BODIES = [
-  "No workout logged today. Don't break your streak.",
-  "You've come too far to stop now.",
+  "A quick session today keeps the streak rolling.",
+  "You've built something great. Keep it going!",
   "One session. That's all it takes.",
-  "The pack doesn't quit. Neither do you.",
-  "Your streak is on the line. Lock in.",
+  "The pack keeps moving forward. Join the hunt.",
+  "Your streak is worth protecting. You've got this.",
 ];
 
 const INACTIVITY_NUDGE_TITLES = [
-  "It's been a while...",
-  "Locke misses you.",
-  "Come back to the pack.",
-  "Where did you go?",
-  "The den is empty without you.",
+  "Ready to get back in it?",
+  "The pack is here for you.",
+  "Fresh start waiting.",
+  "Your next session is calling.",
+  "Locke is ready when you are.",
 ];
 
 const INACTIVITY_NUDGE_BODIES = [
-  "It's been a while... Locke misses you.",
-  "Come back. The pack needs you.",
-  "Your gains are waiting. Don't let them fade.",
-  "Even one session makes a difference. Come back.",
-  "The wolf inside you is still hungry. Feed it.",
+  "Whenever you're ready, the pack is here.",
+  "A fresh session could feel great right now.",
+  "Your strength is still there. Come tap into it.",
+  "Even one session can reignite the momentum.",
+  "The wolf inside you is ready to hunt again.",
 ];
 
 /** Pick a random element from an array. */

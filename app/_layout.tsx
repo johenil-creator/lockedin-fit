@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LogBox, Alert } from "react-native";
+import { LogBox, Alert, Platform, NativeModules } from "react-native";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View, Text, Pressable, ScrollView } from "react-native";
@@ -51,7 +51,19 @@ export default function RootLayout() {
   useEffect(() => {
     preloadLockeAssets();
     loadLockeCustomization();
-    mobileAds().initialize();
+    // ATT prompt before ads — requires native rebuild; skip gracefully if unavailable
+    async function initAds() {
+      if (Platform.OS === "ios" && NativeModules.ExpoTrackingTransparency) {
+        try {
+          const { requestTrackingPermissionsAsync } = require("expo-tracking-transparency");
+          await requestTrackingPermissionsAsync();
+        } catch {
+          // ATT request failed — continue without it
+        }
+      }
+      mobileAds().initialize();
+    }
+    initAds();
   }, []);
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -68,6 +80,7 @@ export default function RootLayout() {
                     <Stack.Screen name="onboarding" options={{ gestureEnabled: false, animation: "none" }} />
                     <Stack.Screen name="session/[id]" />
                     <Stack.Screen name="start-session" />
+                    <Stack.Screen name="quick-workout" />
                     <Stack.Screen name="catalog" />
                     <Stack.Screen name="orm-test" />
                     <Stack.Screen name="evolution" />

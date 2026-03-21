@@ -30,6 +30,7 @@ import { BackButton } from "../components/BackButton";
 import { Skeleton } from "../components/Skeleton";
 import { AppBottomSheet } from "../components/AppBottomSheet";
 import { LIFT_TIPS } from "../lib/liftTips";
+import { hasAcceptedOrmDisclaimer, markOrmDisclaimerAccepted } from "../lib/storage";
 
 // ── Progress Bar ────────────────────────────────────────────────────────────
 
@@ -98,6 +99,37 @@ export default function OrmTestScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [tipExpanded, setTipExpanded] = useState(false);
   const [safetyExpanded, setSafetyExpanded] = useState(false);
+
+  const [disclaimerChecked, setDisclaimerChecked] = useState(false);
+
+  // Show safety disclaimer on first visit
+  useEffect(() => {
+    hasAcceptedOrmDisclaimer().then((accepted) => {
+      if (accepted) {
+        setDisclaimerChecked(true);
+      } else {
+        Alert.alert(
+          "Important Safety Notice",
+          "One-rep max testing involves lifting near your maximum capacity. Before proceeding:\n\n\u2022 Ensure you have a spotter or safety equipment\n\u2022 Warm up thoroughly before attempting\n\u2022 Stop immediately if you feel pain or dizziness\n\u2022 Consult a physician if you have any medical conditions or concerns\n\nThis feature provides estimates for training purposes only and is not medical or professional fitness advice.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => router.back(),
+            },
+            {
+              text: "I Understand",
+              onPress: () => {
+                markOrmDisclaimerAccepted();
+                setDisclaimerChecked(true);
+              },
+            },
+          ],
+          { cancelable: false }
+        );
+      }
+    });
+  }, []);
 
   // Rest timer
   const REST_DURATION = 120; // 2 minutes between 1RM sets
@@ -278,6 +310,18 @@ export default function OrmTestScreen() {
     await ormTest.restartTest(unit);
     setSetsVisible(false);
     setExitModalVisible(false);
+  }
+
+  // ── Wait for disclaimer check before rendering anything ─────────────────
+
+  if (!disclaimerChecked) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+        <View style={styles.header}>
+          <BackButton />
+        </View>
+      </View>
+    );
   }
 
   // ── Unit Picker (shown before test starts or while loading) ────────────────
@@ -792,6 +836,11 @@ export default function OrmTestScreen() {
         showsVerticalScrollIndicator={false}
         automaticallyAdjustKeyboardInsets
       >
+        {/* Inline disclaimer */}
+        <Text style={[styles.inlineDisclaimer, { color: theme.colors.muted }]}>
+          Estimates for training purposes only. Not medical advice.
+        </Text>
+
         {/* Locke mascot — celebrates on completion, encouraging during test */}
         <View style={{ alignItems: "center", marginVertical: 8 }}>
           <LockeMascot
@@ -1093,6 +1142,12 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     gap: 0,
+  },
+  inlineDisclaimer: {
+    fontSize: 11,
+    textAlign: "center",
+    paddingHorizontal: 24,
+    marginTop: 4,
   },
   restPill: {
     flexDirection: "row",

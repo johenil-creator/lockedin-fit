@@ -16,6 +16,7 @@ import { BackButton } from "../components/BackButton";
 import { usePack } from "../hooks/usePack";
 import { spacing, typography, radius } from "../lib/theme";
 import { notification, NotificationType } from "../lib/haptics";
+import { maybePromptNotifications } from "../lib/notificationPrompt";
 
 export default function JoinPackScreen() {
   const insets = useSafeAreaInsets();
@@ -40,6 +41,7 @@ export default function JoinPackScreen() {
       const success = await join(trimmed);
       if (success) {
         notification(NotificationType.Success);
+        maybePromptNotifications("pack").catch(() => {});
         router.back();
       } else {
         setError("Pack not found or is full (max 10 members).");

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, Image, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { spacing, radius, typography } from "../../lib/theme";
@@ -71,7 +71,7 @@ function WeeklyObjectiveCardInner({ objective, onClaim }: Props) {
             <Ionicons name="checkmark-circle" size={24} color={theme.colors.accent} />
           ) : (
             <View style={styles.rewardBadge}>
-              <Text style={{ fontSize: 12 }}>{"\u26A1"}</Text>
+              <Image source={require("../../assets/fangs_icon.png")} style={{ width: 22, height: 22, tintColor: "#FFD700" }} resizeMode="contain" />
               <Text style={[styles.rewardText, { color: "#FFD700" }]}>{quest.reward}</Text>
             </View>
           )}

@@ -1,4 +1,5 @@
 import { View, ScrollView, Text, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -9,10 +10,11 @@ import { useSeasonalEvent } from "../hooks/useSeasonalEvent";
 import { spacing, typography } from "../lib/theme";
 
 export default function EventScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useAppTheme();
   const { user } = useAuth();
-  const { event, participation, leaderboard, joinEvent } = useSeasonalEvent();
+  const { event, participation, leaderboard, signedIn, joinEvent } = useSeasonalEvent();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top }]}>
@@ -29,7 +31,9 @@ export default function EventScreen() {
             <EventBanner
               event={event}
               participation={participation}
+              signedIn={signedIn}
               onJoin={() => joinEvent()}
+              onSignIn={() => router.push("/auth")}
             />
 
             {leaderboard.length > 0 && (

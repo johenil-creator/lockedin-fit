@@ -2,10 +2,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   collection,
   query,
-  where,
   getDocs,
-  addDoc,
   doc,
+  setDoc,
   updateDoc,
   orderBy,
   limit as firestoreLimit,
@@ -139,7 +138,8 @@ export async function joinEvent(
 
   if (isFirebaseConfigured) {
     try {
-      await addDoc(collection(db, "eventParticipation"), {
+      const docRef = doc(db, "seasonalEvents", eventId, "participants", userId);
+      await setDoc(docRef, {
         ...participation,
         createdAt: serverTimestamp(),
       });
@@ -167,16 +167,8 @@ export async function updateEventScore(
 
   if (isFirebaseConfigured) {
     try {
-      const q = query(
-        collection(db, "eventParticipation"),
-        where("userId", "==", userId),
-        where("eventId", "==", eventId)
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const docRef = doc(db, "eventParticipation", snap.docs[0].id);
-        await updateDoc(docRef, { score: local.score });
-      }
+      const docRef = doc(db, "seasonalEvents", eventId, "participants", userId);
+      await updateDoc(docRef, { score: local.score });
     } catch (e) {
       if (__DEV__) console.warn("[seasonalEventService] updateEventScore firestore sync failed:", e);
     }
@@ -194,8 +186,7 @@ export async function getEventLeaderboard(
 
   try {
     const q = query(
-      collection(db, "eventParticipation"),
-      where("eventId", "==", eventId),
+      collection(db, "seasonalEvents", eventId, "participants"),
       orderBy("score", "desc"),
       firestoreLimit(resultLimit)
     );
@@ -203,7 +194,7 @@ export async function getEventLeaderboard(
     return snap.docs.map((d, i) => {
       const data = d.data();
       return {
-        userId: data.userId ?? "",
+        userId: data.userId ?? d.id,
         displayName: data.displayName ?? "Unknown",
         rank: i + 1,
         score: data.score ?? 0,
@@ -249,16 +240,8 @@ export async function claimEventReward(
 
   if (isFirebaseConfigured) {
     try {
-      const q = query(
-        collection(db, "eventParticipation"),
-        where("userId", "==", userId),
-        where("eventId", "==", eventId)
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const docRef = doc(db, "eventParticipation", snap.docs[0].id);
-        await updateDoc(docRef, { rewardsClaimed: true });
-      }
+      const docRef = doc(db, "seasonalEvents", eventId, "participants", userId);
+      await updateDoc(docRef, { rewardsClaimed: true });
     } catch (e) {
       if (__DEV__) console.warn("[seasonalEventService] claimEventReward firestore sync failed:", e);
     }

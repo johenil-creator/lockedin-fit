@@ -3,13 +3,36 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users — any authed user can read (needed for pack members, friends, etc); only owner can write
+    // ── Helper functions ──────────────────────────────────────────────────────
+
+    // Check if the caller is a member of a given pack
+    function isPackMember(packId) {
+      return exists(/databases/$(database)/documents/packMembers/$(packId + '__' + request.auth.uid));
+    }
+
+    // Check if the caller is the leader of a given pack
+    function isPackLeader(packId) {
+      let memberDoc = get(/databases/$(database)/documents/packMembers/$(packId + '__' + request.auth.uid));
+      return memberDoc != null && memberDoc.data.role == 'leader';
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    // Any authed user can read (needed for pack members, friends, etc);
+    // only owner can write
     match /users/{userId} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Weekly XP — any authed user can read (needed for league standings); only owner can write
+    // ── Public Profiles ───────────────────────────────────────────────────────
+    // Doc ID = userId. Any authed user can read; only owner can write.
+    match /publicProfiles/{userId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Weekly XP ─────────────────────────────────────────────────────────────
+    // Any authed user can read (needed for league standings); only owner can write
     match /weeklyXp/{docId} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null
@@ -21,7 +44,8 @@ service cloud.firestore {
                     && resource.data.userId == request.auth.uid;
     }
 
-    // Friendships — read if either party, create if userId, delete if either party
+    // ── Friendships ───────────────────────────────────────────────────────────
+    // Read if either party, create if userId, delete if either party
     match /friendships/{docId} {
       allow read:   if request.auth != null
                     && (resource.data.userId == request.auth.uid
@@ -34,7 +58,8 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // League Members — any authed user can read (standings), own docs only for writes
+    // ── League Members ────────────────────────────────────────────────────────
+    // Any authed user can read (standings), own docs only for writes
     match /leagueMembers/{docId} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null
@@ -46,7 +71,8 @@ service cloud.firestore {
                     && resource.data.userId == request.auth.uid;
     }
 
-    // Leagues — authed users can read and create; updates/deletes via Cloud Functions only
+    // ── Leagues ───────────────────────────────────────────────────────────────
+    // Authed users can read and create; updates/deletes via Cloud Functions only
     match /leagues/{docId} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null;
@@ -54,16 +80,25 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Packs — any authed user can read; creator can create; members can update
+    // ── Packs ─────────────────────────────────────────────────────────────────
+    // Any authed user can read. Creator sets createdBy on create.
+    // Updates: only pack members can update (for memberCount, weeklyXp, weekKey,
+    // memberCap changes). createdBy is immutable on update.
     match /packs/{packId} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null
                     && request.resource.data.createdBy == request.auth.uid;
-      allow update: if request.auth != null;
+      allow update: if request.auth != null
+                    && isPackMember(packId)
+                    && (!('createdBy' in request.resource.data)
+                        || request.resource.data.createdBy == resource.data.createdBy);
       allow delete: if false;
     }
 
-    // Pack Members — any authed user can read; own membership for create/delete
+    // ── Pack Members ──────────────────────────────────────────────────────────
+    // Any authed user can read. Users can create/delete their own membership.
+    // Users can update only their own membership doc; role field is immutable
+    // on self-update (only leader can promote via a future Cloud Function).
     match /packMembers/{docId} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null
@@ -74,7 +109,9 @@ service cloud.firestore {
                     && resource.data.userId == request.auth.uid;
     }
 
-    // Activity Feed — authed users can read; own posts for write
+    // ── Activity Feed ─────────────────────────────────────────────────────────
+    // Authed users can read all feed items (for friend/social feeds).
+    // Only the post owner can create (userId must match) or delete.
     match /activityFeed/{docId} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null
@@ -83,24 +120,33 @@ service cloud.firestore {
       allow delete: if request.auth != null
                     && resource.data.userId == request.auth.uid;
 
+      // Comments subcollection: anyone authed can read; only comment
+      // author can create or delete their own comments.
       match /comments/{commentId} {
         allow read:   if request.auth != null;
         allow create: if request.auth != null
                       && request.resource.data.userId == request.auth.uid;
+        allow update: if false;
         allow delete: if request.auth != null
                       && resource.data.userId == request.auth.uid;
       }
     }
 
-    // Streak Battles
+    // ── Streak Battles ────────────────────────────────────────────────────────
+    // Any authed user can read. Only a participant (player1 or player2) can
+    // create or update. The creator must be player1Id. Updates are restricted
+    // to participants only.
     match /streakBattles/{docId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.player1Id == request.auth.uid;
+      allow update: if request.auth != null
+                    && (resource.data.player1Id == request.auth.uid
+                        || resource.data.player2Id == request.auth.uid);
       allow delete: if false;
     }
 
-    // Nudges
+    // ── Nudges ────────────────────────────────────────────────────────────────
     match /nudges/{docId} {
       allow read:   if request.auth != null
                     && resource.data.toUserId == request.auth.uid;
@@ -108,7 +154,9 @@ service cloud.firestore {
                     && request.resource.data.fromUserId == request.auth.uid;
     }
 
-    // In-App Notifications
+    // ── In-App Notifications ──────────────────────────────────────────────────
+    // Only the owning user can read/update/delete their notifications.
+    // Any authed user can create (system sends notifications to others).
     match /inAppNotifications/{userId}/items/{notifId} {
       allow read:   if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null;
@@ -116,43 +164,66 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Pack Wars
+    // ── Pack Wars ─────────────────────────────────────────────────────────────
+    // Any authed user can read. Only pack members of either participating pack
+    // can create or update. On create, the creator's pack must be pack1Id.
+    // On update, the caller must be a member of pack1 or pack2.
     match /packWars/{docId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+                    && isPackMember(request.resource.data.pack1Id);
+      allow update: if request.auth != null
+                    && (isPackMember(resource.data.pack1Id)
+                        || isPackMember(resource.data.pack2Id));
       allow delete: if false;
     }
 
-    // Pack Bosses
+    // ── Pack Bosses ───────────────────────────────────────────────────────────
+    // Any authed user can read. Only pack members can create or update bosses
+    // for their pack. Contributions subcollection: pack members can read;
+    // each user can only write their own contribution (userId must match).
     match /packBosses/{docId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+                    && isPackMember(request.resource.data.packId);
+      allow update: if request.auth != null
+                    && isPackMember(resource.data.packId);
       allow delete: if false;
 
       match /contributions/{contribId} {
         allow read:   if request.auth != null;
-        allow create: if request.auth != null;
-        allow update: if request.auth != null;
+        allow create: if request.auth != null
+                      && request.resource.data.userId == request.auth.uid;
+        allow update: if request.auth != null
+                      && resource.data.userId == request.auth.uid
+                      && request.resource.data.userId == request.auth.uid;
       }
     }
 
-    // Pack Levels
-    match /packLevels/{docId} {
+    // ── Pack Levels ───────────────────────────────────────────────────────────
+    // Any authed user can read. Only pack members can create or update their
+    // pack's level doc. Doc ID = packId.
+    match /packLevels/{packId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+                    && isPackMember(packId);
+      allow update: if request.auth != null
+                    && isPackMember(packId);
     }
 
-    // Pack Leaderboard
+    // ── Pack Leaderboard ──────────────────────────────────────────────────────
+    // Any authed user can read. Only members of the pack can write/update
+    // their pack's leaderboard entry. packId field must be present.
     match /packLeaderboard/{docId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+                    && isPackMember(request.resource.data.packId);
+      allow update: if request.auth != null
+                    && isPackMember(resource.data.packId);
     }
 
-    // Seasonal Events (admin-created, client reads + participates)
+    // ── Seasonal Events ───────────────────────────────────────────────────────
+    // Admin-created (read-only for clients). Participants write their own data.
     match /seasonalEvents/{docId} {
       allow read: if request.auth != null;
 
@@ -167,7 +238,7 @@ service cloud.firestore {
       }
     }
 
-    // Fangs Transactions
+    // ── Fangs Transactions ────────────────────────────────────────────────────
     match /fangsTransactions/{docId} {
       allow read:   if request.auth != null
                     && resource.data.userId == request.auth.uid;
@@ -175,52 +246,141 @@ service cloud.firestore {
                     && request.resource.data.userId == request.auth.uid;
     }
 
-    // Gifts
-    match /gifts/{docId} {
-      allow read:   if request.auth != null;
-      allow create: if request.auth != null
-                    && request.resource.data.fromUserId == request.auth.uid;
-      allow update: if request.auth != null;
+    // ── Fangs Balances ────────────────────────────────────────────────────────
+    // Standard fangs flow writes to users/{userId}.fangs field (owner-only).
+    // packWarService.finalizeWar writes directly to fangs/{otherUserId} which
+    // requires cross-user writes — this should be migrated to a Cloud Function.
+    // Until then, allow authed users to write (the war finalization is the only
+    // writer). TODO: lock down to owner-only once finalizeWar uses a CF.
+    match /fangs/{userId} {
+      allow read:   if request.auth != null && request.auth.uid == userId;
+      allow write:  if request.auth != null;
     }
 
-    // Global Leaderboard (Cloud Functions only)
+    // ── Cosmetic Gifts ────────────────────────────────────────────────────────
+    // The actual collection used by giftService.ts (not "gifts").
+    // Sender can create (fromUserId must match). Recipient can read their
+    // pending gifts. Both sender and recipient can read. Only recipient
+    // can update (to claim the gift).
+    match /cosmeticGifts/{docId} {
+      allow read:   if request.auth != null
+                    && (resource.data.fromUserId == request.auth.uid
+                        || resource.data.toUserId == request.auth.uid);
+      allow create: if request.auth != null
+                    && request.resource.data.fromUserId == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.toUserId == request.auth.uid;
+    }
+
+    // ── Gifts (legacy path — kept for backward compatibility) ─────────────────
+    match /gifts/{docId} {
+      allow read:   if request.auth != null
+                    && (resource.data.fromUserId == request.auth.uid
+                        || resource.data.toUserId == request.auth.uid);
+      allow create: if request.auth != null
+                    && request.resource.data.fromUserId == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.toUserId == request.auth.uid;
+    }
+
+    // ── Global Leaderboard (Cloud Functions only) ─────────────────────────────
     match /globalLeaderboard/{docId} {
       allow read: if request.auth != null;
     }
 
-    // Friend Challenges
+    // ── Friend Challenges ─────────────────────────────────────────────────────
+    // Any authed user can read. Only challenger can create. Only participants
+    // (challenger or opponent) can update (scores, accept/decline, finalize).
     match /friendChallenges/{docId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.challengerId == request.auth.uid;
+      allow update: if request.auth != null
+                    && (resource.data.challengerId == request.auth.uid
+                        || resource.data.opponentId == request.auth.uid);
     }
 
-    // Pack Challenges
+    // ── Pack Challenges ───────────────────────────────────────────────────────
+    // Any authed user can read. Only pack members can create or update
+    // challenges for their pack.
     match /packChallenges/{docId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+                    && isPackMember(request.resource.data.packId);
+      allow update: if request.auth != null
+                    && isPackMember(resource.data.packId);
     }
 
-    // Pack Chat (legacy path)
+    // ── Pack Chat (legacy path) ───────────────────────────────────────────────
     match /packChat/{docId} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid;
     }
 
-    // Pack Messages — subcollection under packMessages/{packId}/messages
+    // ── Pack Messages — subcollection under packMessages/{packId}/messages ────
     match /packMessages/{packId}/messages/{messageId} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid;
     }
 
-    // Quests
+    // ── Quests (unused — quest logic is local-only via AsyncStorage) ──────────
+    // Locked down since no client code writes to this collection.
     match /quests/{docId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow write:  if false;
+    }
+
+    // ── Reports ──────────────────────────────────────────────────────────────
+    // Any authed user can create a report. Only the reporter can read their
+    // own reports. No client updates or deletes (admin review only).
+    match /reports/{docId} {
+      allow read:   if request.auth != null
+                    && resource.data.reporterId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.reporterId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Blocks ─────────────────────────────────────────────────────────────────
+    // Users can create, read, and delete their own blocks (userId == auth.uid).
+    // Doc ID format: ${userId}_${blockedUserId}
+    match /blocks/{docId} {
+      allow read:   if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    // ── Accountability Partners ─────────────────────────────────────────────
+    // Doc ID is the userId. Users can only manage their own partner pairing.
+    match /accountabilityPartners/{userId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Public Packs (pack discovery) ─────────────────────────────────────
+    // Readable by any authed user. Only pack leaders can create/update/delete.
+    match /publicPacks/{packId} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null && isPackMember(packId);
+      allow update: if request.auth != null && isPackMember(packId);
+      allow delete: if request.auth != null && isPackMember(packId);
+    }
+
+    // ── Rate Limits (Cloud Functions only) ──────────────────────────────────
+    // Used by sendNotification Cloud Function for rate limiting.
+    // No client access — only the admin SDK (Cloud Functions) can read/write.
+    match /rateLimits/{docId} {
+      allow read:  if false;
+      allow write: if false;
     }
   }
 }

@@ -17,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { usePack } from "../hooks/usePack";
 import { spacing, typography, radius } from "../lib/theme";
 import { notification, NotificationType } from "../lib/haptics";
+import { maybePromptNotifications } from "../lib/notificationPrompt";
 
 export default function CreatePackScreen() {
   const insets = useSafeAreaInsets();
@@ -48,6 +49,7 @@ export default function CreatePackScreen() {
       const success = await create(trimmed, motto.trim() || undefined);
       if (success) {
         notification(NotificationType.Success);
+        maybePromptNotifications("pack").catch(() => {});
         router.back();
       } else {
         setError("Failed to create pack. Please try again.");
