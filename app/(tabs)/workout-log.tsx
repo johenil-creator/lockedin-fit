@@ -194,7 +194,7 @@ export default function WorkoutLogScreen() {
                         style={[emptyStyles.actionCard, { backgroundColor: theme.colors.primary + "15", borderColor: theme.colors.primary }]}
                         onPress={() => router.push("/(tabs)/plan")}
                       >
-                        <Ionicons name="calendar-outline" size={22} color={theme.colors.primary} />
+                        <Ionicons name="clipboard-outline" size={22} color={theme.colors.primary} />
                         <Text style={[emptyStyles.actionLabel, { color: theme.colors.primary }]}>Go to My Plan</Text>
                       </Pressable>
                     </Animated.View>

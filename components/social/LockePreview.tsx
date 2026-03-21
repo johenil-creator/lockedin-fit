@@ -9,12 +9,12 @@ type Props = {
 };
 
 /**
- * For sizes >= 40px, renders the full LockeAvatarBuilder.
- * For tiny thumbnails (< 40px), falls back to a compact emoji preview.
+ * For sizes >= 32px, renders the full LockeAvatarBuilder.
+ * For tiny thumbnails (< 32px), falls back to a compact emoji preview.
  */
 function LockePreviewInner({ size, customization }: Props) {
-  // Full avatar for studio / profile / larger displays
-  if (size >= 40) {
+  // Full avatar for studio / profile / social thumbnails
+  if (size >= 32) {
     return <LockeAvatarBuilder size={size} customization={customization} animated={size >= 120} />;
   }
 

@@ -64,7 +64,7 @@ export async function createPack(
     });
 
     // Update user doc (use setDoc with merge in case doc doesn't exist yet)
-    await setDoc(doc(db, "users", userId), { packId: packRef.id }, { merge: true });
+    await setDoc(doc(db, "users", userId), { packId: packRef.id, displayName }, { merge: true });
 
     const info: PackInfo = {
       id: packRef.id,
@@ -121,7 +121,7 @@ export async function joinPack(
     await updateDoc(packDoc.ref, { memberCount: increment(1) });
 
     // Update user doc (use setDoc with merge in case doc doesn't exist yet)
-    await setDoc(doc(db, "users", userId), { packId: packDoc.id }, { merge: true });
+    await setDoc(doc(db, "users", userId), { packId: packDoc.id, displayName }, { merge: true });
 
     const info: PackInfo = {
       id: packDoc.id,
@@ -189,8 +189,11 @@ export async function getPackDetail(
 
     const memberIds = membersSnap.docs.map((d) => d.data().userId);
     const memberRoles = new Map<string, PackRole>();
+    const memberNames = new Map<string, string>();
     for (const d of membersSnap.docs) {
-      memberRoles.set(d.data().userId, d.data().role);
+      const data = d.data();
+      memberRoles.set(data.userId, data.role);
+      if (data.displayName) memberNames.set(data.userId, data.displayName);
     }
 
     // Fetch member weekly XP from weeklyXp collection
@@ -222,18 +225,25 @@ export async function getPackDetail(
       for (const uid of batch) {
         try {
           const userDoc = await getDoc(doc(db, "users", uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            members.push({
-              userId: uid,
-              displayName: userData.displayName ?? "Unknown",
-              rank: (userData.rank ?? "Runt") as RankLevel,
-              role: memberRoles.get(uid) ?? "member",
-              weeklyXp: memberXpMap.get(uid) ?? 0,
-              lockeCustomization: userData.lockeCustomization ?? undefined,
-            });
-          }
+          const userData = userDoc.exists() ? userDoc.data() : {};
+          const fallbackName = memberNames.get(uid) ?? "Unknown";
+          members.push({
+            userId: uid,
+            displayName: userData.displayName || userData.name || fallbackName,
+            rank: (userData.rank ?? "Runt") as RankLevel,
+            role: memberRoles.get(uid) ?? "member",
+            weeklyXp: memberXpMap.get(uid) ?? 0,
+            lockeCustomization: userData.lockeCustomization ?? undefined,
+          });
         } catch (e) {
+          // User doc fetch failed — use packMembers data as fallback
+          members.push({
+            userId: uid,
+            displayName: memberNames.get(uid) ?? "Unknown",
+            rank: "Runt" as RankLevel,
+            role: memberRoles.get(uid) ?? "member",
+            weeklyXp: memberXpMap.get(uid) ?? 0,
+          });
           if (__DEV__) console.warn("[packService] getPackDetail member fetch failed:", e);
         }
       }
