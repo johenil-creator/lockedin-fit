@@ -1,6 +1,6 @@
 export const TERMS_OF_SERVICE = `LOCKEDINFIT TERMS OF SERVICE
 
-Effective Date: March 10, 2026
+Effective Date: March 21, 2026
 
 Please read these Terms of Service ("Terms") carefully before using LockedInFIT ("the app"). By using the app, you agree to be bound by these Terms.
 
@@ -55,27 +55,35 @@ You may create custom workout plans using the plan builder. You are solely respo
 
 All content, design, and code in LockedInFIT are the property of the app's developers unless otherwise noted. Exercise names and descriptions reference commonly known movements and are not claimed as proprietary.
 
-9. DATA AND PRIVACY
+9. ADVERTISING
+
+LockedInFIT displays advertisements served by Google AdMob. By using the app, you acknowledge that:
+• Ads may appear as banners, interstitials, or rewarded videos within the app.
+• Google AdMob may collect device identifiers and ad interaction data to serve and measure ads. See Google's Privacy Policy for details.
+• You may opt out of personalized ads through your device settings (Settings > Privacy > Tracking on iOS).
+• Ad availability and content are controlled by Google and third-party advertisers; LockedInFIT does not endorse any advertised products or services.
+
+10. DATA AND PRIVACY
 
 Your use of LockedInFIT is also governed by our Privacy Policy, which describes how we collect, use, and protect your data. By using the app, you consent to the data practices described in the Privacy Policy.
 
-10. MODIFICATIONS TO THE APP AND TERMS
+11. MODIFICATIONS TO THE APP AND TERMS
 
 We reserve the right to modify or discontinue the app at any time. We may also update these Terms from time to time. Continued use of the app after changes constitutes acceptance of the updated Terms.
 
-11. DISPUTE RESOLUTION
+12. DISPUTE RESOLUTION
 
 Any disputes arising from or relating to these Terms or your use of the app shall be resolved through binding arbitration in accordance with applicable arbitration rules, rather than in court. You agree to waive any right to a jury trial or to participate in a class action.
 
-12. GOVERNING LAW
+13. GOVERNING LAW
 
 These Terms shall be governed by and construed in accordance with applicable federal and state laws, without regard to conflict of law principles.
 
-13. SEVERABILITY
+14. SEVERABILITY
 
 If any provision of these Terms is found to be unenforceable, the remaining provisions shall continue in full force and effect.
 
-14. CONTACT
+15. CONTACT
 
 For questions about these Terms, contact us at:
 
