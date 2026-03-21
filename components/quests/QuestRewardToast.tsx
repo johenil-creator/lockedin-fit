@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Text, StyleSheet } from "react-native";
+import { Text, Image, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -47,7 +47,7 @@ export function QuestRewardToast({ amount, visible, onDismiss }: Props) {
 
   return (
     <Animated.View style={[styles.container, animStyle]}>
-      <Text style={styles.text}>{"\u26A1"} +{amount} Fangs</Text>
+      <Image source={require("../../assets/fangs_icon.png")} style={{ width: 24, height: 24, tintColor: "#FFD700" }} resizeMode="contain" /><Text style={styles.text}> +{amount} Fangs</Text>
     </Animated.View>
   );
 }

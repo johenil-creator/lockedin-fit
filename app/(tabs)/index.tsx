@@ -388,7 +388,7 @@ const NoPlanCard = React.memo(function NoPlanCard({
         No plan loaded
       </Text>
       <Text style={[styles.workoutDayLabel, { color: theme.colors.muted, marginBottom: 16 }]}>
-        Scout a training plan or start a quick hunt
+        Scout a training plan or jump into a quick hunt
       </Text>
       <View style={styles.noPlanBtns}>
         <Button label="Scout Training" onPress={onBrowse} />

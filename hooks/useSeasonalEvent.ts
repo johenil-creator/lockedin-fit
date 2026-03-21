@@ -19,6 +19,7 @@ type UseSeasonalEventResult = {
   participation: EventParticipation | null;
   leaderboard: EventLeaderboardEntry[];
   loading: boolean;
+  signedIn: boolean;
   joinEvent: () => Promise<void>;
 };
 
@@ -54,13 +55,17 @@ export function useSeasonalEvent(): UseSeasonalEventResult {
   }, [user]);
 
   const joinEvent = useCallback(async () => {
-    if (!user || !event) return;
-    const p = await joinEventService(user.uid, event.id);
-    setParticipation(p);
+    if (!event || !user) return;
+    try {
+      const p = await joinEventService(user.uid, event.id);
+      setParticipation(p);
 
-    // Lazily load leaderboard after joining
-    const lb = await getEventLeaderboard(event.id);
-    setLeaderboard(lb);
+      // Lazily load leaderboard after joining
+      const lb = await getEventLeaderboard(event.id);
+      setLeaderboard(lb);
+    } catch (e) {
+      if (__DEV__) console.warn("[useSeasonalEvent] joinEvent failed:", e);
+    }
   }, [user, event]);
 
   // Load leaderboard lazily when participation exists and event is set
@@ -69,5 +74,5 @@ export function useSeasonalEvent(): UseSeasonalEventResult {
     getEventLeaderboard(event.id).then(setLeaderboard).catch(() => {});
   }, [event, participation]);
 
-  return { event, participation, leaderboard, loading, joinEvent };
+  return { event, participation, leaderboard, loading, signedIn: !!user, joinEvent };
 }

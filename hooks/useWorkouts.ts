@@ -190,7 +190,7 @@ export function useWorkouts() {
     []
   );
 
-  /** Start a session from a simple exercise list (used by Quick Workout). */
+  /** Start a session from a simple exercise list (used by Hunt Templates). */
   const startSessionFromExercises = useCallback(
     async (
       name: string,

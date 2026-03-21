@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, ScrollView, StyleSheet } from "react-native";
 import { Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import { BackButton } from "../components/BackButton";
@@ -19,7 +20,8 @@ export default function QuestsScreen() {
   const { theme } = useAppTheme();
   const { user } = useAuth();
   const { dailyQuests, weeklyObjective, claim } = useQuests();
-  const { event, participation, leaderboard, joinEvent } = useSeasonalEvent();
+  const router = useRouter();
+  const { event, participation, leaderboard, signedIn, joinEvent } = useSeasonalEvent();
   const [toastAmount, setToastAmount] = useState(0);
   const [showToast, setShowToast] = useState(false);
 
@@ -38,7 +40,9 @@ export default function QuestsScreen() {
             <EventBanner
               event={event}
               participation={participation}
+              signedIn={signedIn}
               onJoin={() => joinEvent()}
+              onSignIn={() => router.push("/auth")}
             />
             {leaderboard.length > 0 && (
               <EventLeaderboard

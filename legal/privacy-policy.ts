@@ -44,7 +44,7 @@ All data is used solely to provide app functionality:
 • Syncing XP and league standings with other users
 • Importing workout plans from Google Sheets
 
-We do NOT use your data for advertising, marketing, or profiling. We do NOT sell your data to third parties.
+We do NOT use your fitness data, health data, or personal information for advertising, marketing, or profiling. We do NOT sell your data to third parties. However, our advertising partner (Google AdMob) may collect certain device and interaction data for ad serving purposes — see Section 5 below.
 
 3. DATA STORAGE
 
@@ -67,17 +67,34 @@ Your health data from Apple Health is cached locally on your device with short e
 • Firebase (Google) — Authentication, cloud database for social features. Subject to Google's Privacy Policy.
 • Google OAuth — Used only for Google Sheets plan import. We request access only to files you explicitly select.
 • Apple HealthKit — Used only with your permission to enhance recovery tracking and auto-fill body weight.
+• Google AdMob — Displays banner and interstitial ads. Subject to Google's Privacy Policy (https://policies.google.com/privacy). See Section 5 for details.
 
-We do not use analytics services, crash reporting, or advertising SDKs.
+We do not use analytics services or crash reporting SDKs.
 
-5. DATA RETENTION
+5. ADVERTISING
+
+LockedInFIT displays ads through Google AdMob (banner and interstitial ads). To serve ads, AdMob may collect:
+• Device identifiers (e.g., Advertising ID)
+• IP address
+• Ad interaction data (impressions, clicks)
+
+This data is collected and processed by Google under Google's Privacy Policy: https://policies.google.com/privacy
+
+Important: We do NOT share your fitness data, health data, workout history, or personal information with AdMob. AdMob only receives standard device and interaction data necessary for ad serving.
+
+Opting Out of Personalized Ads
+You can opt out of personalized advertising at any time:
+• iOS: Settings > Privacy & Security > Tracking (disable tracking for LockedInFIT)
+• Android: Settings > Google > Ads > Opt out of Ads Personalization
+
+6. DATA RETENTION
 
 • Local data is retained until you clear it or delete the app.
 • Health cache data expires automatically (5 minutes to 1 hour depending on type).
 • Firebase data is retained until you delete your account.
 • Daily fatigue snapshots are retained for 30 days.
 
-6. YOUR RIGHTS
+7. YOUR RIGHTS
 
 You have the right to:
 • Access your data — Use the "Export Data" feature in Settings to download all stored data.
@@ -85,19 +102,19 @@ You have the right to:
 • Withdraw consent — You can revoke Apple Health access in iOS Settings > Health > LockedInFIT at any time.
 • Data portability — Your data export is provided in JSON format.
 
-7. CHILDREN'S PRIVACY
+8. CHILDREN'S PRIVACY
 
 LockedInFIT is not intended for children under 13. We do not knowingly collect personal information from children under 13. If you are under 13, do not use this app or provide any personal information.
 
-8. DATA SECURITY
+9. DATA SECURITY
 
 We use industry-standard security measures including HTTPS encryption for all network communications and iOS file-level encryption for local data. However, no method of electronic storage is 100% secure.
 
-9. CHANGES TO THIS POLICY
+10. CHANGES TO THIS POLICY
 
 We may update this Privacy Policy from time to time. We will notify you of significant changes through the app. Continued use of the app after changes constitutes acceptance of the updated policy.
 
-10. CONTACT US
+11. CONTACT US
 
 If you have questions about this Privacy Policy or wish to exercise your data rights, contact us at:
 

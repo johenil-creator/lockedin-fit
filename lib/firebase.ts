@@ -5,6 +5,7 @@ import {
   type Auth,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // getReactNativePersistence is exported from @firebase/auth's RN entry point
@@ -45,5 +46,6 @@ try {
 }
 
 const db = getFirestore(app);
+const functions = getFunctions(app);
 
-export { app, auth, db };
+export { app, auth, db, functions };

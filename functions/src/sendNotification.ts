@@ -9,7 +9,11 @@
  * - cosmeticGifts: on create → notify recipient
  * - packChallenges: on status change to 'completed' → notify all pack members
  *
- * Also exports a callable `sendNotificationCallable` for custom notifications.
+ * Also exports a callable `sendNotification` for custom notifications with:
+ * - Authentication check
+ * - Relationship verification (caller must be friend, packmate, or co-participant)
+ * - Rate limiting (max 10 notifications per user per hour)
+ * - Content validation (predefined types only, sanitized content)
  */
 
 import * as functions from "firebase-functions";
@@ -17,6 +21,8 @@ import * as admin from "firebase-admin";
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
+
+// ── Allowed notification types ──────────────────────────────────────────────
 
 type NotificationType =
   | "friend_workout"
@@ -29,6 +35,196 @@ type NotificationType =
   | "streak_battle_lost"
   | "milestone_friend"
   | "comment_received";
+
+const VALID_NOTIFICATION_TYPES = new Set<NotificationType>([
+  "friend_workout",
+  "challenge_received",
+  "challenge_update",
+  "gift_received",
+  "pack_challenge_complete",
+  "quest_expiring",
+  "nudge_received",
+  "streak_battle_lost",
+  "milestone_friend",
+  "comment_received",
+]);
+
+// ── Content constraints ─────────────────────────────────────────────────────
+
+const MAX_TITLE_LENGTH = 100;
+const MAX_BODY_LENGTH = 300;
+const MAX_EXTRA_DATA_KEYS = 5;
+const MAX_EXTRA_DATA_VALUE_LENGTH = 200;
+
+// ── Rate limiting ───────────────────────────────────────────────────────────
+
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Check and increment the caller's rate limit counter.
+ * Returns true if the caller is within limits, false if they should be blocked.
+ * Uses Firestore document `rateLimits/notifications:{callerId}`.
+ */
+async function checkRateLimit(callerId: string): Promise<boolean> {
+  const rateLimitRef = db.doc(`rateLimits/notifications:${callerId}`);
+  const now = Date.now();
+
+  return db.runTransaction(async (tx) => {
+    const doc = await tx.get(rateLimitRef);
+    const data = doc.data();
+
+    if (!data || now - (data.windowStart ?? 0) > RATE_LIMIT_WINDOW_MS) {
+      // No record or window expired — start a new window
+      tx.set(rateLimitRef, { count: 1, windowStart: now });
+      return true;
+    }
+
+    if (data.count >= RATE_LIMIT_MAX) {
+      return false;
+    }
+
+    tx.update(rateLimitRef, {
+      count: admin.firestore.FieldValue.increment(1),
+    });
+    return true;
+  });
+}
+
+// ── Relationship verification ───────────────────────────────────────────────
+
+/**
+ * Verify that the caller has a legitimate relationship with the target user.
+ * At least one of the following must be true:
+ * 1. They are friends (friendships collection)
+ * 2. They are in the same pack (packMembers collection)
+ * 3. They are participants in the same active challenge or battle
+ */
+async function verifyRelationship(
+  callerId: string,
+  targetUserId: string
+): Promise<boolean> {
+  // Check friendships (either direction)
+  const [friendshipA, friendshipB] = await Promise.all([
+    db
+      .collection("friendships")
+      .where("userId", "==", callerId)
+      .where("friendId", "==", targetUserId)
+      .limit(1)
+      .get(),
+    db
+      .collection("friendships")
+      .where("userId", "==", targetUserId)
+      .where("friendId", "==", callerId)
+      .limit(1)
+      .get(),
+  ]);
+
+  if (!friendshipA.empty || !friendshipB.empty) {
+    return true;
+  }
+
+  // Check if they are in the same pack
+  const callerPackMembership = await db
+    .collection("packMembers")
+    .where("userId", "==", callerId)
+    .limit(1)
+    .get();
+
+  if (!callerPackMembership.empty) {
+    const callerPackId = callerPackMembership.docs[0].data().packId as string;
+    const targetInSamePack = await db
+      .collection("packMembers")
+      .where("userId", "==", targetUserId)
+      .where("packId", "==", callerPackId)
+      .limit(1)
+      .get();
+
+    if (!targetInSamePack.empty) {
+      return true;
+    }
+  }
+
+  // Check if they share an active friend challenge
+  const [challengeAsChallenger, challengeAsOpponent] = await Promise.all([
+    db
+      .collection("friendChallenges")
+      .where("challengerId", "==", callerId)
+      .where("opponentId", "==", targetUserId)
+      .where("status", "==", "active")
+      .limit(1)
+      .get(),
+    db
+      .collection("friendChallenges")
+      .where("challengerId", "==", targetUserId)
+      .where("opponentId", "==", callerId)
+      .where("status", "==", "active")
+      .limit(1)
+      .get(),
+  ]);
+
+  if (!challengeAsChallenger.empty || !challengeAsOpponent.empty) {
+    return true;
+  }
+
+  // Check if they share an active streak battle
+  const [battleAsP1, battleAsP2] = await Promise.all([
+    db
+      .collection("streakBattles")
+      .where("player1Id", "==", callerId)
+      .where("player2Id", "==", targetUserId)
+      .where("status", "==", "active")
+      .limit(1)
+      .get(),
+    db
+      .collection("streakBattles")
+      .where("player1Id", "==", targetUserId)
+      .where("player2Id", "==", callerId)
+      .where("status", "==", "active")
+      .limit(1)
+      .get(),
+  ]);
+
+  if (!battleAsP1.empty || !battleAsP2.empty) {
+    return true;
+  }
+
+  return false;
+}
+
+// ── Content sanitization ────────────────────────────────────────────────────
+
+function sanitizeString(input: unknown, maxLength: number): string | null {
+  if (typeof input !== "string") return null;
+  // Strip control characters, trim whitespace
+  const cleaned = input.replace(/[\x00-\x1F\x7F]/g, "").trim();
+  if (cleaned.length === 0) return null;
+  return cleaned.slice(0, maxLength);
+}
+
+function validateExtraData(
+  data: unknown
+): Record<string, string> | null {
+  if (data === null || data === undefined) return null;
+  if (typeof data !== "object" || Array.isArray(data)) return null;
+
+  const record = data as Record<string, unknown>;
+  const keys = Object.keys(record);
+
+  if (keys.length > MAX_EXTRA_DATA_KEYS) return null;
+
+  const sanitized: Record<string, string> = {};
+  for (const key of keys) {
+    const sanitizedKey = sanitizeString(key, 50);
+    const sanitizedValue = sanitizeString(record[key], MAX_EXTRA_DATA_VALUE_LENGTH);
+    if (!sanitizedKey || !sanitizedValue) continue;
+    sanitized[sanitizedKey] = sanitizedValue;
+  }
+
+  return sanitized;
+}
+
+// ── Helper: create notification document ────────────────────────────────────
 
 async function createNotification(
   userId: string,
@@ -280,10 +476,11 @@ export const onCommentPosted = functions.firestore
     );
   });
 
-// ── Callable: Custom Notification ───────────────────────────────────────────
+// ── Callable: Custom Notification (authorized + rate-limited) ───────────────
 
 export const sendNotification = functions.https.onCall(
   async (data, context) => {
+    // 1. Authentication check
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
@@ -291,9 +488,12 @@ export const sendNotification = functions.https.onCall(
       );
     }
 
+    const callerId = context.auth.uid;
+
+    // 2. Parse and validate input
     const { userId, type, title, body, extraData } = data as {
       userId: string;
-      type: NotificationType;
+      type: string;
       title: string;
       body: string;
       extraData?: Record<string, string>;
@@ -306,7 +506,75 @@ export const sendNotification = functions.https.onCall(
       );
     }
 
-    await createNotification(userId, type, title, body, extraData);
+    // 3. Validate notification type is in the allowed set
+    if (!VALID_NOTIFICATION_TYPES.has(type as NotificationType)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        `Invalid notification type: "${type}". Must be one of: ${[...VALID_NOTIFICATION_TYPES].join(", ")}`
+      );
+    }
+
+    // 4. Prevent self-notifications
+    if (callerId === userId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Cannot send a notification to yourself"
+      );
+    }
+
+    // 5. Sanitize content
+    const sanitizedTitle = sanitizeString(title, MAX_TITLE_LENGTH);
+    const sanitizedBody = sanitizeString(body, MAX_BODY_LENGTH);
+
+    if (!sanitizedTitle || !sanitizedBody) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Title and body must be non-empty strings"
+      );
+    }
+
+    const sanitizedExtraData = validateExtraData(extraData);
+
+    // 6. Verify the target user exists
+    const targetUserDoc = await db.doc(`users/${userId}`).get();
+    if (!targetUserDoc.exists) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Target user does not exist"
+      );
+    }
+
+    // 7. Verify caller has a legitimate relationship with target user
+    const hasRelationship = await verifyRelationship(callerId, userId);
+    if (!hasRelationship) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "You do not have a relationship with this user (must be friends, packmates, or co-participants in a challenge/battle)"
+      );
+    }
+
+    // 8. Rate limiting — max 10 notifications per user per hour
+    const withinLimit = await checkRateLimit(callerId);
+    if (!withinLimit) {
+      throw new functions.https.HttpsError(
+        "resource-exhausted",
+        "Rate limit exceeded. You can send a maximum of 10 notifications per hour."
+      );
+    }
+
+    // 9. Create the notification
+    await createNotification(
+      userId,
+      type as NotificationType,
+      sanitizedTitle,
+      sanitizedBody,
+      sanitizedExtraData ?? undefined
+    );
+
+    functions.logger.info(
+      `Notification sent: ${callerId} → ${userId} (type: ${type})`
+    );
+
     return { success: true };
   }
 );

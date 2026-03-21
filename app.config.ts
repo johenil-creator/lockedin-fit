@@ -25,6 +25,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     icon: "./assets/icons/icon_default.png",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      NSUserTrackingUsageDescription:
+        "LockedInFIT uses your advertising identifier to show relevant ads and measure ad performance. You can change this anytime in Settings.",
       NSHealthShareUsageDescription:
         "LockedIn FIT reads your body weight, workouts, heart rate, resting heart rate, HRV, step count, active energy, and sleep data from Apple Health to improve your readiness scoring, detect external workouts, and provide personalized recovery insights.",
       NSHealthUpdateUsageDescription:
@@ -68,6 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         isClinicalDataEnabled: false,
       },
     ],
+    "expo-tracking-transparency",
     "expo-asset",
     "expo-font",
     [

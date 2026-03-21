@@ -42,14 +42,14 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
       "Week like that builds something.",
     ],
     disappointed: [
-      "You finished. Barely counts.",
-      "Half-efforts don't build anything.",
-      "The bar's on the floor. Pick it up next time.",
+      "You showed up. Now build on it.",
+      "There's more in you. Bring it next time.",
+      "Finished is finished. Raise the bar next session.",
     ],
     intense: [
-      "You barely showed up. Do better.",
-      "Mediocre is a choice. You made it.",
-      "The work didn't wait for you.",
+      "You showed up. Now push harder.",
+      "Good enough isn't the goal. Chase greatness.",
+      "The next one is where you prove it.",
     ],
     focused: [
       "Controlled execution. That's how you peak.",
@@ -140,13 +140,13 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
       "Unbroken. Keep it that way.",
     ],
     disappointed: [
-      "Streaks end. Don't let yours.",
+      "Every day is a chance to extend it.",
       "It's just days. Make them count.",
     ],
     intense: [
-      "Consistent but are you progressing?",
-      "Don't confuse showing up with getting better.",
-      "Numbers are easy to fake. Results aren't.",
+      "Consistent — now push for progress.",
+      "Showing up is the foundation. Growth is the goal.",
+      "The streak is solid. Make the reps count too.",
     ],
     proud: [
       "That streak is built on discipline. Respect.",
@@ -165,38 +165,38 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
 
   inactivity: {
     neutral: [
-      "You've been gone a while.",
-      "Absence noted.",
-      "Log shows nothing recent.",
-      "Gap detected.",
+      "Ready to get back in the hunt?",
+      "Fresh start available.",
+      "The log is ready when you are.",
+      "New session, clean slate.",
     ],
     encouraging: [
-      "You're back. Prove it wasn't a fluke.",
-      "Rest is fine. Now move.",
-      "Back in the gym. Show it means something.",
+      "Welcome back. Let's build from here.",
+      "Rest is part of the process. Time to move.",
+      "Back in the gym. That takes guts.",
     ],
     celebrating: [],
     disappointed: [
-      "Three days. What happened?",
-      "You went quiet. Excuses or reasons — doesn't matter.",
-      "Streak's dead. You buried it.",
-      "Was it worth missing?",
-      "Everyone's still training. You rested.",
-      "Gap like that has a cost. You'll feel it.",
+      "Time off happens. What matters is coming back.",
+      "Reset and refocus. That's all it takes.",
+      "The comeback starts with one session.",
+      "Today is a fresh start. Take it.",
+      "Every great run has a rest chapter.",
+      "A break can be fuel. Use it.",
     ],
     intense: [
-      "The work didn't wait for you.",
-      "Everyone else kept going.",
-      "Absence isn't rest. It's retreat.",
+      "The iron is waiting. Let's go.",
+      "Fresh legs, fresh opportunity.",
+      "Time to channel that energy into something.",
     ],
     concerned: [
-      "Haven't seen you. Everything alright?",
+      "Hope you're doing well. Ready to ease back in?",
       "Extended break. Let's ease back in carefully.",
-      "Your body detrains fast. The sooner you return, the less you lose.",
+      "Your body bounces back fast. A light session is a great restart.",
     ],
     onboarding_guide: [
-      "You've been away. Pick it back up.",
-      "Come back. The log's waiting.",
+      "Ready to pick it back up? Let's go.",
+      "The log is waiting. One session at a time.",
     ],
   },
 
@@ -219,7 +219,7 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
     ],
     disappointed: [],
     intense: [
-      "New rank. Higher standards now. Don't slide.",
+      "New rank. Higher standards now. Own it.",
       "Title changed. Work hasn't.",
     ],
     proud: [
@@ -246,8 +246,8 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
     celebrating: [],
     disappointed: [],
     intense: [
-      "Don't lowball your 1RM. You'll only cheat yourself.",
-      "Be honest with the numbers. Locke doesn't forget.",
+      "Give your real 1RM. Honest numbers make better training.",
+      "Be honest with the numbers. They're your foundation.",
     ],
     onboarding_guide: [
       "Let's calibrate. These numbers matter.",
@@ -284,38 +284,38 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
 
   low_performance: {
     neutral: [
-      "Below average week.",
-      "Numbers are down.",
-      "Weak output this week.",
+      "Lighter week on the books.",
+      "Numbers dipped. Room to grow.",
+      "Off week — they happen to everyone.",
     ],
     encouraging: [
-      "Down week. Everyone gets one. Don't make it two.",
-      "Not your best. Fix it next week.",
+      "Down week. Everyone gets one. Next week is yours.",
+      "Not your best — but you still showed up. Build on it.",
     ],
     celebrating: [],
     disappointed: [
-      "That score is soft. You know it.",
-      "Sub-par week. No other way to say it.",
-      "The numbers don't lie. You phoned it in.",
-      "Everyone has off weeks. This one was yours. Don't make it a habit.",
+      "Quieter week. The bounce-back is where it counts.",
+      "Not the strongest week. Fresh energy next round.",
+      "The numbers will climb again. Stay the course.",
+      "Off weeks are part of the process. Refocus and reload.",
     ],
     intense: [
-      "That's not good enough and you know it.",
-      "Weak output. No excuses.",
-      "This is the floor. Don't stay here.",
+      "You've got more in you. Time to unlock it.",
+      "Lower output just means bigger upside ahead.",
+      "This is the launchpad. Rise from here.",
     ],
     concerned: [
       "Numbers dropped. Could be fatigue — check your recovery.",
-      "Low output. Are you under-recovered or under-motivated?",
-      "Dip like this needs attention, not avoidance.",
+      "Low output. Might be worth reviewing sleep and nutrition.",
+      "A dip like this is worth paying attention to. Recovery first.",
     ],
     analytical: [
-      "Week-over-week performance declining. Review training load.",
-      "Data shows a drop. Identify the variable.",
+      "Week-over-week performance dipped. Review training load.",
+      "Data shows a drop. Let's identify the variable.",
       "Numbers are below baseline. Let's course-correct.",
     ],
     onboarding_guide: [
-      "Rough week. Stay consistent and it evens out.",
+      "Lighter week. Stay consistent and it evens out.",
     ],
   },
 

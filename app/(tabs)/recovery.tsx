@@ -682,6 +682,9 @@ const DeloadCard = React.memo(function DeloadCard({ card }: { card: DeloadCardDa
           )}
         </>
       )}
+      <Text style={[styles.disclaimer, { color: theme.colors.muted, marginTop: spacing.xs }]}>
+        Training suggestion only.
+      </Text>
     </Card>
     </View>
   );
@@ -1472,6 +1475,11 @@ export default function RecoveryScreen() {
           </View>
         </View>
 
+        {/* Disclaimer */}
+        <Text style={[styles.disclaimer, { color: theme.colors.muted }]}>
+          Estimates based on your training data. Not medical advice.
+        </Text>
+
         {/* DEV fatigue panel */}
         {__DEV__ && devOpen && data && (
           <View style={{ marginBottom: spacing.sm }}>
@@ -1515,6 +1523,13 @@ export default function RecoveryScreen() {
                 </Card>
               </PressableCardWrap>
             </Animated.View>
+
+            {/* Low readiness advisory */}
+            {data.readiness.score < 40 && data.deloadTriggered && (
+              <Text style={[styles.disclaimer, { color: theme.colors.muted, marginBottom: spacing.sm }]}>
+                Listen to your body. Consult a professional if you're experiencing persistent pain or fatigue.
+              </Text>
+            )}
 
             {/* 2. Coach Card */}
             <Animated.View entering={sectionEnter(50)} style={styles.coachSection}>
@@ -1662,6 +1677,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
+  },
+  disclaimer: {
+    ...typography.caption,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: spacing.xs,
   },
   headerLeft: {
     flexDirection: 'row',

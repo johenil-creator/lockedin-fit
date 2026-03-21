@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable, Switch, Alert, Share } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable, Switch, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { Card } from "../components/Card";
@@ -19,6 +18,7 @@ import { isSignedIn, signOut, signInWithGoogle, getStoredEmail } from "../lib/go
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { deleteAccount, clearLocalData as deleteLocalData } from "../lib/accountDeletion";
+import { exportAndShare } from "../lib/dataExportService";
 
 const KG_TO_LBS = 2.20462;
 const LBS_TO_KG = 0.453592;
@@ -106,16 +106,9 @@ export default function SettingsScreen() {
     if (exporting) return;
     setExporting(true);
     try {
-      const keys = await AsyncStorage.getAllKeys();
-      const stores = await AsyncStorage.multiGet(keys.filter((k) => k.startsWith("@lockedinfit/")));
-      const data: Record<string, unknown> = {};
-      for (const [key, value] of stores) {
-        try { data[key] = value ? JSON.parse(value) : null; } catch { data[key] = value; }
-      }
-      const json = JSON.stringify(data, null, 2);
-      await Share.share({ message: json, title: "LockedInFIT Data Export" });
+      await exportAndShare(user?.uid ?? null);
     } catch {
-      Alert.alert("Export Failed", "Could not export data.");
+      Alert.alert("Export Failed", "Could not export your data. Please try again.");
     } finally {
       setExporting(false);
     }
@@ -330,8 +323,13 @@ export default function SettingsScreen() {
         <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
           Data
         </Text>
-        <Pressable style={styles.row} onPress={handleExport}>
-          <Text style={[typography.body, { color: theme.colors.text }]}>Export All Data</Text>
+        <Pressable style={styles.row} onPress={handleExport} disabled={exporting}>
+          <View>
+            <Text style={[typography.body, { color: theme.colors.text }]}>Export My Data</Text>
+            <Text style={[typography.caption, { color: theme.colors.muted }]}>
+              {user ? "Local + cloud data" : "Local data only"}
+            </Text>
+          </View>
           <Text style={[typography.caption, { color: theme.colors.muted }]}>{exporting ? "Exporting…" : "JSON"}</Text>
         </Pressable>
         <Pressable style={styles.row} onPress={() => router.push("/onboarding?retake=1")}>

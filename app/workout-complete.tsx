@@ -41,8 +41,10 @@ import { dealDamage, getBossStatus } from "../lib/packBossService";
 import { addPackXpAndLevel } from "../lib/packLevelService";
 import { updateEventScore, getActiveEvent, getEventFangsMultiplier } from "../lib/seasonalEventService";
 import { trackEvent } from "../lib/engagementTracker";
+import { maybePromptNotifications } from "../lib/notificationPrompt";
 import { loadPackInfo, loadWorkouts, loadStreak } from "../lib/storage";
 import { glowColors, spacing, radius } from "../lib/theme";
+const FANGS_ICON = require("../assets/fangs_icon.png");
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { RANK_IMAGES } from "../components/RankEvolutionPath";
 import { formatPRName } from "../lib/prService";
@@ -773,6 +775,7 @@ export default function WorkoutCompleteScreen() {
   // ── Navigation handlers ────────────────────────────────────────────────────
 
   const navigateHome = useCallback(async () => {
+    await maybePromptNotifications("workout");
     await showInterstitial();
     router.replace("/");
   }, [router, showInterstitial]);
@@ -850,7 +853,7 @@ export default function WorkoutCompleteScreen() {
       {(params.fangsEarned ?? 0) > 0 && (
         <Animated.View entering={FadeIn.delay(650).duration(300)} style={styles.fangsSection}>
           <View style={styles.fangsPill}>
-            <Text style={{ fontSize: 14 }}>{"\u26A1"}</Text>
+            <Image source={FANGS_ICON} style={{ width: 24, height: 24, tintColor: "#FFD700" }} resizeMode="contain" />
             <Text style={styles.fangsText}>+{params.fangsEarned} Fangs</Text>
           </View>
         </Animated.View>

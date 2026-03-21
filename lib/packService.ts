@@ -150,12 +150,12 @@ export async function leavePack(userId: string, packId: string): Promise<boolean
   if (!isFirebaseConfigured) return false;
 
   try {
-    // Remove member doc
-    await deleteDoc(doc(db, "packMembers", `${packId}__${userId}`));
-
-    // Decrement member count
+    // Decrement member count first (while membership doc still exists for rules check)
     const packRef = doc(db, "packs", packId);
     await updateDoc(packRef, { memberCount: increment(-1) });
+
+    // Remove member doc (after pack update so isPackMember check passes)
+    await deleteDoc(doc(db, "packMembers", `${packId}__${userId}`));
 
     // Clear user's pack reference
     await setDoc(doc(db, "users", userId), { packId: null }, { merge: true });

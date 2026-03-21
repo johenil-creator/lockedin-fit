@@ -9,6 +9,8 @@ type Props = {
   event: SeasonalEvent;
   participation: EventParticipation | null;
   onJoin: () => void;
+  signedIn?: boolean;
+  onSignIn?: () => void;
 };
 
 function getCountdown(endDate: string): { days: number; hours: number } {
@@ -20,7 +22,7 @@ function getCountdown(endDate: string): { days: number; hours: number } {
   return { days, hours };
 }
 
-function EventBannerInner({ event, participation, onJoin }: Props) {
+function EventBannerInner({ event, participation, onJoin, signedIn = true, onSignIn }: Props) {
   const { theme } = useAppTheme();
   const [countdown, setCountdown] = useState(getCountdown(event.endDate));
 
@@ -33,17 +35,19 @@ function EventBannerInner({ event, participation, onJoin }: Props) {
 
   const joined = participation !== null;
 
+  const locked = !signedIn;
+
   return (
     <View
       style={[
         styles.card,
         {
           backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.primary,
+          borderColor: locked ? theme.colors.border : theme.colors.primary,
         },
       ]}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, locked && { opacity: 0.3 }]}>
         <Ionicons name="calendar-outline" size={20} color="#FFD700" />
         <Text
           style={[
@@ -63,14 +67,14 @@ function EventBannerInner({ event, participation, onJoin }: Props) {
       <Text
         style={[
           typography.body,
-          { color: theme.colors.muted, marginBottom: spacing.sm },
+          { color: theme.colors.muted, marginBottom: spacing.sm, opacity: locked ? 0.3 : 1 },
         ]}
       >
         {event.description}
       </Text>
 
       <View style={styles.footer}>
-        <View style={styles.countdownRow}>
+        <View style={[styles.countdownRow, locked && { opacity: 0.3 }]}>
           <Ionicons name="time-outline" size={16} color="#FFD700" />
           <Text
             style={[
@@ -82,7 +86,22 @@ function EventBannerInner({ event, participation, onJoin }: Props) {
           </Text>
         </View>
 
-        {joined ? (
+        {!signedIn ? (
+          <Pressable
+            style={[styles.signInBtn, { borderColor: theme.colors.primary }]}
+            onPress={onSignIn}
+          >
+            <Ionicons name="log-in-outline" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
+            <Text
+              style={[
+                typography.small,
+                { color: theme.colors.primary, fontWeight: "700" },
+              ]}
+            >
+              Sign in to join
+            </Text>
+          </Pressable>
+        ) : joined ? (
           <View
             style={[
               styles.joinedBadge,
@@ -177,5 +196,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radius.full,
+  },
+  signInBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    borderWidth: 1,
   },
 });
