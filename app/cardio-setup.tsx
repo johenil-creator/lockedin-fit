@@ -49,7 +49,7 @@ const MODALITIES: ModalityDef[] = [
   { id: "walking",      label: "Walking",        icon: "\u{1F6B6}" },
   { id: "swimming",     label: "Swimming",       icon: "\u{1F3CA}" },
   { id: "elliptical",   label: "Elliptical",     icon: "\u25EF" },
-  { id: "stairclimber", label: "Stair Climber",  icon: "\u{1FA9C}" },
+  { id: "stairclimber", label: "StairMaster",     icon: "\u{1FA9C}" },
   { id: "jump_rope",    label: "Jump Rope",      icon: "\u27B0" },
   { id: "other",        label: "Other",          icon: "\u26A1" },
 ];

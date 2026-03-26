@@ -330,7 +330,7 @@ export default function EvolutionScreen() {
   const badgeEarned = unlockedMap.size;
   const badgeTotal = BADGE_DEFINITIONS.length;
 
-  const displayRank = rank === "Runt" ? "Scout" : rank;
+  const displayRank = rank;
   const currentIdx = RANK_INDEX_MAP[displayRank] ?? 0;
 
   const scrollRef = useRef<ScrollView>(null);

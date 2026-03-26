@@ -45,11 +45,13 @@ import { estimateCalories, estimateDistance, hasDistance } from "../lib/cardioCa
 import { detectCardioPRs } from "../lib/prService";
 import { checkBadges } from "../lib/badgeService";
 import { applyXP, XP_AWARDS } from "../lib/xpService";
+import { calculateSessionFangs } from "../lib/fangsService";
 import { didRankUp, rankProgress, xpToNextRank, nextRank as getNextRank } from "../lib/rankService";
 import type { WorkoutCompleteParams } from "../lib/xpService";
 import type { WorkoutSession } from "../lib/types";
 import type { CardioModality } from "../lib/cardioSuggestions";
 import { useIconMood } from "../hooks/useIconMood";
+import { syncCompletedSession } from "../lib/healthkit/integration";
 import { cancelStreakRiskReminder } from "../lib/notifications";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -228,6 +230,9 @@ export default function CardioSessionScreen() {
 
     await addWorkout(session);
 
+    // ── Sync to Apple Health (fire-and-forget) ──────────────────────────
+    void syncCompletedSession(session);
+
     // ── Streak (with freeze + rest-day support) ──────────────────────────
     const currentProfile = profileRef.current;
     const restDays = currentProfile.restDays ?? [];
@@ -316,6 +321,9 @@ export default function CardioSessionScreen() {
     // ── Cancel streak-at-risk notification ───────────────
     void cancelStreakRiskReminder();
 
+    // ── Fangs ─────────────────────────────────────────────
+    const { total: fangsEarned } = calculateSessionFangs(virtualSets, newPRs.length > 0);
+
     const next = getNextRank(currentXP.rank);
     const completeParams: WorkoutCompleteParams = {
       sessionId: session.id,
@@ -343,6 +351,7 @@ export default function CardioSessionScreen() {
       cardioDistanceKm: distanceKm ?? undefined,
       newPRs: newPRs.map((pr) => pr.key),
       newBadges,
+      fangsEarned,
     };
 
     router.replace({

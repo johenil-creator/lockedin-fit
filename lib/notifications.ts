@@ -110,12 +110,22 @@ export async function scheduleWorkoutReminder(hour: number, minute: number = 0):
 // ── Streak risk reminder ──────────────────────────────────────────────────────
 
 /**
- * Schedule a "streak at risk" notification at 8pm daily.
+ * Schedule a "streak at risk" notification at 8pm TODAY (one-time).
  * Should be cancelled if the user completes a workout today.
+ * Re-schedule each day on app focus via scheduleStreakRiskIfNeeded().
  * Uses rotating Locke-themed messages.
  */
 export async function scheduleStreakRiskReminder(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(STREAK_RISK_ID).catch(() => {});
+
+  // Build a one-time trigger for today at 8pm
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(20, 0, 0, 0);
+
+  // If it's already past 8pm today, don't schedule
+  if (target.getTime() <= now.getTime()) return;
+
   await Notifications.scheduleNotificationAsync({
     identifier: STREAK_RISK_ID,
     content: {
@@ -123,11 +133,24 @@ export async function scheduleStreakRiskReminder(): Promise<void> {
       body: pickRandom(STREAK_RISK_BODIES),
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: 20,
-      minute: 0,
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: target,
     },
   });
+}
+
+/**
+ * Schedule streak-risk reminder only if the user hasn't worked out today.
+ * Call on app focus / home screen mount.
+ */
+export async function scheduleStreakRiskIfNeeded(
+  hasWorkedOutToday: boolean,
+): Promise<void> {
+  if (hasWorkedOutToday) {
+    await cancelStreakRiskReminder();
+  } else {
+    await scheduleStreakRiskReminder();
+  }
 }
 
 /** Cancel the streak-at-risk notification (call after completing a session). */

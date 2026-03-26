@@ -158,6 +158,7 @@ function mapCardioType(modality?: string): string {
     walking: 'Walking',
     swimming: 'Swimming',
     elliptical: 'Elliptical',
+    stairclimber: 'StairClimbing',
   };
   return map[modality ?? ''] ?? 'Other';
 }

@@ -77,6 +77,14 @@ export const CARDIO_SUGGESTIONS: CardioSuggestion[] = [
     intensity: 8,
   },
   {
+    id: "stairmaster_grind",
+    name: "StairMaster Grind",
+    description: "Climb the mountain. Legs, lungs, and pure grit.",
+    icon: "\u{1FA9C}",
+    modality: "stairclimber",
+    intensity: 7,
+  },
+  {
     id: "jump_rope_burn",
     name: "Jump Rope Burn",
     description: "Fast-twitch fury. No gear, pure results.",

@@ -54,6 +54,7 @@ export function useLeague(rank: RankLevel): UseLeagueResult {
           const marked = cached.standings.map((s) => ({
             ...s,
             isCurrentUser: s.userId === user.uid,
+            rank: s.userId === user.uid ? rank : s.rank,
           }));
           setLeague(cached.league);
           setStandings(marked);
@@ -98,10 +99,11 @@ export function useLeague(rank: RankLevel): UseLeagueResult {
         getFriendIds(user.uid),
       ]);
 
-      // Mark current user and set position
+      // Mark current user, override rank with local XP-derived rank
       const markedStandings = standingsData.map((s) => ({
         ...s,
         isCurrentUser: s.userId === user.uid,
+        rank: s.userId === user.uid ? rank : s.rank,
       }));
 
       const myPos = markedStandings.find((s) => s.isCurrentUser)?.position ?? null;

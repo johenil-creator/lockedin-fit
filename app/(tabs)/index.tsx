@@ -45,6 +45,7 @@ import { NotificationSheet } from "../../components/social/NotificationSheet";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useWeekInReview } from "../../hooks/useWeekInReview";
 import { WeekInReviewCard } from "../../components/insights/WeekInReviewCard";
+import { scheduleStreakRiskIfNeeded } from "../../lib/notifications";
 
 // ── Local sub-components ──────────────────────────────────────────────────────
 
@@ -588,6 +589,18 @@ export default function HomeScreen() {
       }
       reloadWorkouts();
     }, [reloadWorkouts])
+  );
+
+  // ── Streak-risk notification: schedule/cancel based on today's activity ────
+  useFocusEffect(
+    useCallback(() => {
+      if (workoutsLoading) return;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const workedOutToday = workouts.some(
+        (w) => w.completedAt && w.completedAt.slice(0, 10) === todayStr,
+      );
+      scheduleStreakRiskIfNeeded(workedOutToday).catch(() => {});
+    }, [workouts, workoutsLoading])
   );
 
   // ── Locke speech / mood ───────────────────────────────────────────────────
