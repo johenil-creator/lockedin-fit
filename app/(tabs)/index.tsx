@@ -28,6 +28,7 @@ import type { LockeMascotMood } from "../../components/Locke/LockeMascot";
 import { useLocke } from "../../contexts/LockeContext";
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { InfoTooltip } from "../../components/InfoTooltip";
+import { LockeHuntSheetContent } from "../../components/hunt/LockeHuntSheetContent";
 import Logo from "../../components/Logo";
 import { ProfileButton } from "../../components/ProfileButton";
 import { SectionLabel } from "../../components/SectionLabel";
@@ -244,22 +245,34 @@ const ReadinessIndicator = React.memo(function ReadinessIndicator({ onPress }: R
 type LockePanelProps = {
   mood: LockeMascotMood;
   microcopy: string;
+  onPress?: () => void;
 };
 
-const LockePanel = React.memo(function LockePanel({ mood, microcopy }: LockePanelProps) {
+const LockePanel = React.memo(function LockePanel({ mood, microcopy, onPress }: LockePanelProps) {
   const { theme } = useAppTheme();
   return (
-    <View
+    <Pressable
+      onPress={onPress}
       style={[
         styles.lockePanel,
         { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 },
       ]}
     >
-      <LockeMascot size={160} mood={mood} />
-      <Text style={[styles.lockeMicrocopy, { color: theme.colors.text }]}>
-        {microcopy}
-      </Text>
-    </View>
+      <LockeMascot size={100} mood={mood} />
+      <View style={styles.lockePanelRight}>
+        <Text style={[styles.lockeMicrocopy, { color: theme.colors.text }]}>
+          {microcopy}
+        </Text>
+        {onPress && (
+          <View style={[styles.huntCta, { backgroundColor: theme.colors.primary }]}>
+            <Ionicons name="paw" size={14} color={theme.colors.primaryText} />
+            <Text style={[styles.huntCtaText, { color: theme.colors.primaryText }]}>
+              Locke's Pick
+            </Text>
+          </View>
+        )}
+      </View>
+    </Pressable>
   );
 });
 
@@ -515,19 +528,16 @@ function resolveLockeMood(
   return "neutral";
 }
 
-/** Build microcopy string, interpolating {N} with streak count. */
-function buildMicrocopy(
-  streak: number,
-  daysSince: number,
-  rawMessage: string
-): string {
+/** Build default microcopy string based on streak context. */
+function defaultMicrocopy(streak: number, daysSince: number): string {
   if (daysSince >= 3 && daysSince !== Infinity) {
-    return "I've been waiting for you...";
+    return "You've been resting. I've got a hunt ready for you.";
   }
-  if (streak >= 30) return `${streak} days. Unstoppable.`;
-  if (streak >= 7)  return `${streak}-day streak. You're locked in.`;
-  if (streak >= 3)  return `Nice rhythm. Keep it up.`;
-  return rawMessage.replace("{N}", String(streak)) || "Let's get started.";
+  if (streak >= 30) return `${streak}-day streak. I've picked your next hunt.`;
+  if (streak >= 7)  return `${streak}-day streak. Let me pick today's hunt.`;
+  if (streak >= 3)  return "Good rhythm. I've got a hunt lined up.";
+  if (streak >= 1)  return "I've got a hunt picked for you. Let's go.";
+  return "Ready to train? I picked something for you.";
 }
 
 /** True if the last completed workout was today or yesterday and has a loadSource match (proxy for PR). */
@@ -557,10 +567,11 @@ export default function HomeScreen() {
   } = useWorkouts();
   const [refreshing, setRefreshing] = useState(false);
   const [streakSheetOpen, setStreakSheetOpen] = useState(false);
+  const [huntSheetOpen, setHuntSheetOpen] = useState(false);
   const { hydrated, profileRef } = useProfileContext();
   const { xp, rank, progress, toNext, nextTier, bandCurrent, bandTotal } = useXP();
   const { streak, daysSinceActivity, restoreStreak } = useStreak();
-  const { show: showRewardedAd, isReady: isRewardedReady } = useRewardedAd();
+  const { show: showRewardedAd } = useRewardedAd();
   const { fire } = useLocke();
   const {
     exercises: planExercises,
@@ -608,7 +619,7 @@ export default function HomeScreen() {
   const homeTrigger: LockeTrigger =
     daysSinceActivity >= 3 && daysSinceActivity !== Infinity ? "inactivity"
     : streak.current >= 3 ? "streak_milestone"
-    : "session_complete";
+    : "home_idle";
 
   const homeMood =
     daysSinceActivity >= 3 && daysSinceActivity !== Infinity ? "disappointed" as const
@@ -635,8 +646,8 @@ export default function HomeScreen() {
   const lockeMood = tappedMood ?? baseMood;
 
   const microcopy = useMemo(
-    () => buildMicrocopy(streak.current, daysSinceActivity, speechMsg),
-    [streak.current, daysSinceActivity, speechMsg]
+    () => tappedMood ? speechMsg : defaultMicrocopy(streak.current, daysSinceActivity),
+    [streak.current, daysSinceActivity, speechMsg, tappedMood]
   );
 
   // ── Navigation effects ────────────────────────────────────────────────────
@@ -859,6 +870,15 @@ export default function HomeScreen() {
         {/* 1b. READINESS INDICATOR — lightweight cached badge */}
         <ReadinessIndicator onPress={() => router.push("/(tabs)/recovery")} />
 
+        {/* LOCKE PANEL — wolf personality + hunt sheet trigger */}
+        {has1RM && (
+          <LockePanel
+            mood={lockeMood}
+            microcopy={microcopy}
+            onPress={() => setHuntSheetOpen(true)}
+          />
+        )}
+
         {/* 2. ACTIVE SESSION BANNER — highest priority */}
         {activeSession && (
           <Pressable
@@ -901,13 +921,6 @@ export default function HomeScreen() {
           <BaselineCTA onTake={() => router.push("/orm-test?source=home")} onManual={() => router.push("/onboarding?retake=1&step=manual")} />
         )}
 
-        {/* 5. LOCKE PANEL — wolf personality */}
-        {has1RM && (
-          <LockePanel
-            mood={lockeMood}
-            microcopy={microcopy}
-          />
-        )}
 
         {/* Locke banner from session-end events */}
         <LockeBanner />
@@ -957,6 +970,13 @@ export default function HomeScreen() {
         onMarkRead={markNotifRead}
         onMarkAllRead={markAllNotifsRead}
       />
+
+      {/* Hunt bottom sheet — lazy-loads recovery data on open */}
+      <AppBottomSheet visible={huntSheetOpen} onClose={() => setHuntSheetOpen(false)} snapPoints={["55%"]}>
+        {huntSheetOpen && (
+          <LockeHuntSheetContent onClose={() => setHuntSheetOpen(false)} />
+        )}
+      </AppBottomSheet>
 
       {/* Streak bottom sheet — must be outside ScrollView for gorhom */}
       <AppBottomSheet visible={streakSheetOpen} onClose={() => setStreakSheetOpen(false)}>
@@ -1104,12 +1124,13 @@ const styles = StyleSheet.create({
 
   // Locke panel
   lockePanel: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
     borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -1117,11 +1138,29 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  lockePanelRight: {
+    flex: 1,
+    flexShrink: 1,
+    gap: 8,
+  },
   lockeMicrocopy: {
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 20,
-    textAlign: "center",
+  },
+  huntCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginTop: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+  },
+  huntCtaText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
   // Today's workout card
   workoutCard: {

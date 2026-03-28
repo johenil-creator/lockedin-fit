@@ -20,6 +20,7 @@ import { useXP } from "../hooks/useXP";
 import { useHealthKit } from "../hooks/useHealthKit";
 import { useFangs } from "../hooks/useFangs";
 import { FangsDisplay } from "../components/social/FangsDisplay";
+import { useAdWatch } from "../hooks/useAdWatch";
 import { usePack } from "../hooks/usePack";
 import { loadLockeCustomization, getLockeCustomizationSync, hasLockeCustomization } from "../lib/storage";
 import { updatePublicProfile } from "../lib/publicProfileService";
@@ -92,6 +93,7 @@ export default function ProfileScreen() {
   const { xp, rank } = useXP();
   const { error: hkError } = useHealthKit();
   const { balance: fangsBalance } = useFangs();
+  const adWatch = useAdWatch();
   const { pack, refresh: refreshPack } = usePack();
   const [weight, setWeight] = useState("");
   const [lockeCustomization, setLockeCustomization] = useState<LockeCustomization>(getLockeCustomizationSync());
@@ -167,6 +169,13 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <FangsDisplay balance={fangsBalance} size="sm" showInfo />
+            {adWatch.canWatch && (
+              <Pressable onPress={adWatch.watchAd} disabled={!adWatch.adReady && !__DEV__} hitSlop={8} style={{ opacity: (adWatch.adReady || __DEV__) ? 1 : 0.5 }}>
+                <Text style={{ fontSize: 10, fontWeight: "600", color: "#FFD70099", marginTop: -1 }}>
+                  Watch to earn Fangs · {adWatch.remaining} left
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </View>

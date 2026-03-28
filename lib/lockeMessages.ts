@@ -357,6 +357,74 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
     ],
   },
 
+  home_idle: {
+    neutral: [
+      "Ready when you are.",
+      "I've got a hunt picked out.",
+      "Let's see what today brings.",
+      "Another day, another opportunity.",
+      "The log is open. Your move.",
+    ],
+    encouraging: [
+      "Good to see you. Let's get after it.",
+      "You keep showing up. That's the difference.",
+      "I've got something lined up for you.",
+      "Let's make today count.",
+      "Back at it. That's the mentality.",
+    ],
+    celebrating: [
+      "You've been on fire lately.",
+      "Momentum is real. Keep it rolling.",
+      "The pack sees you putting in work.",
+      "This energy? Unmatched.",
+    ],
+    disappointed: [
+      "It's been a while. Let's change that.",
+      "The gym doesn't come to you. Let's go.",
+      "Time to shake off the rust.",
+      "One session. That's all it takes to start again.",
+    ],
+    intense: [
+      "No days off mentally. Let's hunt.",
+      "Today's the day you surprise yourself.",
+      "I've got a hunt that'll test you.",
+      "Stop scrolling. Start lifting.",
+    ],
+    savage: [
+      "You didn't open this app to sit around.",
+      "Excuses don't build muscle.",
+      "The iron is cold. Warm it up.",
+      "Talk is cheap. Reps aren't.",
+    ],
+    focused: [
+      "Dialed in. Let's execute.",
+      "One session at a time. Stay locked.",
+      "Plan the work. Work the plan.",
+      "Precision today. Results tomorrow.",
+    ],
+    concerned: [
+      "How's recovery feeling? Listen to your body.",
+      "Make sure you're fueled up before we start.",
+      "Check in with yourself. Quality over quantity.",
+    ],
+    proud: [
+      "Look how far you've come. Now keep going.",
+      "Consistency built this. Don't stop now.",
+      "Every session is proof. Let's add more.",
+      "The habit is locked in. Respect.",
+    ],
+    analytical: [
+      "Recovery data looks interesting. Let's train smart.",
+      "I've analyzed your patterns. Got a hunt ready.",
+      "Numbers say you're primed. Let's move.",
+      "Training load is balanced. Good time to push.",
+    ],
+    onboarding_guide: [
+      "Welcome. Let's get you set up.",
+      "First things first — let's find your baseline.",
+    ],
+  },
+
 };
 
 // ── Selector ──────────────────────────────────────────────────────────────────

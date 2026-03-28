@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   RewardedAd,
   RewardedAdEventType,
@@ -9,23 +9,27 @@ import { AD_UNIT_IDS } from "../lib/adConfig";
 const rewarded = RewardedAd.createForAdRequest(AD_UNIT_IDS.REWARDED);
 
 /**
- * Preloads a rewarded ad and returns `show` + `isReady`.
+ * Preloads a rewarded ad and returns `show` + `ready`.
  * `show` resolves with `true` if the user earned the reward, `false` otherwise.
  */
 export function useRewardedAd() {
-  const loaded = useRef(false);
+  const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
 
   useEffect(() => {
     const onLoaded = rewarded.addAdEventListener(
       RewardedAdEventType.LOADED,
-      () => { loaded.current = true; }
+      () => { readyRef.current = true; setReady(true); }
     );
     const onClosed = rewarded.addAdEventListener(AdEventType.CLOSED, () => {
-      loaded.current = false;
+      readyRef.current = false;
+      setReady(false);
       rewarded.load();
     });
-    const onError = rewarded.addAdEventListener(AdEventType.ERROR, () => {
-      loaded.current = false;
+    const onError = rewarded.addAdEventListener(AdEventType.ERROR, (error) => {
+      readyRef.current = false;
+      setReady(false);
+      if (__DEV__) console.warn("[RewardedAd] load error:", error);
       // Retry after a short delay
       setTimeout(() => rewarded.load(), 5000);
     });
@@ -41,7 +45,7 @@ export function useRewardedAd() {
 
   const show = useCallback((): Promise<boolean> => {
     return new Promise((resolve) => {
-      if (!loaded.current) {
+      if (!readyRef.current) {
         resolve(false);
         return;
       }
@@ -69,7 +73,5 @@ export function useRewardedAd() {
     });
   }, []);
 
-  const isReady = useCallback(() => loaded.current, []);
-
-  return { show, isReady };
+  return { show, ready };
 }

@@ -16,6 +16,7 @@ import type {
   FangsRecord,
   LockeCustomization,
   PackInfo,
+  AdWatchState,
 } from "./types";
 import type { ExerciseCatalogEntry } from "../src/lib/exerciseMatch";
 
@@ -54,6 +55,7 @@ const KEYS = {
   planDrafts: "@lockedinfit/plan-drafts",
   notificationPrompted: "@lockedinfit/notification-prompted",
   ormDisclaimer: "@lockedinfit/orm-disclaimer-accepted",
+  adWatchState: "@lockedinfit/ad-watch-state",
 } as const;
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
@@ -306,6 +308,16 @@ export async function loadFangs(): Promise<FangsRecord> {
 
 export async function saveFangs(data: FangsRecord): Promise<void> {
   await save(KEYS.fangs, data);
+}
+
+// ── Ad Watch State ───────────────────────────────────────────────────────────
+
+export async function loadAdWatchState(): Promise<AdWatchState> {
+  return (await load<AdWatchState>(KEYS.adWatchState)) ?? { date: "", watchCount: 0, lastWatchedAt: "" };
+}
+
+export async function saveAdWatchState(data: AdWatchState): Promise<void> {
+  await save(KEYS.adWatchState, data);
 }
 
 // ── Locke Customization ──────────────────────────────────────────────────────

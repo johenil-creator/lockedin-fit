@@ -39,6 +39,8 @@ import {
 } from "../lib/lockeCustomization";
 import { spacing, typography, radius } from "../lib/theme";
 import { impact, notification, ImpactStyle, NotificationType } from "../lib/haptics";
+import { useAdWatch } from "../hooks/useAdWatch";
+import { FANGS_PER_AD_WATCH } from "../lib/adWatchService";
 import { useSeasonalShop } from "../hooks/useSeasonalShop";
 import { useXP } from "../hooks/useXP";
 import { SeasonalShopSection } from "../components/social/SeasonalShopSection";
@@ -287,6 +289,7 @@ export default function LockeStudioScreen() {
   const [devRank, setDevRank] = useState<typeof realRank>(realRank);
   const rank = __DEV__ ? devRank : realRank;
   const { seasonalItems, prestigeItems, ownedIds: shopOwnedIds, purchase: purchaseSeasonal } = useSeasonalShop(rank);
+  const adWatch = useAdWatch();
   const studioTabs = getStudioTabs();
   const [activeTabKey, setActiveTabKey] = useState(studioTabs[0]?.key ?? "fur");
 
@@ -409,7 +412,23 @@ export default function LockeStudioScreen() {
       return;
     }
     if (balance < item.price) {
-      showAlert("Not Enough Fangs", `You need ${item.price} Fangs to unlock ${item.name}. You have ${balance}.\n\nEarn Fangs by completing workouts, hitting streaks, and finishing quests.`);
+      const buttons: { text: string; onPress?: () => void; style?: string }[] = [
+        { text: "OK", style: "cancel" },
+      ];
+      if (adWatch.canWatch && adWatch.adReady) {
+        buttons.unshift({
+          text: `Watch Ad (+${FANGS_PER_AD_WATCH})`,
+          onPress: async () => {
+            const earned = await adWatch.watchAd();
+            if (earned) refreshFangs();
+          },
+        });
+      }
+      showAlert(
+        "Not Enough Fangs",
+        `You need ${item.price} Fangs to unlock ${item.name}. You have ${balance}.`,
+        buttons,
+      );
       return;
     }
     showAlert("Unlock " + item.name, `Spend ${item.price} Fangs to unlock ${item.name}?`, [
@@ -584,11 +603,32 @@ export default function LockeStudioScreen() {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <View style={[styles.header, { borderBottomColor: theme.colors.border + "30" }]}>
         <BackButton />
-        <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>AVATAR STUDIO</Text>
-          <Text style={[styles.headerSubtitle, { color: theme.colors.muted }]}>Customize Your Wolf</Text>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <Text style={[styles.headerTitle, { color: theme.colors.text }]}>AVATAR STUDIO</Text>
+            <Text style={[styles.headerSubtitle, { color: theme.colors.muted }]}>Customize Your Wolf</Text>
+          </View>
         </View>
+        <View style={{ flex: 1 }} />
+        {/* Spacer to balance BackButton */}
+        <View style={{ width: 32 }} />
+      </View>
+
+      {/* ── Fangs sub header ─────────────────────────────────────────────────── */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}>
         <FangsDisplay balance={__DEV__ ? 99999 : balance} size="sm" showInfo />
+        {adWatch.canWatch && (
+          <Pressable
+            onPress={adWatch.watchAd}
+            disabled={!adWatch.adReady && !__DEV__}
+            hitSlop={8}
+            style={{ opacity: (adWatch.adReady || __DEV__) ? 1 : 0.5, marginLeft: spacing.sm }}
+          >
+            <Text style={{ fontSize: 10, fontWeight: "600", color: "#FFD70099" }}>
+              Watch to earn Fangs · {adWatch.remaining} left
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Dev rank selector */}
@@ -613,8 +653,8 @@ export default function LockeStudioScreen() {
           <LockePreview size={180} customization={customization} />
         </Animated.View>
 
-        {/* Randomize button */}
-        <Pressable style={[styles.randomizeBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border + "60" }]} onPress={handleRandomize}>
+        {/* Randomize button — bottom left */}
+        <Pressable style={[styles.randomizeBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border + "60", top: undefined, right: undefined, bottom: spacing.sm, left: spacing.sm }]} onPress={handleRandomize}>
           <Text style={{ fontSize: 13 }}>{"\uD83C\uDFB2"}</Text>
         </Pressable>
 

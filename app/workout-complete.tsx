@@ -48,6 +48,8 @@ const FANGS_ICON = require("../assets/fangs_icon.png");
 import { LockeMascot } from "../components/Locke/LockeMascot";
 import { RANK_IMAGES } from "../components/RankEvolutionPath";
 import { formatPRName } from "../lib/prService";
+import { useAdWatch } from "../hooks/useAdWatch";
+import { FANGS_PER_AD_WATCH } from "../lib/adWatchService";
 import { rankDisplayName } from "../lib/rankService";
 import type { WorkoutCompleteParams } from "../lib/xpService";
 import type { CardioPRKey, RankLevel } from "../lib/types";
@@ -502,6 +504,8 @@ export default function WorkoutCompleteScreen() {
   }
 
   const { show: showInterstitial } = useInterstitialAd();
+  const adWatch = useAdWatch();
+  const [bonusClaimed, setBonusClaimed] = useState(false);
   const reducedMotion = useReducedMotion();
   const [claimed, setClaimed] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -859,6 +863,27 @@ export default function WorkoutCompleteScreen() {
         </Animated.View>
       )}
 
+      {/* Bonus Fangs — watch ad */}
+      {claimed && !bonusClaimed && adWatch.canWatch && adWatch.adReady && (
+        <Animated.View entering={FadeIn.delay(400).duration(300)} style={styles.bonusAdRow}>
+          <Pressable
+            style={[styles.bonusAdBtn, { borderColor: "#FFD700" + "60" }]}
+            onPress={async () => {
+              // Cancel auto-navigate while watching
+              timeoutRefs.current.forEach(clearTimeout);
+              const earned = await adWatch.watchAd();
+              if (earned) setBonusClaimed(true);
+              // Resume navigation after ad
+              const t = setTimeout(() => navigateHome(), 600);
+              timeoutRefs.current.push(t);
+            }}
+          >
+            <Text style={styles.bonusAdText}>+{FANGS_PER_AD_WATCH} Bonus Fangs</Text>
+            <Text style={[styles.bonusAdSub, { color: theme.colors.muted }]}>Watch a short clip</Text>
+          </Pressable>
+        </Animated.View>
+      )}
+
       {/* PR pills (cardio) */}
       {params.isCardio && params.newPRs && params.newPRs.length > 0 && (
         <Animated.View entering={FadeIn.delay(600).duration(300)} style={styles.prSection}>
@@ -1028,6 +1053,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#FFD700",
+  },
+  bonusAdRow: {
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  bonusAdBtn: {
+    flexDirection: "column",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    backgroundColor: "#FFD70010",
+  },
+  bonusAdText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFD700",
+  },
+  bonusAdSub: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 1,
   },
   // PR pills
   prSection: {

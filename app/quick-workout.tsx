@@ -16,9 +16,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useWorkouts } from "../hooks/useWorkouts";
 import { useProfileContext } from "../contexts/ProfileContext";
+import { useSmartHunt } from "../hooks/useSmartHunt";
 import { BackButton } from "../components/BackButton";
 import { spacing, radius, typography } from "../lib/theme";
 import { impact, ImpactStyle } from "../lib/haptics";
+import { LockeHuntCard } from "../components/hunt/LockeHuntCard";
 
 if (
   Platform.OS === "android" &&
@@ -170,7 +172,7 @@ const TemplateCard = React.memo(function TemplateCard({
             {template.name}
           </Text>
           <Text style={[typography.caption, { color: theme.colors.muted }]}>
-            {exerciseCount} exercises{" \u00B7 "}
+            {exerciseCount} exercises{" · "}
             {totalSets} sets
           </Text>
         </View>
@@ -222,7 +224,7 @@ const TemplateCard = React.memo(function TemplateCard({
                   { color: theme.colors.muted, marginLeft: spacing.sm },
                 ]}
               >
-                {e.sets} \u00D7 {e.reps}
+                {e.sets} × {e.reps}
               </Text>
             </View>
           ))}
@@ -275,10 +277,11 @@ export default function QuickWorkoutScreen() {
   const { theme } = useAppTheme();
   const { startSessionFromExercises, getActiveSession } = useWorkouts();
   const { profileRef } = useProfileContext();
+  const { hunt, loading: huntLoading, shuffle: shuffleHunt } = useSmartHunt();
   const [starting, setStarting] = useState<string | null>(null);
 
-  const handleStart = useCallback(
-    async (template: Template) => {
+  const startExercises = useCallback(
+    async (name: string, exercises: { exercise: string; sets: string; reps: string }[]) => {
       if (starting) return;
 
       const active = getActiveSession();
@@ -294,20 +297,28 @@ export default function QuickWorkoutScreen() {
         return;
       }
 
-      setStarting(template.name);
+      setStarting(name);
+      const mapped = exercises.map((e) => ({
+        exercise: e.exercise,
+        sets: e.sets,
+        reps: e.reps,
+      }));
+      const id = await startSessionFromExercises(name, mapped, profileRef.current);
+      router.replace(`/session/${id}`);
+    },
+    [starting, startSessionFromExercises, getActiveSession, profileRef, router],
+  );
+
+  const handleStart = useCallback(
+    async (template: Template) => {
       const exercises = template.exercises.map((e) => ({
         exercise: e.name,
         sets: e.sets,
         reps: e.reps,
       }));
-      const id = await startSessionFromExercises(
-        template.name,
-        exercises,
-        profileRef.current,
-      );
-      router.replace(`/session/${id}`);
+      startExercises(template.name, exercises);
     },
-    [starting, startSessionFromExercises, getActiveSession, profileRef, router],
+    [startExercises],
   );
 
   return (
@@ -331,6 +342,23 @@ export default function QuickWorkoutScreen() {
         ]}
       >
         Pre-built sessions — pick one and go.
+      </Text>
+
+      <LockeHuntCard
+        hunt={hunt}
+        loading={huntLoading}
+        starting={starting}
+        onStart={startExercises}
+        onShuffle={shuffleHunt}
+      />
+
+      <Text
+        style={[
+          typography.caption,
+          { color: theme.colors.muted, marginTop: spacing.sm, marginBottom: spacing.sm, fontWeight: "600", letterSpacing: 0.5 },
+        ]}
+      >
+        OR PICK A TEMPLATE
       </Text>
 
       {TEMPLATES.map((t) => (
@@ -420,4 +448,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+
 });

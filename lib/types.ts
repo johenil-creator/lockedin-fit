@@ -286,7 +286,8 @@ export type LockeTrigger =
   | 'onboarding'
   | '1rm_test'
   | 'low_performance'
-  | 'high_performance';
+  | 'high_performance'
+  | 'home_idle';
 
 // ── Locke State Machine ───────────────────────────────────────────────────────
 
@@ -629,6 +630,12 @@ export type CosmeticItem = {
 export type FangsRecord = {
   balance: number;
   lastUpdated: string;
+};
+
+export type AdWatchState = {
+  date: string;        // "YYYY-MM-DD" — resets when day changes
+  watchCount: number;  // 0..MAX_DAILY_AD_WATCHES
+  lastWatchedAt: string; // ISO timestamp
 };
 
 export type PackRole = 'leader' | 'member';
