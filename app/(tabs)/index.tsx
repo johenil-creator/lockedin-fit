@@ -1011,7 +1011,7 @@ export default function HomeScreen() {
         {daysSinceActivity > 1 && streak.current > 0 && (
           <>
             <View style={[styles.sheetDivider, { backgroundColor: theme.colors.border }]} />
-            <Text style={[styles.sheetCaption, { color: theme.colors.warning, fontWeight: "600", marginBottom: 8 }]}>
+            <Text style={[styles.sheetCaption, { color: "#F59E0B", fontWeight: "600", marginBottom: 8 }]}>
               Your streak is about to break!
             </Text>
             <Pressable
