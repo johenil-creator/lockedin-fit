@@ -7,7 +7,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: IS_DEV ? "LockedIn FIT (Dev)" : "LockedIn FIT",
   slug: "lockedinfit",
   owner: "johenilh",
-  version: "2.0.2",
+  version: "2.1.0",
   orientation: "portrait",
   icon: "./assets/icons/icon_default.png",
   userInterfaceStyle: "automatic",
