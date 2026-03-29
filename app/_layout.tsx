@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { LogBox, Alert, Platform, NativeModules } from "react-native";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View, Text, Pressable, ScrollView } from "react-native";
+import * as SplashScreen from "expo-splash-screen";
 import { ThemeProvider } from "../contexts/ThemeContext";
 
 // Reanimated 4.x layout animations (FadeIn/FadeInDown entering) internally
@@ -24,6 +25,8 @@ import { AvatarPrewarmer } from "../components/avatar/LockeAvatarBuilder";
 import { loadLockeCustomization } from "../lib/storage";
 import { useHealthWeightSync } from "../hooks/useHealthWeightSync";
 import mobileAds from "react-native-google-mobile-ads";
+
+SplashScreen.preventAutoHideAsync();
 
 /** Runs app-level background syncs that need context providers. */
 function AppSyncEffects() {
@@ -48,25 +51,42 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
 }
 
 export default function RootLayout() {
+  const [appReady, setAppReady] = useState(false);
+
   useEffect(() => {
-    preloadLockeAssets();
-    loadLockeCustomization();
-    // ATT prompt before ads — requires native rebuild; skip gracefully if unavailable
-    async function initAds() {
-      if (Platform.OS === "ios" && NativeModules.ExpoTrackingTransparency) {
-        try {
-          const { requestTrackingPermissionsAsync } = require("expo-tracking-transparency");
-          await requestTrackingPermissionsAsync();
-        } catch {
-          // ATT request failed — continue without it
+    async function prepare() {
+      try {
+        await preloadLockeAssets();
+        await loadLockeCustomization();
+        // ATT prompt before ads — requires native rebuild; skip gracefully if unavailable
+        if (Platform.OS === "ios" && NativeModules.ExpoTrackingTransparency) {
+          try {
+            const { requestTrackingPermissionsAsync } = require("expo-tracking-transparency");
+            await requestTrackingPermissionsAsync();
+          } catch {
+            // ATT request failed — continue without it
+          }
         }
+        mobileAds().initialize();
+      } catch {
+        // continue even if prep fails
+      } finally {
+        setAppReady(true);
       }
-      mobileAds().initialize();
     }
-    initAds();
+    prepare();
   }, []);
+
+  const onLayoutRootView = useCallback(() => {
+    if (appReady) {
+      SplashScreen.hideAsync();
+    }
+  }, [appReady]);
+
+  if (!appReady) return null;
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <AvatarPrewarmer />
       <AuthProvider>
         <ProfileProvider>

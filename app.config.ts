@@ -70,6 +70,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         isClinicalDataEnabled: false,
       },
     ],
+    [
+      "expo-alternate-app-icons",
+      [
+        "./assets/icons/icon_disappointed.png",
+        "./assets/icons/icon_focused.png",
+        "./assets/icons/icon_mischievous.png",
+        "./assets/icons/icon_motivated.png",
+      ],
+    ],
     "expo-tracking-transparency",
     "expo-asset",
     "expo-font",

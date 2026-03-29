@@ -47,6 +47,7 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { useWeekInReview } from "../../hooks/useWeekInReview";
 import { WeekInReviewCard } from "../../components/insights/WeekInReviewCard";
 import { scheduleStreakRiskIfNeeded } from "../../lib/notifications";
+import { useAppIcon } from "../../hooks/useAppIcon";
 
 // ── Local sub-components ──────────────────────────────────────────────────────
 
@@ -571,6 +572,7 @@ export default function HomeScreen() {
   const { hydrated, profileRef } = useProfileContext();
   const { xp, rank, progress, toNext, nextTier, bandCurrent, bandTotal } = useXP();
   const { streak, daysSinceActivity, restoreStreak } = useStreak();
+  useAppIcon(streak.current, daysSinceActivity);
   const { show: showRewardedAd } = useRewardedAd();
   const { fire } = useLocke();
   const {
