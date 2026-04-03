@@ -334,7 +334,7 @@ export default function ImportDriveScreen() {
         message: `Imported "${previewFileName}" — ${previewSummary.totalExercises} exercises across ${previewSummary.totalWeeks} weeks`,
         type: "success",
       });
-      router.replace("/(tabs)/plan");
+      router.replace("/");
     } catch {
       showToast({ message: "Failed to save plan", type: "error" });
     } finally {

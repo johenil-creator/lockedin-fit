@@ -1,0 +1,3791 @@
+import type { Recipe } from '../mealTypes';
+
+export const scavengeRecipes: Recipe[] = [
+  // ---------------------------------------------------------------------------
+  // BREAKFAST (7)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_breakfast_1',
+    name: 'Tamago Gohan',
+    subtitle: 'Soft-boiled egg on steamed rice, soy & sesame',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 370, protein: 28, carbs: 44, fat: 8 },
+    cuisineBadge: 'Japanese',
+    tip: 'Use the freshest eggs you can find — the yolk is barely cooked so quality matters.',
+    ingredients: [
+      '1 cup cooked white rice',
+      '2 large eggs',
+      '1 tbsp soy sauce',
+      '1 tsp sesame oil',
+      '1 tsp toasted sesame seeds',
+      '1 green onion, sliced',
+    ],
+    steps: [
+      {
+        title: 'Soft-boil eggs',
+        time: '7 min',
+        detail:
+          'Bring a small pot of water to a rolling boil. Lower eggs in gently and cook for 6.5 minutes. Transfer to ice water immediately.',
+        look: 'Whites fully set, yolk jammy and bright orange in the centre.',
+      },
+      {
+        title: 'Warm rice',
+        time: '2 min',
+        detail:
+          'Microwave or steam leftover rice until hot. Fluff with a fork and mound into a bowl.',
+        look: 'Steaming, fluffy grains — no clumps.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Peel eggs, halve them, and nestle on top of rice. Drizzle soy sauce and sesame oil, then scatter sesame seeds and green onion.',
+        look: 'Glossy yolk pooling into the rice, seeds dotting the surface.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_2',
+    name: 'Huevos Rancheros',
+    subtitle: 'Fried eggs on corn tortillas, tomato salsa, black beans',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 420, protein: 28, carbs: 40, fat: 14 },
+    cuisineBadge: 'Mexican',
+    tip: 'Warm tortillas in a dry skillet until lightly charred for the best texture.',
+    ingredients: [
+      '2 corn tortillas',
+      '2 large eggs',
+      '1/2 cup canned black beans, rinsed',
+      '1/4 cup tomato salsa',
+      '1 tbsp olive oil',
+      '1 tbsp fresh coriander, chopped',
+      'Pinch of salt',
+    ],
+    steps: [
+      {
+        title: 'Heat beans',
+        time: '3 min',
+        detail:
+          'Warm black beans in a small saucepan over medium heat with a splash of water and a pinch of salt. Mash lightly with a fork.',
+        look: 'Thick, spreadable consistency — not soupy.',
+      },
+      {
+        title: 'Fry eggs',
+        time: '3 min',
+        detail:
+          'Heat olive oil in a non-stick pan over medium heat. Crack eggs in and cook until whites are set and edges crispy.',
+        look: 'Crispy lace on the edges, runny yolk.',
+      },
+      {
+        title: 'Char tortillas',
+        time: '1 min',
+        detail:
+          'Briefly toast each tortilla in a dry skillet or over an open flame until pliable with char spots.',
+        look: 'Light brown spots, flexible not stiff.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Layer tortillas on a plate, spread beans, top with eggs, and spoon salsa over. Finish with coriander.',
+        look: 'Vibrant red salsa against the golden yolks, green coriander on top.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_3',
+    name: 'Masala Omelette',
+    subtitle: 'Indian spiced eggs, onion, tomato, green chilli',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 340, protein: 28, carbs: 14, fat: 18 },
+    cuisineBadge: 'Indian',
+    tip: 'Add a pinch of turmeric for colour and anti-inflammatory benefits.',
+    ingredients: [
+      '3 large eggs',
+      '1 small onion, finely diced',
+      '1 small tomato, diced',
+      '1 green chilli, finely sliced',
+      '1/4 tsp turmeric',
+      '1/4 tsp cumin powder',
+      '1 tbsp ghee',
+      'Salt and pepper to taste',
+      'Fresh coriander for garnish',
+    ],
+    steps: [
+      {
+        title: 'Prep filling',
+        time: '2 min',
+        detail:
+          'Dice onion, tomato, and slice the green chilli. Beat eggs in a bowl with turmeric, cumin, salt, and pepper.',
+        look: 'Egg mixture should be a pale golden-yellow from the turmeric.',
+      },
+      {
+        title: 'Sauté aromatics',
+        time: '2 min',
+        detail:
+          'Heat oil in a non-stick pan over medium heat. Cook onion until just softened, then add tomato and chilli for 30 seconds.',
+        look: 'Onion translucent, tomato just starting to break down.',
+      },
+      {
+        title: 'Cook omelette',
+        time: '3 min',
+        detail:
+          'Pour egg mixture over the vegetables. Tilt the pan to spread evenly. Cook undisturbed until the bottom sets, then fold in half.',
+        look: 'Lightly browned outside, just-set and custardy inside.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Slide onto a plate and garnish with fresh coriander. Serve with a slice of wholemeal toast if extra carbs are needed.',
+        look: 'Golden omelette with flecks of green and red from the filling.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_4',
+    name: 'Korean Egg Toast',
+    subtitle: 'Egg and cabbage omelette sandwich, ketchup and mustard',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 390, protein: 28, carbs: 34, fat: 14 },
+    cuisineBadge: 'Korean',
+    tip: 'Butter the bread on the outside for a crispier toast — street-food style.',
+    ingredients: [
+      '2 slices white bread',
+      '2 large eggs',
+      '1/3 cup shredded cabbage',
+      '1 green onion, sliced',
+      '1 tsp butter',
+      '1 tbsp ketchup',
+      '1 tsp yellow mustard',
+      'Pinch of salt and sugar',
+    ],
+    steps: [
+      {
+        title: 'Make omelette',
+        time: '3 min',
+        detail:
+          'Beat eggs with salt and a pinch of sugar. Stir in shredded cabbage and green onion. Cook in a buttered non-stick pan, shaping into a square to match the bread.',
+        look: 'Golden and set — thick enough to hold together in a sandwich.',
+      },
+      {
+        title: 'Toast bread',
+        time: '2 min',
+        detail:
+          'Butter one side of each bread slice and toast butter-side down in the same pan until golden.',
+        look: 'Even golden brown, slightly crispy.',
+      },
+      {
+        title: 'Assemble sandwich',
+        time: '1 min',
+        detail:
+          'Spread ketchup and mustard on the unbuttered sides. Place omelette between the slices. Cut diagonally and serve warm.',
+        look: 'Thick omelette visible at the edges, sauce peeking through.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_5',
+    name: 'Menemen',
+    subtitle: 'Turkish scrambled eggs with peppers and tomato',
+    flag: '🇹🇷',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 360, protein: 26, carbs: 20, fat: 18 },
+    cuisineBadge: 'Turkish',
+    tip: 'Remove the pan from heat just before the eggs are fully set — they keep cooking in the residual heat.',
+    ingredients: [
+      '3 large eggs',
+      '1 medium tomato, roughly chopped',
+      '1/2 green pepper, diced',
+      '1 tbsp olive oil',
+      '1/2 tsp Turkish pepper flakes (pul biber)',
+      'Salt to taste',
+      'Crusty bread for serving',
+    ],
+    steps: [
+      {
+        title: 'Cook vegetables',
+        time: '4 min',
+        detail:
+          'Heat olive oil in a small pan over medium heat. Add diced pepper and cook for 2 minutes, then add chopped tomato. Cook until the tomato breaks down into a sauce.',
+        look: 'Thick, jammy pepper-tomato mixture — most liquid evaporated.',
+      },
+      {
+        title: 'Add eggs',
+        time: '3 min',
+        detail:
+          'Crack eggs directly into the pan. Stir gently to create large, soft curds mixed through the vegetables. Season with salt and pepper flakes.',
+        look: 'Soft, glossy curds — not dry or rubbery.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Remove from heat while still slightly wet. Transfer to a plate and eat straight from the pan with crusty bread.',
+        look: 'Vibrant red and yellow, steam rising, served with torn bread.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_6',
+    name: 'Congee with Chicken',
+    subtitle: 'Rice porridge, ginger, soy, sesame oil',
+    flag: '🇨🇳',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 360, protein: 32, carbs: 38, fat: 6 },
+    cuisineBadge: 'Chinese',
+    tip: 'Use leftover cooked rice to cut the cooking time in half — just simmer with extra water.',
+    ingredients: [
+      '1/2 cup jasmine rice (or 1 cup leftover cooked rice)',
+      '120 g cooked chicken breast, shredded',
+      '3 cups water or low-sodium chicken broth',
+      '1 thumb fresh ginger, sliced',
+      '1 tbsp soy sauce',
+      '1 tsp sesame oil',
+      '1 green onion, sliced',
+      'White pepper to taste',
+    ],
+    steps: [
+      {
+        title: 'Simmer porridge',
+        time: '20 min',
+        detail:
+          'Bring rice, water (or broth), and sliced ginger to a boil. Reduce heat and simmer, stirring occasionally, until the rice breaks down into a thick porridge.',
+        look: 'Creamy, thick consistency — spoon leaves a trail when dragged through.',
+      },
+      {
+        title: 'Season',
+        time: '1 min',
+        detail:
+          'Stir in soy sauce and white pepper. Taste and adjust saltiness.',
+        look: 'Porridge has a light golden tint from the soy.',
+      },
+      {
+        title: 'Top and serve',
+        time: '1 min',
+        detail:
+          'Ladle into a bowl, pile shredded chicken on top, drizzle sesame oil, and scatter green onion.',
+        look: 'Steaming white porridge topped with a mound of chicken and bright green onion.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_7',
+    name: 'Shakshuka',
+    subtitle: 'Eggs poached in spiced tomato sauce, feta, bread',
+    flag: '🇲🇦',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 420, protein: 36, carbs: 20, fat: 22 },
+    cuisineBadge: 'Moroccan',
+    tip: 'Cover the pan to steam the egg whites without overcooking the yolks.',
+    ingredients: [
+      '3 large eggs',
+      '1 cup canned crushed tomatoes',
+      '1/2 tsp cumin',
+      '1/2 tsp smoked paprika',
+      '1/4 tsp chilli flakes',
+      '1 clove garlic, minced',
+      '30 g feta cheese, crumbled',
+      '1 tbsp olive oil',
+      '1 slice crusty bread',
+      'Fresh parsley for garnish',
+    ],
+    steps: [
+      {
+        title: 'Build the sauce',
+        time: '5 min',
+        detail:
+          'Heat olive oil in a skillet. Sauté garlic for 30 seconds, then add crushed tomatoes, cumin, paprika, and chilli flakes. Simmer until thickened.',
+        look: 'Rich, deep-red sauce with visible spice flecks — not watery.',
+      },
+      {
+        title: 'Poach eggs',
+        time: '5 min',
+        detail:
+          'Make three wells in the sauce with a spoon. Crack an egg into each well. Cover and cook on low heat until whites are set but yolks are still runny.',
+        look: 'Whites opaque and firm, yolks still jiggly when the pan is shaken.',
+      },
+      {
+        title: 'Finish and serve',
+        time: '1 min',
+        detail:
+          'Crumble feta over the top and scatter fresh parsley. Serve straight from the pan with crusty bread for dipping.',
+        look: 'White feta and green parsley against the vivid red sauce.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // BREAKFAST (continued — variety expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_breakfast_8',
+    name: 'Overnight Oats',
+    subtitle: 'Rolled oats, yogurt, banana, honey, chia seeds',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 380, protein: 24, carbs: 48, fat: 10 },
+    cuisineBadge: 'American',
+    tip: 'Make it the night before — zero morning effort. Grab and go.',
+    ingredients: [
+      '1/2 cup rolled oats',
+      '1/2 cup 0% Greek yogurt',
+      '1/2 cup milk or almond milk',
+      '1 tbsp chia seeds',
+      '1 tbsp honey',
+      '1/2 banana, sliced',
+      '1 scoop protein powder (optional)',
+    ],
+    steps: [
+      {
+        title: 'Mix base',
+        time: '2 min',
+        detail:
+          'Combine oats, yogurt, milk, chia seeds, honey, and protein powder (if using) in a jar or container. Stir well.',
+        look: 'Thick, creamy mixture — everything well combined.',
+      },
+      {
+        title: 'Refrigerate overnight',
+        time: '1 min',
+        detail:
+          'Cover and place in the fridge for at least 4 hours or overnight. The oats will soften and chia seeds will gel.',
+        look: 'Thickened, pudding-like consistency the next morning.',
+      },
+      {
+        title: 'Top and eat',
+        time: '1 min',
+        detail:
+          'Top with sliced banana. Eat cold straight from the container.',
+        look: 'Creamy oat base with banana coins on top.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_9',
+    name: 'Avocado Toast with Turkey',
+    subtitle: 'Smashed avocado, deli turkey, chilli flakes, lemon',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 380, protein: 30, carbs: 28, fat: 16 },
+    cuisineBadge: 'American',
+    tip: 'Use sourdough for better texture and slower-digesting carbs.',
+    ingredients: [
+      '2 slices sourdough bread',
+      '1/2 ripe avocado',
+      '80 g deli turkey slices',
+      '1 tsp lemon juice',
+      'Pinch of chilli flakes',
+      'Salt and pepper to taste',
+    ],
+    steps: [
+      {
+        title: 'Toast bread',
+        time: '2 min',
+        detail:
+          'Toast sourdough until golden and crisp on both sides.',
+        look: 'Deep golden, firm enough to hold toppings.',
+      },
+      {
+        title: 'Smash avocado',
+        time: '1 min',
+        detail:
+          'Scoop avocado into a bowl, add lemon juice, salt and pepper. Mash with a fork to a chunky spread.',
+        look: 'Bright green with visible chunks — not completely smooth.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Spread avocado on toast, layer turkey slices on top. Sprinkle with chilli flakes.',
+        look: 'Green avocado base, pink turkey, red chilli flake accents.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_10',
+    name: 'Vietnamese Pho Broth Bowl',
+    subtitle: 'Warm broth, rice noodles, soft-boiled egg, herbs',
+    flag: '🇻🇳',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 340, protein: 22, carbs: 38, fat: 8 },
+    cuisineBadge: 'Vietnamese',
+    tip: 'Use store-bought pho broth to keep it scavenge-simple. Add Sriracha for heat.',
+    ingredients: [
+      '2 cups store-bought beef or chicken pho broth',
+      '100 g dried rice noodles',
+      '2 large eggs',
+      '1/4 cup bean sprouts',
+      'Fresh Thai basil leaves',
+      '1 lime wedge',
+      '1 tsp Sriracha (optional)',
+    ],
+    steps: [
+      {
+        title: 'Cook noodles and eggs',
+        time: '8 min',
+        detail:
+          'Cook rice noodles according to package directions, drain. In a separate pot, soft-boil eggs for 7 minutes and ice bath.',
+        look: 'Tender noodles, jammy-yolked eggs.',
+      },
+      {
+        title: 'Heat broth',
+        time: '3 min',
+        detail:
+          'Bring pho broth to a gentle boil in a saucepan.',
+        look: 'Steaming, aromatic, clear broth.',
+      },
+      {
+        title: 'Assemble bowl',
+        time: '2 min',
+        detail:
+          'Place noodles in a bowl, ladle hot broth over. Halve the eggs and place on top. Add bean sprouts, Thai basil, and a lime squeeze. Sriracha on the side.',
+        look: 'Steaming broth, golden egg yolks, bright green herbs, white sprouts.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // LUNCH (7 + expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_lunch_1',
+    name: 'Bulgogi Chicken Bowl',
+    subtitle: 'Soy-glazed chicken, steamed rice, kimchi',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 510, protein: 48, carbs: 44, fat: 12 },
+    cuisineBadge: 'Korean',
+    tip: 'Freeze chicken for 15 minutes before slicing — it firms up and gives you thinner, more even strips.',
+    ingredients: [
+      '180 g chicken breast, thinly sliced',
+      '2 tbsp soy sauce',
+      '1 tbsp honey or brown sugar',
+      '1 tsp sesame oil',
+      '1 clove garlic, minced',
+      '1 cup cooked white rice',
+      '1/4 cup kimchi',
+      '1 tsp sesame seeds',
+      '1 green onion, sliced',
+    ],
+    steps: [
+      {
+        title: 'Marinate chicken',
+        time: '10 min',
+        detail:
+          'Toss sliced chicken with soy sauce, honey, sesame oil, and garlic. Let sit while you prep the rest, or marinate overnight for deeper flavour.',
+        look: 'Chicken evenly coated in a dark, glossy marinade.',
+      },
+      {
+        title: 'Cook chicken',
+        time: '5 min',
+        detail:
+          'Heat a skillet over high heat until smoking. Sear chicken in a single layer — don\'t overcrowd. Cook 2-3 minutes per side until caramelised edges form.',
+        look: 'Dark, sticky glaze with slightly charred edges.',
+      },
+      {
+        title: 'Assemble bowl',
+        time: '2 min',
+        detail:
+          'Mound rice in a bowl. Arrange chicken on one side and kimchi on the other. Top with sesame seeds and green onion.',
+        look: 'Clean sections of white rice, dark glazed chicken, and bright red kimchi.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_2',
+    name: 'Chicken Tinga Tacos',
+    subtitle: 'Chipotle-braised chicken, avocado, coriander',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 490, protein: 46, carbs: 36, fat: 14 },
+    cuisineBadge: 'Mexican',
+    tip: 'Shred the chicken with two forks while still warm — it pulls apart much more easily.',
+    ingredients: [
+      '180 g chicken breast',
+      '1/2 cup canned crushed tomatoes',
+      '1 chipotle pepper in adobo, minced',
+      '1/2 small onion, sliced',
+      '3 small corn tortillas',
+      '1/4 avocado, sliced',
+      'Fresh coriander',
+      'Lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Braise chicken',
+        time: '15 min',
+        detail:
+          'Simmer chicken breast with crushed tomatoes, chipotle pepper, and sliced onion in a covered pan over medium-low heat until cooked through. Shred with two forks and stir back into the sauce.',
+        look: 'Deeply red, saucy shredded chicken — no large chunks remaining.',
+      },
+      {
+        title: 'Warm tortillas',
+        time: '2 min',
+        detail:
+          'Heat tortillas in a dry skillet or directly over a gas flame until pliable with light char marks.',
+        look: 'Soft, flexible, with small brown blisters.',
+      },
+      {
+        title: 'Build tacos',
+        time: '2 min',
+        detail:
+          'Divide chicken tinga among tortillas. Top with avocado slices, a pinch of coriander, and a squeeze of lime.',
+        look: 'Smoky red chicken topped with green avocado and fresh herbs.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_3',
+    name: 'Thai Basil Chicken',
+    subtitle: 'Minced chicken stir-fry, fish sauce, jasmine rice',
+    flag: '🇹🇭',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 480, protein: 48, carbs: 40, fat: 12 },
+    cuisineBadge: 'Thai',
+    tip: 'Get the wok screaming hot before adding the chicken — high heat is the secret to proper stir-fry flavour.',
+    ingredients: [
+      '180 g minced chicken breast',
+      '1 tbsp fish sauce',
+      '1 tbsp soy sauce',
+      '1 tsp oyster sauce',
+      '1 tsp sugar',
+      '2 cloves garlic, minced',
+      '2 Thai chillies, sliced',
+      '1 large handful Thai basil leaves',
+      '1 cup cooked jasmine rice',
+      '1 tbsp vegetable oil',
+    ],
+    steps: [
+      {
+        title: 'Stir-fry aromatics',
+        time: '1 min',
+        detail:
+          'Heat oil in a wok over high heat until smoking. Add garlic and chillies, stir for 15 seconds until fragrant.',
+        look: 'Garlic just turning golden — not brown or burned.',
+      },
+      {
+        title: 'Cook chicken',
+        time: '4 min',
+        detail:
+          'Add minced chicken and break apart with a spatula. Cook undisturbed for a minute to get colour, then stir. Add fish sauce, soy sauce, oyster sauce, and sugar.',
+        look: 'Chicken browned and coated in a glossy, savoury sauce.',
+      },
+      {
+        title: 'Add basil and serve',
+        time: '1 min',
+        detail:
+          'Kill the heat, toss in Thai basil leaves and stir until just wilted. Serve immediately over jasmine rice.',
+        look: 'Wilted basil throughout the mince, served on a mound of steaming rice.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_4',
+    name: 'Chicken Tikka Masala',
+    subtitle: 'Spiced chicken in tomato sauce, basmati rice',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 520, protein: 52, carbs: 38, fat: 14 },
+    cuisineBadge: 'Indian',
+    tip: 'Use Greek yogurt in the marinade — the acidity tenderises the chicken and adds protein.',
+    ingredients: [
+      '180 g chicken breast, cubed',
+      '2 tbsp Greek yogurt',
+      '1 tsp garam masala',
+      '1/2 tsp turmeric',
+      '1/2 tsp chilli powder',
+      '1/2 cup canned crushed tomatoes',
+      '2 tbsp low-fat coconut milk',
+      '1 clove garlic, minced',
+      '1 tsp fresh ginger, grated',
+      '1 cup cooked basmati rice',
+      '1 tbsp vegetable oil',
+      'Fresh coriander',
+    ],
+    steps: [
+      {
+        title: 'Marinate and sear chicken',
+        time: '8 min',
+        detail:
+          'Toss chicken cubes with yogurt, garam masala, turmeric, and chilli powder. Sear in a hot oiled pan until golden on all sides. Remove and set aside.',
+        look: 'Deep golden char marks on each piece, slightly pink inside (will finish in sauce).',
+      },
+      {
+        title: 'Build the sauce',
+        time: '5 min',
+        detail:
+          'In the same pan, sauté garlic and ginger for 30 seconds. Add crushed tomatoes and simmer for 3 minutes. Stir in coconut milk.',
+        look: 'Smooth, creamy orange sauce — no lumps.',
+      },
+      {
+        title: 'Combine and serve',
+        time: '3 min',
+        detail:
+          'Return chicken to the sauce and simmer for 2-3 minutes until fully cooked through. Serve over basmati rice with fresh coriander.',
+        look: 'Tender chicken pieces in a rich, creamy sauce pooling around the rice.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_5',
+    name: 'Chicken Shawarma Bowl',
+    subtitle: 'Spiced chicken, tabbouleh, hummus, tahini',
+    flag: '🇱🇧',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 500, protein: 50, carbs: 36, fat: 16 },
+    cuisineBadge: 'Lebanese',
+    tip: 'Slice chicken against the grain after resting for maximum tenderness.',
+    ingredients: [
+      '180 g chicken breast',
+      '1 tsp cumin',
+      '1 tsp paprika',
+      '1/2 tsp turmeric',
+      '1/4 tsp cinnamon',
+      '1 tbsp lemon juice',
+      '1 tbsp olive oil',
+      '1/4 cup prepared tabbouleh',
+      '2 tbsp hummus',
+      '1 tbsp tahini',
+      'Pickled red onion (optional)',
+    ],
+    steps: [
+      {
+        title: 'Season and cook chicken',
+        time: '10 min',
+        detail:
+          'Rub chicken with cumin, paprika, turmeric, cinnamon, lemon juice, and olive oil. Cook in a hot skillet for 5-6 minutes per side until cooked through. Rest 3 minutes, then slice.',
+        look: 'Dark, spiced crust on the outside; juicy white inside.',
+      },
+      {
+        title: 'Prepare tabbouleh',
+        time: '5 min',
+        detail:
+          'If making fresh: combine finely chopped parsley, tomato, bulgur wheat, lemon juice, and olive oil. Or use store-bought.',
+        look: 'Bright green, finely chopped, lightly dressed.',
+      },
+      {
+        title: 'Assemble bowl',
+        time: '2 min',
+        detail:
+          'Arrange sliced chicken, tabbouleh, and a generous dollop of hummus in a bowl. Drizzle tahini over everything. Add pickled onion if using.',
+        look: 'Clean sections of golden chicken, green tabbouleh, and creamy hummus with a white tahini drizzle.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_6',
+    name: 'Simple Ceviche',
+    subtitle: 'White fish, lime, red onion, chilli, coriander',
+    flag: '🇵🇪',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 380, protein: 44, carbs: 24, fat: 8 },
+    cuisineBadge: 'Peruvian',
+    tip: 'Use the freshest fish available — ask your fishmonger for sushi-grade if possible.',
+    ingredients: [
+      '200 g firm white fish (sea bass or sole), diced',
+      '4 limes, juiced',
+      '1/2 red onion, thinly sliced',
+      '1 red chilli, finely sliced',
+      'Fresh coriander, chopped',
+      '1 small sweet potato, boiled and sliced',
+      'Salt to taste',
+    ],
+    steps: [
+      {
+        title: 'Cure the fish',
+        time: '15 min',
+        detail:
+          'Toss diced fish with lime juice and a generous pinch of salt in a glass bowl. Refrigerate for 10-15 minutes, stirring once halfway. The acid will "cook" the outside of the fish.',
+        look: 'Fish turns opaque white on the outside but still has a translucent centre.',
+      },
+      {
+        title: 'Add aromatics',
+        time: '2 min',
+        detail:
+          'Drain off about half the lime juice. Toss in sliced red onion, chilli, and coriander. Mix gently.',
+        look: 'Bright, colourful — purple onion, green herbs, red chilli.',
+      },
+      {
+        title: 'Plate',
+        time: '1 min',
+        detail:
+          'Serve in a shallow bowl alongside boiled sweet potato slices. Spoon some of the citrus juices (leche de tigre) over the top.',
+        look: 'Clean, fresh, and vibrant — the fish glistening in citrus.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_7',
+    name: 'Teriyaki Salmon Bowl',
+    subtitle: 'Glazed salmon, steamed rice, edamame, ginger',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 510, protein: 50, carbs: 38, fat: 16 },
+    cuisineBadge: 'Japanese',
+    tip: 'Start cooking salmon skin-side down — crispy skin adds great texture and healthy fats.',
+    ingredients: [
+      '180 g salmon fillet',
+      '2 tbsp soy sauce',
+      '1 tbsp mirin',
+      '1 tsp honey',
+      '1 cup cooked white rice',
+      '1/3 cup shelled edamame',
+      '1 tsp pickled ginger',
+      '1 tsp sesame seeds',
+    ],
+    steps: [
+      {
+        title: 'Make teriyaki glaze',
+        time: '3 min',
+        detail:
+          'Combine soy sauce, mirin, and honey in a small saucepan. Simmer until reduced by half and syrupy.',
+        look: 'Thick enough to coat the back of a spoon.',
+      },
+      {
+        title: 'Cook salmon',
+        time: '6 min',
+        detail:
+          'Sear salmon skin-side down in a hot non-stick pan for 4 minutes. Flip and cook 2 more minutes. Brush glaze on top during the last minute.',
+        look: 'Crispy golden skin, slightly pink in the centre, glossy glaze on top.',
+      },
+      {
+        title: 'Build bowl',
+        time: '2 min',
+        detail:
+          'Place rice in a bowl. Set salmon on top, arrange edamame to the side. Garnish with pickled ginger and sesame seeds. Drizzle remaining glaze.',
+        look: 'Caramelised salmon glistening over white rice with pops of green edamame.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // LUNCH (continued — variety expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_lunch_8',
+    name: 'Pork Carnitas Bowl',
+    subtitle: 'Slow-braised pork, rice, black beans, lime',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 520, protein: 42, carbs: 46, fat: 16 },
+    cuisineBadge: 'Mexican',
+    tip: 'Use a slow cooker or instant pot — zero skill required, just time.',
+    ingredients: [
+      '180 g pork shoulder, cubed',
+      '1 tbsp olive oil',
+      '1 tsp cumin',
+      '1 tsp chilli powder',
+      '1/2 orange, juiced',
+      '1 cup cooked white rice',
+      '1/3 cup canned black beans, rinsed',
+      '1 tbsp fresh coriander',
+      '1 lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Braise pork',
+        time: '20 min',
+        detail:
+          'Season pork with cumin, chilli powder, and salt. Sear in oil over high heat until browned on all sides. Add orange juice, cover, and simmer on low for 15-18 minutes until fork-tender. Shred with two forks.',
+        look: 'Dark, caramelised edges, easily pulls apart with forks.',
+      },
+      {
+        title: 'Crisp pork',
+        time: '3 min',
+        detail:
+          'Spread shredded pork in a single layer in the pan. Let it sit without stirring for 2-3 minutes to get crispy edges.',
+        look: 'Golden, crunchy bits mixed with tender shreds.',
+      },
+      {
+        title: 'Build bowl',
+        time: '2 min',
+        detail:
+          'Layer rice and black beans in a bowl. Top with crispy carnitas, coriander, and a squeeze of lime.',
+        look: 'White rice, dark beans, golden crispy pork, bright green herbs.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_9',
+    name: 'Lentil Dal',
+    subtitle: 'Spiced red lentils, tomato, garlic naan',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 450, protein: 28, carbs: 58, fat: 10 },
+    cuisineBadge: 'Indian',
+    tip: 'Red lentils cook in under 20 minutes with no soaking — the easiest legume.',
+    ingredients: [
+      '3/4 cup red lentils, rinsed',
+      '1 small tomato, diced',
+      '1/2 tsp turmeric',
+      '1 tsp cumin',
+      '1 clove garlic, minced',
+      '1 tbsp ghee',
+      '2 cups water',
+      'Salt to taste',
+      '1 store-bought garlic naan',
+    ],
+    steps: [
+      {
+        title: 'Cook lentils',
+        time: '18 min',
+        detail:
+          'Rinse lentils until water runs clear. Combine with 2 cups water and turmeric in a pot. Bring to a boil, then simmer on low for 15-18 minutes until soft and broken down. Stir occasionally.',
+        look: 'Thick, porridge-like consistency — lentils mostly dissolved.',
+      },
+      {
+        title: 'Make tadka',
+        time: '2 min',
+        detail:
+          'Heat oil in a small pan. Add cumin and garlic, cook 30 seconds until fragrant. Add diced tomato, cook 1 minute. Pour this into the lentils and stir.',
+        look: 'Sizzling spices blooming in oil — aromatic.',
+      },
+      {
+        title: 'Serve',
+        time: '2 min',
+        detail:
+          'Warm naan in a dry pan or microwave. Serve dal in a bowl alongside the naan for scooping.',
+        look: 'Golden dal with red tomato swirls, warm naan on the side.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_10',
+    name: 'Tofu Stir-Fry',
+    subtitle: 'Crispy tofu, mixed vegetables, soy-ginger sauce, rice',
+    flag: '🇨🇳',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 430, protein: 28, carbs: 44, fat: 14 },
+    cuisineBadge: 'Chinese',
+    tip: 'Press tofu for 10 minutes with paper towels and a heavy pan — drier tofu = crispier tofu.',
+    ingredients: [
+      '200 g firm tofu, cubed',
+      '1 tbsp soy sauce',
+      '1 tsp sesame oil',
+      '1 tsp fresh ginger, grated',
+      '1 cup mixed vegetables (broccoli, bell pepper, snap peas)',
+      '1 cup cooked white rice',
+      '1 tbsp vegetable oil',
+      '1 tsp cornstarch',
+    ],
+    steps: [
+      {
+        title: 'Crisp tofu',
+        time: '8 min',
+        detail:
+          'Toss pressed tofu cubes with cornstarch and a pinch of salt. Pan-fry in oil over medium-high heat, turning every 2 minutes until golden on all sides.',
+        look: 'Golden and crispy on the outside, soft inside.',
+      },
+      {
+        title: 'Stir-fry vegetables',
+        time: '4 min',
+        detail:
+          'In the same pan, add vegetables and cook over high heat for 3-4 minutes until crisp-tender. Add ginger, soy sauce, and sesame oil. Toss to coat.',
+        look: 'Bright, glossy vegetables — not limp or overcooked.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Return tofu to the pan and toss with vegetables. Serve over rice.',
+        look: 'Colourful stir-fry piled on white rice, glossy sauce coating.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_11',
+    name: 'Spaghetti Aglio e Olio with Shrimp',
+    subtitle: 'Garlic oil pasta, chilli, shrimp, parsley',
+    flag: '🇮🇹',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 480, protein: 36, carbs: 52, fat: 14 },
+    cuisineBadge: 'Italian',
+    tip: 'Save a cup of pasta water — it emulsifies the sauce and makes it silky, not greasy.',
+    ingredients: [
+      '100 g spaghetti',
+      '120 g shrimp, peeled and deveined',
+      '3 cloves garlic, thinly sliced',
+      '2 tbsp olive oil',
+      '1/4 tsp chilli flakes',
+      'Fresh parsley, chopped',
+      'Salt to taste',
+      '1 lemon wedge',
+    ],
+    steps: [
+      {
+        title: 'Cook pasta',
+        time: '10 min',
+        detail:
+          'Boil spaghetti in well-salted water until al dente. Reserve 1/2 cup pasta water before draining.',
+        look: 'Firm to the bite — not mushy. Water cloudy and starchy.',
+      },
+      {
+        title: 'Cook garlic and shrimp',
+        time: '4 min',
+        detail:
+          'Heat olive oil over medium-low heat. Add sliced garlic and chilli flakes, cook 1-2 minutes until garlic is golden (not brown). Add shrimp, cook 2 minutes per side until pink.',
+        look: 'Garlic golden and fragrant, shrimp pink and curled.',
+      },
+      {
+        title: 'Toss and serve',
+        time: '2 min',
+        detail:
+          'Add drained pasta to the pan with a splash of pasta water. Toss vigorously until the sauce clings to the noodles. Top with parsley and a squeeze of lemon.',
+        look: 'Glistening noodles, pink shrimp, green parsley, red chilli flecks.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // DINNER (7 + expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_dinner_1',
+    name: 'Thai Green Curry with Chicken',
+    subtitle: 'Coconut broth, vegetables, jasmine rice',
+    flag: '🇹🇭',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 490, protein: 46, carbs: 36, fat: 18 },
+    cuisineBadge: 'Thai',
+    tip: 'Fry the curry paste in oil before adding coconut milk — this blooms the flavour.',
+    ingredients: [
+      '180 g chicken breast, sliced',
+      '1 tbsp green curry paste',
+      '1/2 cup light coconut milk',
+      '1/2 cup chicken broth',
+      '1/2 cup sliced courgette',
+      '1/4 cup bamboo shoots',
+      '1 tbsp fish sauce',
+      '1 tsp sugar',
+      '4 Thai basil leaves',
+      '1 cup cooked jasmine rice',
+      '1 tbsp vegetable oil',
+    ],
+    steps: [
+      {
+        title: 'Bloom curry paste',
+        time: '2 min',
+        detail:
+          'Heat oil in a deep pan over medium heat. Add curry paste and stir-fry for 1 minute until very fragrant.',
+        look: 'Paste darkens slightly and the kitchen smells intensely aromatic.',
+      },
+      {
+        title: 'Build the curry',
+        time: '8 min',
+        detail:
+          'Add coconut milk and broth, stirring to combine. Add sliced chicken, courgette, and bamboo shoots. Simmer for 6-8 minutes until chicken is cooked. Season with fish sauce and sugar.',
+        look: 'Creamy green broth with tender chicken and just-cooked vegetables.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Ladle curry over jasmine rice. Tear Thai basil leaves and scatter on top.',
+        look: 'Rich green sauce pooling around the rice, fragrant basil on top.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_2',
+    name: 'Miso Chicken and Aubergine',
+    subtitle: 'Miso-glazed chicken, roasted aubergine, rice',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 460, protein: 44, carbs: 36, fat: 14 },
+    cuisineBadge: 'Japanese',
+    tip: 'Score the aubergine flesh in a crosshatch pattern so the miso glaze soaks in.',
+    ingredients: [
+      '180 g chicken breast',
+      '1 medium aubergine, halved',
+      '2 tbsp white miso paste',
+      '1 tbsp mirin',
+      '1 tsp honey',
+      '1 tsp sesame oil',
+      '1 cup cooked white rice',
+      '1 green onion, sliced',
+      '1 tsp sesame seeds',
+    ],
+    steps: [
+      {
+        title: 'Make miso glaze',
+        time: '2 min',
+        detail:
+          'Whisk together miso paste, mirin, honey, and sesame oil until smooth. Divide in half — one portion for the chicken, one for the aubergine.',
+        look: 'Smooth, spreadable paste with a light caramel colour.',
+      },
+      {
+        title: 'Roast aubergine and chicken',
+        time: '20 min',
+        detail:
+          'Score aubergine halves in a crosshatch and brush with miso glaze. Place on a lined tray alongside chicken breast brushed with the remaining glaze. Roast at 200°C / 400°F for 18-20 minutes.',
+        look: 'Aubergine collapsed and caramelised, chicken golden with sticky glaze.',
+      },
+      {
+        title: 'Plate',
+        time: '2 min',
+        detail:
+          'Slice chicken and arrange alongside roasted aubergine over rice. Garnish with green onion and sesame seeds.',
+        look: 'Glossy, caramelised chicken and silky aubergine on white rice.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_3',
+    name: 'Moroccan Chicken Tagine',
+    subtitle: 'Warm spiced chicken, chickpeas, couscous',
+    flag: '🇲🇦',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 500, protein: 48, carbs: 38, fat: 16 },
+    cuisineBadge: 'Moroccan',
+    tip: 'Bloom dried spices in oil for 30 seconds before adding liquid — it unlocks much deeper flavour.',
+    ingredients: [
+      '180 g chicken thigh (boneless, skinless), cubed',
+      '1/3 cup canned chickpeas, rinsed',
+      '1/2 cup canned chopped tomatoes',
+      '1 tsp cumin',
+      '1/2 tsp cinnamon',
+      '1/2 tsp turmeric',
+      '1/4 preserved lemon, diced (or lemon zest)',
+      '1/2 cup cooked couscous',
+      '1 tbsp olive oil',
+      'Fresh coriander',
+    ],
+    steps: [
+      {
+        title: 'Sear chicken',
+        time: '4 min',
+        detail:
+          'Heat olive oil in a deep pan. Season chicken cubes with salt and sear until golden on all sides. Remove and set aside.',
+        look: 'Deep golden-brown crust on each piece.',
+      },
+      {
+        title: 'Build tagine',
+        time: '15 min',
+        detail:
+          'In the same pan, toast cumin, cinnamon, and turmeric for 30 seconds. Add chopped tomatoes, chickpeas, and preserved lemon. Return chicken, cover, and simmer for 12-15 minutes.',
+        look: 'Thick, fragrant sauce clinging to the chicken and chickpeas.',
+      },
+      {
+        title: 'Serve',
+        time: '2 min',
+        detail:
+          'Fluff couscous with a fork and mound on a plate. Spoon the tagine alongside and garnish with fresh coriander.',
+        look: 'Golden couscous with a rustic, saucy stew beside it.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_4',
+    name: 'Steak and Chips (Lomo-style)',
+    subtitle: 'Pan-fried steak, soy-vinegar sauce, oven chips',
+    flag: '🇵🇪',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 520, protein: 46, carbs: 38, fat: 18 },
+    cuisineBadge: 'Peruvian',
+    tip: 'Let the steak rest for at least 5 minutes after cooking — the juices redistribute and every bite stays moist.',
+    ingredients: [
+      '180 g sirloin or flank steak',
+      '2 tbsp soy sauce',
+      '1 tbsp red wine vinegar',
+      '1 clove garlic, minced',
+      '1 medium potato, cut into wedges',
+      '1 tbsp olive oil',
+      '1/2 red onion, sliced',
+      '1 tomato, cut into wedges',
+      'Salt and pepper',
+    ],
+    steps: [
+      {
+        title: 'Bake chips',
+        time: '25 min',
+        detail:
+          'Toss potato wedges with half the olive oil, salt, and pepper. Spread on a baking tray and roast at 220°C / 425°F until golden and crispy.',
+        look: 'Golden brown edges, fluffy inside when pierced.',
+      },
+      {
+        title: 'Cook steak',
+        time: '8 min',
+        detail:
+          'Pat steak dry and season generously with salt and pepper. Sear in a very hot oiled pan for 3-4 minutes per side (for medium). Rest for 5 minutes, then slice against the grain.',
+        look: 'Dark, seared crust outside; pink and juicy in the centre.',
+      },
+      {
+        title: 'Make lomo sauce',
+        time: '3 min',
+        detail:
+          'In the same pan, sauté red onion and garlic for 1 minute. Add soy sauce, vinegar, and tomato wedges. Cook for 2 minutes until tomatoes soften.',
+        look: 'Glossy, savoury sauce with wilted onions and softened tomato.',
+      },
+      {
+        title: 'Plate',
+        time: '1 min',
+        detail:
+          'Arrange sliced steak with oven chips. Spoon the soy-vinegar sauce and vegetables over the steak.',
+        look: 'Steakhouse presentation — sliced meat fanned out, chips piled high, sauce drizzled.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_5',
+    name: 'Fish Curry',
+    subtitle: 'White fish in coconut-tomato sauce, rice',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 450, protein: 50, carbs: 22, fat: 18 },
+    cuisineBadge: 'Indian',
+    tip: 'Add the fish in the last 5 minutes of cooking so it stays flaky and doesn\'t break apart.',
+    ingredients: [
+      '200 g firm white fish (cod or tilapia), cubed',
+      '1/2 cup canned chopped tomatoes',
+      '1/4 cup light coconut milk',
+      '1 tsp curry powder',
+      '1/2 tsp turmeric',
+      '1 clove garlic, minced',
+      '1 tsp fresh ginger, grated',
+      '1/2 cup cooked basmati rice',
+      '1 tbsp coconut oil',
+      'Fresh coriander',
+      'Lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Build sauce',
+        time: '5 min',
+        detail:
+          'Heat oil in a pan. Sauté garlic and ginger for 30 seconds. Add curry powder and turmeric, stir for 15 seconds. Pour in tomatoes and coconut milk, then simmer for 3 minutes.',
+        look: 'Rich, orange-red sauce — smooth and fragrant.',
+      },
+      {
+        title: 'Poach fish',
+        time: '5 min',
+        detail:
+          'Gently lower fish cubes into the simmering sauce. Cover and cook on low for 4-5 minutes without stirring — let the fish cook through gently.',
+        look: 'Fish opaque and flaky, holding its shape in the sauce.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Spoon curry over rice. Garnish with coriander and a squeeze of lime.',
+        look: 'Creamy orange sauce with chunks of white fish over fluffy rice.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_6',
+    name: 'Chicken Chilli',
+    subtitle: 'Chicken and bean stew, corn tortillas',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 510, protein: 48, carbs: 38, fat: 16 },
+    cuisineBadge: 'Mexican',
+    tip: 'A spoonful of cocoa powder adds depth without making it taste like chocolate.',
+    ingredients: [
+      '180 g chicken breast, cubed',
+      '1/2 cup canned kidney beans, rinsed',
+      '1/2 cup canned chopped tomatoes',
+      '1/2 small onion, diced',
+      '1 clove garlic, minced',
+      '1 tsp chilli powder',
+      '1/2 tsp cumin',
+      '1/2 tsp smoked paprika',
+      '2 small corn tortillas',
+      '1 tbsp olive oil',
+      'Fresh coriander and lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Sear chicken',
+        time: '4 min',
+        detail:
+          'Heat oil in a deep pan over high heat. Season chicken cubes with salt and sear until browned. Remove and set aside.',
+        look: 'Golden sear on each piece — colour means flavour.',
+      },
+      {
+        title: 'Build the chilli',
+        time: '15 min',
+        detail:
+          'In the same pan, cook onion and garlic for 2 minutes. Add chilli powder, cumin, and paprika, stir 30 seconds. Add tomatoes, beans, and chicken. Simmer covered for 12 minutes.',
+        look: 'Thick, hearty stew — not watery. Beans holding shape but tender.',
+      },
+      {
+        title: 'Serve',
+        time: '2 min',
+        detail:
+          'Warm tortillas. Ladle chilli into a bowl with tortillas on the side. Finish with coriander and a lime squeeze.',
+        look: 'Rustic, steaming bowl with golden tortillas on the side.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_7',
+    name: 'Korean Beef Rice Bowl',
+    subtitle: 'Soy and ginger beef, steamed rice, sesame spinach',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 520, protein: 46, carbs: 34, fat: 20 },
+    cuisineBadge: 'Korean',
+    tip: 'Cook the spinach in the beef pan after to pick up all the caramelised flavour.',
+    ingredients: [
+      '180 g lean beef mince',
+      '2 tbsp soy sauce',
+      '1 tsp sesame oil',
+      '1 tsp fresh ginger, grated',
+      '1 clove garlic, minced',
+      '1 tsp brown sugar',
+      '1 cup cooked white rice',
+      '2 cups fresh spinach',
+      '1 tsp sesame seeds',
+      '1 green onion, sliced',
+    ],
+    steps: [
+      {
+        title: 'Cook beef',
+        time: '5 min',
+        detail:
+          'Brown beef mince in a hot pan, breaking it up as it cooks. Add soy sauce, sesame oil, ginger, garlic, and brown sugar. Cook until the sauce thickens and coats the meat.',
+        look: 'Glossy, caramelised mince — no liquid pooling in the pan.',
+      },
+      {
+        title: 'Wilt spinach',
+        time: '2 min',
+        detail:
+          'Push beef to one side. Add spinach to the empty side of the pan and toss until wilted. Season with a drop of sesame oil.',
+        look: 'Dark green, just wilted — not mushy.',
+      },
+      {
+        title: 'Assemble bowl',
+        time: '1 min',
+        detail:
+          'Mound rice in a bowl. Arrange beef on one side and sesame spinach on the other. Top with sesame seeds and green onion.',
+        look: 'Clean bibimbap-style presentation with distinct sections.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // DINNER (continued — variety expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_dinner_8',
+    name: 'Jerk Shrimp and Rice',
+    subtitle: 'Spiced shrimp, coconut rice, mango salsa',
+    flag: '🇯🇲',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 470, protein: 38, carbs: 46, fat: 12 },
+    cuisineBadge: 'Caribbean',
+    tip: 'Use store-bought jerk seasoning — it has all the spices already blended.',
+    ingredients: [
+      '180 g shrimp, peeled and deveined',
+      '1 tbsp jerk seasoning',
+      '1 tbsp olive oil',
+      '1 cup cooked white rice',
+      '2 tbsp coconut milk',
+      '1/4 cup diced mango',
+      '1 tbsp diced red onion',
+      '1 tbsp fresh coriander',
+      '1 lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Season and cook shrimp',
+        time: '5 min',
+        detail:
+          'Toss shrimp with jerk seasoning and a pinch of salt. Heat oil in a pan over high heat and cook shrimp 2 minutes per side until charred and pink.',
+        look: 'Charred edges, slightly blackened from the jerk spices.',
+      },
+      {
+        title: 'Make coconut rice',
+        time: '2 min',
+        detail:
+          'Stir coconut milk into warm cooked rice. Season with a pinch of salt.',
+        look: 'Slightly creamy, fragrant rice with a subtle coconut sheen.',
+      },
+      {
+        title: 'Assemble',
+        time: '2 min',
+        detail:
+          'Mound coconut rice on a plate. Top with jerk shrimp. Mix mango, red onion, coriander, and lime juice into a quick salsa and spoon alongside.',
+        look: 'Dark spiced shrimp on white rice, bright mango salsa on the side.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_9',
+    name: 'Lamb Kofta with Tzatziki',
+    subtitle: 'Spiced lamb patties, cucumber yogurt, flatbread',
+    flag: '🇹🇷',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 510, protein: 40, carbs: 30, fat: 22 },
+    cuisineBadge: 'Turkish',
+    tip: 'Don\'t overwork the meat — mix just enough to combine. Keeps the kofta tender.',
+    ingredients: [
+      '180 g ground lamb',
+      '1/2 tsp cumin',
+      '1/2 tsp coriander powder',
+      '1/4 tsp cinnamon',
+      '1 clove garlic, grated',
+      '1 store-bought flatbread',
+      '1/4 cup Greek yogurt',
+      '1/4 cucumber, grated',
+      'Salt and pepper to taste',
+    ],
+    steps: [
+      {
+        title: 'Form kofta',
+        time: '3 min',
+        detail:
+          'Mix ground lamb with cumin, coriander, cinnamon, garlic, salt, and pepper. Shape into 4-5 small patties or elongated logs.',
+        look: 'Uniform patties — not too thick so they cook evenly.',
+      },
+      {
+        title: 'Cook kofta',
+        time: '8 min',
+        detail:
+          'Pan-fry in a hot skillet with a drizzle of oil, 3-4 minutes per side until cooked through with a nice char.',
+        look: 'Dark sear on the outside, no pink inside.',
+      },
+      {
+        title: 'Make tzatziki and serve',
+        time: '3 min',
+        detail:
+          'Mix yogurt with grated cucumber (squeeze out excess water first), salt, and a drizzle of olive oil. Warm flatbread in the pan. Serve kofta on flatbread with tzatziki.',
+        look: 'Charred patties on warm bread, white yogurt sauce drizzled over.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_10',
+    name: 'Garlic Butter Shrimp Pasta',
+    subtitle: 'Shrimp, garlic, butter, cherry tomatoes, penne',
+    flag: '🇮🇹',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 490, protein: 38, carbs: 48, fat: 16 },
+    cuisineBadge: 'Italian',
+    tip: 'Add the shrimp last — they only need 2-3 minutes and overcooking makes them rubbery.',
+    ingredients: [
+      '100 g penne pasta',
+      '150 g shrimp, peeled and deveined',
+      '2 cloves garlic, minced',
+      '1 tbsp butter',
+      '1/2 cup cherry tomatoes, halved',
+      '1 tbsp olive oil',
+      'Fresh parsley, chopped',
+      'Salt, pepper, and chilli flakes',
+    ],
+    steps: [
+      {
+        title: 'Cook pasta',
+        time: '10 min',
+        detail:
+          'Cook penne in salted boiling water until al dente. Reserve 1/2 cup pasta water, drain.',
+        look: 'Firm to the bite. Pasta water cloudy and starchy.',
+      },
+      {
+        title: 'Cook shrimp and sauce',
+        time: '5 min',
+        detail:
+          'Heat oil and butter in a pan. Sauté garlic 30 seconds, add tomatoes, cook 2 minutes. Add shrimp, cook 2 minutes per side. Season with salt, pepper, chilli flakes.',
+        look: 'Pink shrimp, burst tomatoes, sizzling garlic butter.',
+      },
+      {
+        title: 'Toss and serve',
+        time: '2 min',
+        detail:
+          'Add pasta and a splash of pasta water to the pan. Toss until the sauce coats the noodles. Finish with fresh parsley.',
+        look: 'Glossy pasta, shrimp and tomatoes evenly distributed.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_11',
+    name: 'Vietnamese Lemongrass Pork',
+    subtitle: 'Caramelised pork, rice noodles, fresh herbs',
+    flag: '🇻🇳',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 480, protein: 38, carbs: 44, fat: 16 },
+    cuisineBadge: 'Vietnamese',
+    tip: 'Freeze lemongrass for 10 minutes to make it easier to mince finely.',
+    ingredients: [
+      '180 g pork loin, thinly sliced',
+      '1 stalk lemongrass, white part minced',
+      '1 tbsp fish sauce',
+      '1 tbsp honey',
+      '1 clove garlic, minced',
+      '100 g dried rice vermicelli',
+      '1/4 cup shredded carrot',
+      'Fresh mint and coriander',
+      '1 tbsp crushed peanuts',
+      '1 lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Marinate and cook pork',
+        time: '10 min',
+        detail:
+          'Toss sliced pork with lemongrass, fish sauce, honey, and garlic. Pan-fry over high heat for 3-4 minutes until caramelised and slightly charred.',
+        look: 'Dark, sticky, caramelised edges with charred bits.',
+      },
+      {
+        title: 'Cook noodles',
+        time: '5 min',
+        detail:
+          'Soak rice vermicelli in boiling water for 3-4 minutes until tender. Drain and rinse with cold water.',
+        look: 'Soft, translucent noodles — no clumping.',
+      },
+      {
+        title: 'Assemble bowl',
+        time: '2 min',
+        detail:
+          'Place noodles in a bowl. Top with caramelised pork, shredded carrot, fresh herbs, and crushed peanuts. Squeeze lime over everything.',
+        look: 'Colourful bowl — dark pork, white noodles, orange carrot, green herbs.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_12',
+    name: 'Black Bean and Sweet Potato Bowl',
+    subtitle: 'Roasted sweet potato, black beans, avocado, lime',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 440, protein: 18, carbs: 58, fat: 14 },
+    cuisineBadge: 'Mexican',
+    tip: 'Cube sweet potatoes small (1cm) so they roast faster and get crispier edges.',
+    ingredients: [
+      '1 medium sweet potato, cubed',
+      '1/2 cup canned black beans, rinsed',
+      '1/2 avocado, sliced',
+      '1 tsp cumin',
+      '1/2 tsp smoked paprika',
+      '1 tbsp olive oil',
+      '2 tbsp salsa',
+      '1 tbsp fresh coriander',
+      '1 lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Roast sweet potato',
+        time: '20 min',
+        detail:
+          'Toss cubed sweet potato with oil, cumin, paprika, and salt. Spread on a lined baking sheet. Roast at 400°F for 18-20 minutes, flipping halfway.',
+        look: 'Caramelised edges, tender inside, spice-crusted.',
+      },
+      {
+        title: 'Warm beans',
+        time: '3 min',
+        detail:
+          'Heat black beans in a small pan with a splash of water and a pinch of cumin. Mash slightly with a fork.',
+        look: 'Thick, slightly chunky — not soupy.',
+      },
+      {
+        title: 'Build bowl',
+        time: '2 min',
+        detail:
+          'Layer beans, roasted sweet potato, avocado slices, and salsa in a bowl. Finish with coriander and lime.',
+        look: 'Orange, black, green, red — vibrant and hearty.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // SNACK 1 (7 + expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_snack1_1',
+    name: 'Edamame with Salt',
+    subtitle: 'Steamed edamame, flaky sea salt, lemon',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 160, protein: 14, carbs: 14, fat: 5 },
+    cuisineBadge: 'Japanese',
+    tip: 'Squeeze pods directly into your mouth — it is faster and more fun than picking each bean out.',
+    ingredients: [
+      '1 cup frozen edamame in pods',
+      '1/2 tsp flaky sea salt',
+      '1 lemon wedge',
+    ],
+    steps: [
+      {
+        title: 'Steam edamame',
+        time: '4 min',
+        detail:
+          'Boil or microwave frozen edamame until tender. Drain thoroughly.',
+        look: 'Bright green, steaming, pods slightly shiny.',
+      },
+      {
+        title: 'Season and serve',
+        time: '1 min',
+        detail:
+          'Toss hot edamame with flaky sea salt and a squeeze of lemon. Serve in a bowl with an empty dish for discarded pods.',
+        look: 'Salt crystals visible on the pods, glistening with lemon juice.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_2',
+    name: 'Greek Yogurt and Pita',
+    subtitle: 'Thick yogurt with cucumber, garlic and dill',
+    flag: '🇬🇷',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 190, protein: 16, carbs: 20, fat: 4 },
+    cuisineBadge: 'Greek',
+    tip: 'Grate the cucumber and squeeze out excess water so the dip stays thick.',
+    ingredients: [
+      '3/4 cup 0% Greek yogurt',
+      '1/4 cucumber, grated',
+      '1 small clove garlic, minced',
+      '1 tsp dried dill (or 1 tbsp fresh)',
+      '1 small wholemeal pita, cut into triangles',
+      'Pinch of salt',
+      'Drizzle of olive oil',
+    ],
+    steps: [
+      {
+        title: 'Make tzatziki dip',
+        time: '3 min',
+        detail:
+          'Grate cucumber and squeeze out excess moisture with a clean cloth. Mix into yogurt with garlic, dill, salt, and a drizzle of olive oil.',
+        look: 'Thick, creamy dip with green flecks of dill and cucumber.',
+      },
+      {
+        title: 'Toast pita and serve',
+        time: '2 min',
+        detail:
+          'Toast pita triangles under a grill or in a dry pan until crispy. Serve alongside the dip.',
+        look: 'Golden, crisp pita triangles with a bowl of cool white dip.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_3',
+    name: 'Guacamole and Veg Sticks',
+    subtitle: 'Fresh guacamole, carrot and cucumber sticks',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 200, protein: 4, carbs: 18, fat: 13 },
+    cuisineBadge: 'Mexican',
+    tip: 'Leave the avocado slightly chunky — over-mashing makes it lose its texture.',
+    ingredients: [
+      '1/2 ripe avocado',
+      '1 tbsp lime juice',
+      '1 tbsp red onion, finely diced',
+      'Pinch of salt and chilli flakes',
+      '1 medium carrot, cut into sticks',
+      '1/4 cucumber, cut into sticks',
+    ],
+    steps: [
+      {
+        title: 'Make guacamole',
+        time: '3 min',
+        detail:
+          'Mash avocado roughly with a fork. Stir in lime juice, red onion, salt, and chilli flakes. Keep it chunky.',
+        look: 'Vibrant green with visible avocado chunks and flecks of red onion.',
+      },
+      {
+        title: 'Prep and serve',
+        time: '2 min',
+        detail:
+          'Cut carrot and cucumber into even sticks. Serve alongside the guacamole for dipping.',
+        look: 'Colourful veg sticks fanned around a bowl of bright green guacamole.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_4',
+    name: 'Hummus and Chicken Flatbread',
+    subtitle: 'Hummus, pan-fried chicken strips, warm flatbread',
+    flag: '🇱🇧',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 220, protein: 20, carbs: 18, fat: 8 },
+    cuisineBadge: 'Lebanese',
+    tip: 'Warm the flatbread in a dry pan for 20 seconds per side — it makes a big difference.',
+    ingredients: [
+      '80 g chicken breast, sliced into strips',
+      '2 tbsp hummus',
+      '1 small flatbread or pita',
+      '1/2 tsp paprika',
+      'Pinch of salt and pepper',
+      '1 tsp olive oil',
+      'A few leaves of mint or parsley',
+    ],
+    steps: [
+      {
+        title: 'Cook chicken',
+        time: '4 min',
+        detail:
+          'Season chicken strips with paprika, salt, and pepper. Pan-fry in olive oil over high heat for 2 minutes per side until golden and cooked through.',
+        look: 'Slightly charred, golden strips — cooked through with no pink.',
+      },
+      {
+        title: 'Warm flatbread',
+        time: '1 min',
+        detail:
+          'Toast flatbread in a dry pan or wrap in a damp paper towel and microwave for 15 seconds.',
+        look: 'Soft, pliable, with a few char spots.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Spread hummus on the flatbread, top with chicken strips and fresh herbs. Roll up or eat open-faced.',
+        look: 'Creamy hummus base, golden chicken, bright green herbs.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_5',
+    name: 'Edamame and Egg Snack Box',
+    subtitle: 'Edamame, hard-boiled egg, soy dip',
+    flag: '🇨🇳',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 180, protein: 16, carbs: 14, fat: 6 },
+    cuisineBadge: 'Chinese',
+    tip: 'Batch-boil eggs at the start of the week for instant high-protein snacks.',
+    ingredients: [
+      '1 large egg',
+      '1/2 cup shelled edamame',
+      '1 tbsp soy sauce',
+      '1/2 tsp sesame oil',
+      '1/2 tsp rice vinegar',
+      'Pinch of chilli flakes',
+    ],
+    steps: [
+      {
+        title: 'Boil egg',
+        time: '10 min',
+        detail:
+          'Place egg in cold water, bring to a boil, then cook for 10 minutes. Transfer to ice water and peel.',
+        look: 'Fully set yolk — no grey ring around the outside.',
+      },
+      {
+        title: 'Prep dip',
+        time: '1 min',
+        detail:
+          'Mix soy sauce, sesame oil, rice vinegar, and chilli flakes in a small dish.',
+        look: 'Dark, glossy dipping sauce with red chilli flakes floating on top.',
+      },
+      {
+        title: 'Assemble box',
+        time: '1 min',
+        detail:
+          'Halve the egg and arrange in a container with edamame. Pack the dip on the side. Great for meal-prep grab-and-go.',
+        look: 'Clean snack box — yellow egg yolk, green edamame, dark dip.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_6',
+    name: 'Spiced Chickpea Snack',
+    subtitle: 'Pan-fried chickpeas, cumin, paprika, lemon',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 200, protein: 10, carbs: 26, fat: 6 },
+    cuisineBadge: 'Indian',
+    tip: 'Dry the chickpeas thoroughly with a paper towel before frying — they get much crunchier.',
+    ingredients: [
+      '3/4 cup canned chickpeas, rinsed and dried',
+      '1 tsp olive oil',
+      '1/2 tsp cumin',
+      '1/2 tsp smoked paprika',
+      'Pinch of salt',
+      '1 lemon wedge',
+    ],
+    steps: [
+      {
+        title: 'Pan-fry chickpeas',
+        time: '6 min',
+        detail:
+          'Heat oil in a skillet over medium-high heat. Add dried chickpeas and cook, shaking the pan occasionally, until golden and crispy on the outside.',
+        look: 'Golden-brown and slightly split — you can hear them crackle.',
+      },
+      {
+        title: 'Season and serve',
+        time: '1 min',
+        detail:
+          'Toss hot chickpeas with cumin, paprika, and salt. Squeeze lemon over the top. Serve warm or at room temperature.',
+        look: 'Rusty-red from paprika, glistening with a hint of lemon juice.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_7',
+    name: 'Kimbap Bites',
+    subtitle: 'Rice rolls with tuna, cucumber and egg',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 200, protein: 16, carbs: 24, fat: 4 },
+    cuisineBadge: 'Korean',
+    tip: 'Wet the knife between cuts to get clean slices without the rice sticking.',
+    ingredients: [
+      '1/2 cup cooked sushi rice, seasoned with rice vinegar',
+      '1 sheet roasted seaweed (gim)',
+      '60 g canned tuna, drained',
+      '1/4 cucumber, cut into thin strips',
+      '1 egg, cooked into a thin omelette and sliced',
+      '1/2 tsp sesame oil',
+      '1 tsp sesame seeds',
+    ],
+    steps: [
+      {
+        title: 'Prep fillings',
+        time: '5 min',
+        detail:
+          'Cook a thin egg omelette in a non-stick pan and slice into strips. Cut cucumber into long, thin matchsticks. Drain tuna.',
+        look: 'Even, uniform strips of egg and cucumber ready for rolling.',
+      },
+      {
+        title: 'Roll kimbap',
+        time: '3 min',
+        detail:
+          'Lay seaweed on a bamboo mat or cling film. Spread a thin layer of seasoned rice, leaving 2 cm at the top edge. Line up tuna, cucumber, and egg strips in the centre. Roll tightly and seal the edge with a dab of water.',
+        look: 'Tight, even roll with no air pockets.',
+      },
+      {
+        title: 'Slice and serve',
+        time: '1 min',
+        detail:
+          'Brush the roll with sesame oil and sprinkle sesame seeds. Slice into 6-8 pieces with a wet knife.',
+        look: 'Clean cross-sections showing the colourful filling spiral.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // SNACK 1 (continued — variety expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_snack1_8',
+    name: 'Turkey and Cheese Roll-Ups',
+    subtitle: 'Deli turkey, string cheese, mustard',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 180, protein: 24, carbs: 4, fat: 8 },
+    cuisineBadge: 'American',
+    tip: 'Roll them tight and keep in the fridge for grab-and-go protein any time.',
+    ingredients: [
+      '100 g deli turkey slices',
+      '1 string cheese or cheese stick',
+      '1 tsp Dijon mustard',
+      '2-3 pickle slices (optional)',
+    ],
+    steps: [
+      {
+        title: 'Assemble rolls',
+        time: '2 min',
+        detail:
+          'Lay out turkey slices. Spread a thin layer of mustard. Place cheese stick and pickle at the edge. Roll up tightly.',
+        look: 'Tight spirals with cheese peeking out at the ends.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Slice rolls in half if desired. Eat cold or at room temperature.',
+        look: 'Clean cross-section showing pink turkey, white cheese, green pickle.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_9',
+    name: 'Tuna and Avocado Bites',
+    subtitle: 'Canned tuna, avocado, lemon, rice cakes',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 210, protein: 22, carbs: 14, fat: 8 },
+    cuisineBadge: 'Japanese',
+    tip: 'Drain the tuna well and pat dry — wet tuna makes soggy bites.',
+    ingredients: [
+      '1 can (80 g) tuna, drained',
+      '1/4 avocado, mashed',
+      '1 tsp lemon juice',
+      '1 tsp soy sauce',
+      '2 rice cakes',
+      'Pinch of sesame seeds',
+    ],
+    steps: [
+      {
+        title: 'Mix tuna',
+        time: '2 min',
+        detail:
+          'Combine drained tuna, mashed avocado, lemon juice, and soy sauce. Mash together with a fork.',
+        look: 'Creamy, pale green-speckled mixture — well combined.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Spoon tuna mixture onto rice cakes. Sprinkle with sesame seeds.',
+        look: 'Crunchy rice cake base topped with a generous scoop of tuna-avocado.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_10',
+    name: 'Cottage Cheese and Tomato Toast',
+    subtitle: 'Cottage cheese, cherry tomatoes, everything seasoning',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 200, protein: 18, carbs: 18, fat: 6 },
+    cuisineBadge: 'American',
+    tip: 'Use full-fat cottage cheese for better flavour, or low-fat to keep it leaner.',
+    ingredients: [
+      '1/2 cup cottage cheese',
+      '4-5 cherry tomatoes, halved',
+      '1 slice sourdough bread, toasted',
+      '1/2 tsp everything bagel seasoning',
+      'Pinch of salt and pepper',
+    ],
+    steps: [
+      {
+        title: 'Toast bread',
+        time: '2 min',
+        detail:
+          'Toast sourdough until golden and crisp.',
+        look: 'Deep golden, firm enough to hold toppings.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Spread cottage cheese on toast. Top with halved cherry tomatoes. Sprinkle everything seasoning, salt and pepper.',
+        look: 'White cheese, red tomatoes, speckled seasoning — colourful and simple.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // SNACK 2 (7 + expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_snack2_1',
+    name: 'Greek Yogurt, Honey and Walnuts',
+    subtitle: '0% yogurt, honey, toasted walnuts',
+    flag: '🇬🇷',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 190, protein: 18, carbs: 14, fat: 8 },
+    cuisineBadge: 'Greek',
+    tip: 'Toast walnuts in a dry pan for 2 minutes — it doubles the flavour and crunch.',
+    ingredients: [
+      '3/4 cup 0% Greek yogurt',
+      '1 tbsp honey',
+      '15 g walnuts, roughly chopped',
+    ],
+    steps: [
+      {
+        title: 'Toast walnuts',
+        time: '2 min',
+        detail:
+          'Place chopped walnuts in a dry pan over medium heat. Shake occasionally until fragrant and lightly golden. Watch closely — they burn fast.',
+        look: 'Golden brown, aromatic, slightly darkened.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Spoon yogurt into a bowl. Drizzle honey over the top and scatter toasted walnuts.',
+        look: 'Clean white yogurt with a golden honey drizzle and walnut pieces on top.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_2',
+    name: 'Protein Shake with Matcha',
+    subtitle: 'Vanilla protein, almond milk, green tea powder',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 200, protein: 26, carbs: 12, fat: 4 },
+    cuisineBadge: 'Japanese',
+    tip: 'Sift the matcha first to avoid clumps — a small mesh strainer works perfectly.',
+    ingredients: [
+      '1 scoop vanilla protein powder',
+      '1 cup unsweetened almond milk',
+      '1 tsp matcha green tea powder',
+      '3-4 ice cubes',
+    ],
+    steps: [
+      {
+        title: 'Blend',
+        time: '1 min',
+        detail:
+          'Sift matcha powder into a blender. Add protein powder, almond milk, and ice cubes. Blend on high for 30-45 seconds until smooth and frothy.',
+        look: 'Smooth, vibrant green with a frothy top — no visible powder clumps.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Pour into a glass or shaker bottle. Drink within 10 minutes for the best texture.',
+        look: 'Creamy, pale green shake — like a matcha latte.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_3',
+    name: 'Banana Cinnamon Protein Smoothie',
+    subtitle: 'Banana, yogurt, protein powder, cinnamon and ginger',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 210, protein: 26, carbs: 22, fat: 4 },
+    cuisineBadge: 'Indian',
+    tip: 'Freeze the banana in advance for a thicker, ice-cream-like consistency.',
+    ingredients: [
+      '1 medium banana (frozen is best)',
+      '1/4 cup 0% Greek yogurt',
+      '1/2 scoop vanilla protein powder',
+      '1/2 tsp cinnamon',
+      '1/4 tsp ground ginger',
+      '1/2 cup water or almond milk',
+    ],
+    steps: [
+      {
+        title: 'Blend',
+        time: '1 min',
+        detail:
+          'Add banana, yogurt, protein powder, cinnamon, ginger, and liquid to a blender. Blend until completely smooth.',
+        look: 'Thick, creamy, pale gold with cinnamon speckles.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Pour into a glass. Dust a pinch of cinnamon on top if desired. Best consumed immediately post-workout.',
+        look: 'Smooth, milkshake-thick consistency with a cinnamon dust finish.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_4',
+    name: 'Cottage Cheese and Fruit Bowl',
+    subtitle: 'Cottage cheese, mango, chilli flakes, lime',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 180, protein: 20, carbs: 18, fat: 2 },
+    cuisineBadge: 'Mexican',
+    tip: 'Ripe mango is key — it should give slightly when pressed and smell sweet at the stem.',
+    ingredients: [
+      '3/4 cup low-fat cottage cheese',
+      '1/2 cup fresh mango, diced',
+      'Pinch of chilli flakes',
+      '1 lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Prep mango',
+        time: '2 min',
+        detail:
+          'Peel and dice the mango into bite-sized cubes. If using frozen, let it thaw slightly.',
+        look: 'Bright orange, even cubes — juicy and ripe.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Spoon cottage cheese into a bowl. Top with mango cubes, a pinch of chilli flakes, and a squeeze of lime.',
+        look: 'White cheese, orange mango, red chilli flakes, green lime — vibrant contrast.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_5',
+    name: 'Yogurt with Cucumber and Herbs',
+    subtitle: 'Strained yogurt, cucumber, mint, olive oil',
+    flag: '🇱🇧',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 190, protein: 14, carbs: 14, fat: 8 },
+    cuisineBadge: 'Lebanese',
+    tip: 'Use strained or labneh-style yogurt for the richest, creamiest result.',
+    ingredients: [
+      '3/4 cup strained yogurt or labneh',
+      '1/4 cucumber, diced small',
+      '5-6 fresh mint leaves, torn',
+      '1 tsp extra-virgin olive oil',
+      'Pinch of salt',
+      'Pinch of sumac (optional)',
+    ],
+    steps: [
+      {
+        title: 'Prep toppings',
+        time: '2 min',
+        detail:
+          'Dice cucumber into small cubes. Tear mint leaves by hand — don\'t chop, it bruises them less.',
+        look: 'Uniform small cubes, fresh torn mint.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Spread yogurt in a shallow bowl. Top with cucumber and mint. Drizzle olive oil, sprinkle salt and sumac if using.',
+        look: 'Smooth white yogurt with green and light purple accents, olive oil glistening.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_6',
+    name: 'Passion Fruit Yogurt Cup',
+    subtitle: 'Greek yogurt, passion fruit, lime, chia seeds',
+    flag: '🇵🇪',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 200, protein: 22, carbs: 18, fat: 4 },
+    cuisineBadge: 'Peruvian',
+    tip: 'Ripe passion fruit has wrinkled skin — smooth ones are underripe and too tart.',
+    ingredients: [
+      '3/4 cup 0% Greek yogurt',
+      '1 passion fruit, halved',
+      '1 tsp lime juice',
+      '1 tsp chia seeds',
+      '1 tsp honey (optional)',
+    ],
+    steps: [
+      {
+        title: 'Prep passion fruit',
+        time: '1 min',
+        detail:
+          'Cut passion fruit in half and scoop out the pulp and seeds with a spoon.',
+        look: 'Bright orange-yellow pulp with dark seeds — juicy and fragrant.',
+      },
+      {
+        title: 'Assemble cup',
+        time: '1 min',
+        detail:
+          'Spoon yogurt into a glass or bowl. Top with passion fruit pulp, a squeeze of lime, and a scatter of chia seeds. Drizzle honey if desired.',
+        look: 'White yogurt topped with golden-orange pulp, black seeds, and tiny chia specks.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_7',
+    name: 'Banana and Peanut Butter Rice Cakes',
+    subtitle: 'Rice cakes, peanut butter, banana, cinnamon',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 200, protein: 14, carbs: 28, fat: 6 },
+    cuisineBadge: 'Korean',
+    tip: 'Use natural peanut butter with no added sugar — check the label for just peanuts and salt.',
+    ingredients: [
+      '2 plain rice cakes',
+      '1 tbsp natural peanut butter',
+      '1/2 banana, sliced',
+      'Pinch of cinnamon',
+    ],
+    steps: [
+      {
+        title: 'Spread and top',
+        time: '2 min',
+        detail:
+          'Spread peanut butter evenly over each rice cake. Arrange banana slices on top and dust with cinnamon.',
+        look: 'Neat banana rounds on a peanut butter base, cinnamon dusted over.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Eat immediately for the best crunch. Great as a pre-workout snack 30-45 minutes before training.',
+        look: 'Crunchy rice cake base contrasting with the soft banana and creamy peanut butter.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // SNACK 2 (continued — variety expansion)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_snack2_8',
+    name: 'Chocolate Protein Pudding',
+    subtitle: 'Protein powder, cocoa, Greek yogurt, almond milk',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 200, protein: 28, carbs: 14, fat: 4 },
+    cuisineBadge: 'American',
+    tip: 'Let it sit 5 minutes after mixing — it thickens into a proper pudding consistency.',
+    ingredients: [
+      '1 scoop chocolate protein powder',
+      '1/4 cup 0% Greek yogurt',
+      '1/4 cup almond milk',
+      '1 tsp cocoa powder',
+      'Pinch of salt',
+    ],
+    steps: [
+      {
+        title: 'Mix pudding',
+        time: '2 min',
+        detail:
+          'Combine protein powder, yogurt, almond milk, cocoa powder, and salt in a bowl. Stir vigorously until completely smooth and thick.',
+        look: 'Rich, dark brown, pudding-like consistency — not watery.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Eat immediately or refrigerate for 10 minutes for a firmer texture.',
+        look: 'Thick, glossy chocolate pudding — spoon stands up in it.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_9',
+    name: 'Trail Mix Energy Bites',
+    subtitle: 'Oats, peanut butter, honey, dark chocolate chips',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 210, protein: 12, carbs: 24, fat: 10 },
+    cuisineBadge: 'American',
+    tip: 'Wet your hands before rolling — the mixture won\'t stick to you.',
+    ingredients: [
+      '1/3 cup rolled oats',
+      '2 tbsp natural peanut butter',
+      '1 tbsp honey',
+      '1 tbsp dark chocolate chips',
+      '1 tbsp ground flaxseed',
+    ],
+    steps: [
+      {
+        title: 'Mix and roll',
+        time: '5 min',
+        detail:
+          'Combine all ingredients in a bowl. Stir until a sticky dough forms. Roll into 4-5 small balls with damp hands.',
+        look: 'Uniform balls, slightly tacky, chocolate chips visible.',
+      },
+      {
+        title: 'Chill and eat',
+        time: '1 min',
+        detail:
+          'Refrigerate for 15 minutes to firm up, or eat immediately. Store in the fridge for up to a week.',
+        look: 'Firm, compact balls that hold their shape.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_10',
+    name: 'Mango Lassi',
+    subtitle: 'Mango, yogurt, cardamom, honey',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 190, protein: 16, carbs: 26, fat: 2 },
+    cuisineBadge: 'Indian',
+    tip: 'Frozen mango makes it thicker and colder — no ice needed.',
+    ingredients: [
+      '1/2 cup frozen mango chunks',
+      '1/2 cup 0% Greek yogurt',
+      '1/4 cup milk',
+      '1/4 tsp ground cardamom',
+      '1 tsp honey',
+    ],
+    steps: [
+      {
+        title: 'Blend',
+        time: '1 min',
+        detail:
+          'Combine all ingredients in a blender. Blend until completely smooth and creamy.',
+        look: 'Bright orange-yellow, thick and smooth — no chunks.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Pour into a glass. Dust a pinch of cardamom on top if desired.',
+        look: 'Vibrant golden drink, slightly frothy on top.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // LIGHT BREAKFAST (5) — for cut / aggressive-cut goals
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_breakfast_light_1',
+    name: 'Turkish Egg Bowl',
+    subtitle: 'Poached egg over yogurt with chili oil & herbs',
+    flag: '🇹🇷',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 220, protein: 22, carbs: 8, fat: 12 },
+    cuisineBadge: 'Turkish',
+    tip: 'A splash of vinegar in the poaching water helps the egg whites hold together.',
+    ingredients: [
+      '2 large eggs',
+      '3/4 cup 2% Greek yogurt',
+      '1 small garlic clove, grated',
+      '1 tsp chili flakes',
+      '1 tsp olive oil',
+      'Fresh dill, chopped',
+      'Salt & pepper',
+    ],
+    steps: [
+      {
+        title: 'Season yogurt',
+        time: '2 min',
+        detail: 'Stir grated garlic and a pinch of salt into Greek yogurt. Spread into a shallow bowl.',
+        look: 'Smooth, creamy white base filling the bowl.',
+      },
+      {
+        title: 'Poach eggs',
+        time: '4 min',
+        detail: 'Bring water to a gentle simmer with a splash of vinegar. Crack eggs in and cook 3–4 minutes.',
+        look: 'Set whites, runny golden yolks.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail: 'Place eggs on yogurt. Heat olive oil with chili flakes for 30 seconds and drizzle over. Top with dill.',
+        look: 'White eggs on white yogurt, streaked with red chili oil and green dill.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_light_2',
+    name: 'Miso Oatmeal',
+    subtitle: 'Savory oats with soft egg, nori & sesame',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 250, protein: 18, carbs: 30, fat: 7 },
+    cuisineBadge: 'Japanese',
+    tip: 'Stir the miso in at the end — boiling it kills the beneficial cultures.',
+    ingredients: [
+      '1/2 cup rolled oats',
+      '1 cup water',
+      '1 tbsp white miso paste',
+      '1 large egg',
+      '1 sheet nori, torn',
+      '1 tsp sesame seeds',
+      '1 green onion, sliced',
+    ],
+    steps: [
+      {
+        title: 'Cook oats',
+        time: '5 min',
+        detail: 'Simmer oats in water until thick and creamy. Remove from heat and stir in miso paste.',
+        look: 'Creamy porridge with a slight golden tint from the miso.',
+      },
+      {
+        title: 'Fry egg',
+        time: '3 min',
+        detail: 'Fry egg in a non-stick pan with cooking spray until whites are set but yolk is runny.',
+        look: 'Crispy white edges, jiggly golden yolk.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail: 'Top oats with fried egg, torn nori, sesame seeds, and green onion.',
+        look: 'Savory bowl with dark nori strips and a bright yolk ready to break.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_light_3',
+    name: 'Berry Protein Bowl',
+    subtitle: 'Greek yogurt with mixed berries, chia & honey',
+    flag: '🇬🇷',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 230, protein: 24, carbs: 26, fat: 4 },
+    cuisineBadge: 'Greek',
+    tip: 'Frozen berries thawed overnight release juices that swirl beautifully into the yogurt.',
+    ingredients: [
+      '1 cup 0% Greek yogurt',
+      '1/2 cup mixed berries',
+      '1 tbsp chia seeds',
+      '1 tsp honey',
+    ],
+    steps: [
+      {
+        title: 'Layer',
+        time: '2 min',
+        detail: 'Spoon yogurt into a bowl. Top with berries, sprinkle chia seeds, and drizzle honey.',
+        look: 'White yogurt dotted with red and blue berries, chia specks throughout.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_light_4',
+    name: 'Avocado Egg White Wrap',
+    subtitle: 'Egg whites, avocado & salsa in a small tortilla',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 240, protein: 20, carbs: 22, fat: 8 },
+    cuisineBadge: 'Mexican',
+    tip: 'Use a small 6-inch tortilla to keep calories in check.',
+    ingredients: [
+      '4 egg whites',
+      '1/4 avocado, sliced',
+      '1 small flour tortilla (6-inch)',
+      '2 tbsp salsa',
+      'Salt & pepper',
+    ],
+    steps: [
+      {
+        title: 'Scramble whites',
+        time: '3 min',
+        detail: 'Cook egg whites in a non-stick pan over medium heat, stirring gently until just set.',
+        look: 'Soft, fluffy white curds — not browned.',
+      },
+      {
+        title: 'Assemble wrap',
+        time: '1 min',
+        detail: 'Warm tortilla, add scrambled whites, avocado slices, and salsa. Roll up.',
+        look: 'Tight wrap with green avocado and red salsa peeking out.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_light_5',
+    name: 'Vietnamese Coffee Smoothie',
+    subtitle: 'Coffee, banana, protein & condensed milk',
+    flag: '🇻🇳',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 210, protein: 22, carbs: 24, fat: 3 },
+    cuisineBadge: 'Vietnamese',
+    tip: 'Freeze the banana ahead of time for an extra thick, cold smoothie.',
+    ingredients: [
+      '1 shot espresso or 1/2 cup strong coffee, chilled',
+      '1 small frozen banana',
+      '1 scoop vanilla protein powder',
+      '1 tsp condensed milk',
+      '1/2 cup ice',
+    ],
+    steps: [
+      {
+        title: 'Blend',
+        time: '1 min',
+        detail: 'Combine all ingredients in a blender and blend until smooth.',
+        look: 'Creamy light-brown shake, thick enough to hold a straw upright.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // LIGHT LUNCH (5) — for cut / aggressive-cut goals
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_lunch_light_1',
+    name: 'Tom Yum Shrimp Soup',
+    subtitle: 'Spicy-sour Thai soup with shrimp & mushrooms',
+    flag: '🇹🇭',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 300, protein: 36, carbs: 18, fat: 10 },
+    cuisineBadge: 'Thai',
+    tip: 'Crush the lemongrass stalk with the back of your knife to release the oils.',
+    ingredients: [
+      '200g shrimp, peeled',
+      '1 cup mushrooms, sliced',
+      '3 cups chicken broth',
+      '2 tbsp tom yum paste',
+      '1 stalk lemongrass, crushed',
+      '1 tbsp fish sauce',
+      '1 lime, juiced',
+      'Fresh cilantro',
+    ],
+    steps: [
+      {
+        title: 'Build broth',
+        time: '5 min',
+        detail: 'Bring broth to a boil with lemongrass and tom yum paste. Simmer 3 minutes.',
+        look: 'Fragrant, reddish-orange broth.',
+      },
+      {
+        title: 'Cook shrimp & mushrooms',
+        time: '4 min',
+        detail: 'Add mushrooms and shrimp. Cook until shrimp are pink and curled. Stir in fish sauce and lime juice.',
+        look: 'Pink shrimp floating in fiery broth, mushrooms tender.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail: 'Remove lemongrass. Ladle into bowls and top with cilantro.',
+        look: 'Steaming bowl with bright green cilantro on top.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_light_2',
+    name: 'Grilled Chicken Fattoush',
+    subtitle: 'Lebanese salad with grilled chicken, crispy pita & sumac',
+    flag: '🇱🇧',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 340, protein: 38, carbs: 22, fat: 12 },
+    cuisineBadge: 'Lebanese',
+    tip: 'Toast pita pieces until deeply golden — they should shatter when you bite them.',
+    ingredients: [
+      '150g chicken breast, grilled & sliced',
+      '1/2 small pita, torn & toasted',
+      '1 cup romaine lettuce, chopped',
+      '1/2 cucumber, diced',
+      '1 tomato, diced',
+      '2 radishes, sliced',
+      '1 tbsp olive oil',
+      '1 tbsp lemon juice',
+      '1 tsp sumac',
+    ],
+    steps: [
+      {
+        title: 'Toast pita',
+        time: '3 min',
+        detail: 'Tear pita into bite-size pieces and toast in a dry skillet or oven until crispy.',
+        look: 'Golden, crunchy shards.',
+      },
+      {
+        title: 'Assemble salad',
+        time: '3 min',
+        detail: 'Toss lettuce, cucumber, tomato, and radishes with olive oil, lemon juice, and sumac.',
+        look: 'Vibrant, colorful salad with a dusty-red sumac coating.',
+      },
+      {
+        title: 'Top & serve',
+        time: '1 min',
+        detail: 'Arrange sliced chicken over salad and scatter crispy pita on top.',
+        look: 'Juicy chicken slices over crunchy greens and pita shards.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_light_3',
+    name: 'Japanese Tuna Poke Bowl',
+    subtitle: 'Sushi-grade tuna over rice with pickled ginger',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 320, protein: 34, carbs: 30, fat: 8 },
+    cuisineBadge: 'Japanese',
+    tip: 'Use only half the usual rice portion to keep this light but satisfying.',
+    ingredients: [
+      '150g sushi-grade tuna, cubed',
+      '1/2 cup cooked sushi rice',
+      '1 tbsp soy sauce',
+      '1 tsp sesame oil',
+      '1/2 avocado, sliced',
+      'Pickled ginger',
+      '1 tsp sesame seeds',
+      '1/2 cup edamame',
+    ],
+    steps: [
+      {
+        title: 'Marinate tuna',
+        time: '5 min',
+        detail: 'Toss tuna cubes with soy sauce and sesame oil. Let sit while you prep other ingredients.',
+        look: 'Glossy ruby-red cubes.',
+      },
+      {
+        title: 'Build bowl',
+        time: '2 min',
+        detail: 'Place rice in a bowl. Arrange tuna, avocado, edamame, and pickled ginger on top. Sprinkle sesame seeds.',
+        look: 'Clean, colorful sections — red, green, white, pink.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_light_4',
+    name: 'Ethiopian Lentil Stew',
+    subtitle: 'Misir wot — spiced red lentils with berbere',
+    flag: '🇪🇹',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 310, protein: 22, carbs: 44, fat: 6 },
+    cuisineBadge: 'Ethiopian',
+    tip: 'Red lentils cook quickly and break down into a thick, comforting stew.',
+    ingredients: [
+      '3/4 cup red lentils, rinsed',
+      '1 small onion, diced',
+      '2 cloves garlic, minced',
+      '1 tbsp berbere spice',
+      '1 tbsp tomato paste',
+      '2 cups water',
+      'Salt to taste',
+    ],
+    steps: [
+      {
+        title: 'Sauté aromatics',
+        time: '4 min',
+        detail: 'Cook onion in a dry non-stick pot until softened. Add garlic and berbere, stir 1 minute.',
+        look: 'Deep red-brown, fragrant.',
+      },
+      {
+        title: 'Simmer lentils',
+        time: '18 min',
+        detail: 'Add tomato paste, lentils, and water. Bring to a boil, then simmer until lentils dissolve into a thick stew.',
+        look: 'Thick, rusty-orange porridge-like consistency.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_light_5',
+    name: 'Chicken Lettuce Wraps',
+    subtitle: 'Thai-style minced chicken in butter lettuce cups',
+    flag: '🇹🇭',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 280, protein: 34, carbs: 12, fat: 10 },
+    cuisineBadge: 'Thai',
+    tip: 'Bibb or butter lettuce makes the best cups — sturdy but tender.',
+    ingredients: [
+      '200g ground chicken breast',
+      '1 tbsp soy sauce',
+      '1 tbsp fish sauce',
+      '1 lime, juiced',
+      '1 tsp chili flakes',
+      '1/4 cup shallots, sliced',
+      'Fresh mint & cilantro',
+      '6 butter lettuce leaves',
+    ],
+    steps: [
+      {
+        title: 'Cook chicken',
+        time: '5 min',
+        detail: 'Brown ground chicken in a non-stick pan, breaking into small pieces. Add soy sauce and fish sauce.',
+        look: 'Golden-brown crumbles, no pink remaining.',
+      },
+      {
+        title: 'Season',
+        time: '1 min',
+        detail: 'Remove from heat. Toss with lime juice, chili flakes, shallots, mint, and cilantro.',
+        look: 'Glossy, herb-flecked mince.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail: 'Spoon chicken mixture into lettuce cups.',
+        look: 'Crisp green cups holding fragrant, colorful filling.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // LIGHT DINNER (5) — for cut / aggressive-cut goals
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_dinner_light_1',
+    name: 'Miso-Glazed Cod',
+    subtitle: 'Baked cod with miso glaze, steamed bok choy',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 340, protein: 42, carbs: 16, fat: 10 },
+    cuisineBadge: 'Japanese',
+    tip: 'Marinate the cod in miso for 30 minutes if you have time — the flavor deepens significantly.',
+    ingredients: [
+      '200g cod fillet',
+      '1 tbsp white miso paste',
+      '1 tsp mirin',
+      '1 tsp soy sauce',
+      '2 heads baby bok choy',
+      '1 tsp sesame seeds',
+    ],
+    steps: [
+      {
+        title: 'Glaze cod',
+        time: '2 min',
+        detail: 'Mix miso, mirin, and soy sauce. Spread over cod fillet.',
+        look: 'Thick golden paste coating the white fish.',
+      },
+      {
+        title: 'Bake',
+        time: '14 min',
+        detail: 'Bake at 400°F (200°C) until fish flakes easily and glaze is caramelized.',
+        look: 'Deep golden-brown crust on top, fish flaking in layers.',
+      },
+      {
+        title: 'Steam bok choy',
+        time: '3 min',
+        detail: 'Steam bok choy until tender-crisp. Serve alongside cod and sprinkle sesame seeds.',
+        look: 'Bright green leaves, white stems still slightly firm.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_light_2',
+    name: 'Greek Turkey Meatballs',
+    subtitle: 'Herbed turkey meatballs with tzatziki & cucumber salad',
+    flag: '🇬🇷',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 360, protein: 40, carbs: 14, fat: 14 },
+    cuisineBadge: 'Greek',
+    tip: 'Don\'t overmix the meatball mixture — it keeps them tender inside.',
+    ingredients: [
+      '200g ground turkey',
+      '1 tbsp dried oregano',
+      '2 cloves garlic, minced',
+      '1/4 cup 0% Greek yogurt',
+      '1/2 cucumber, grated (for tzatziki)',
+      '1 tbsp lemon juice',
+      'Salt & pepper',
+      'Mixed greens',
+    ],
+    steps: [
+      {
+        title: 'Form meatballs',
+        time: '5 min',
+        detail: 'Mix turkey with oregano, half the garlic, salt, and pepper. Roll into 8 small balls.',
+        look: 'Evenly sized, slightly flattened spheres.',
+      },
+      {
+        title: 'Cook',
+        time: '10 min',
+        detail: 'Pan-fry meatballs in a non-stick pan until golden and cooked through, turning occasionally.',
+        look: 'Deep golden crust all around, juicy inside.',
+      },
+      {
+        title: 'Make tzatziki & serve',
+        time: '2 min',
+        detail: 'Mix yogurt, grated cucumber, remaining garlic, and lemon juice. Serve meatballs over greens with tzatziki.',
+        look: 'Golden meatballs on green leaves, white tzatziki pooled alongside.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_light_3',
+    name: 'Peruvian Ceviche',
+    subtitle: 'Lime-cured white fish with red onion, corn & sweet potato',
+    flag: '🇵🇪',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 320, protein: 36, carbs: 28, fat: 6 },
+    cuisineBadge: 'Peruvian',
+    tip: 'Use the freshest fish possible — the acid "cooks" it but doesn\'t sterilize.',
+    ingredients: [
+      '200g firm white fish, cubed',
+      '4 limes, juiced',
+      '1/2 red onion, thinly sliced',
+      '1 small sweet potato, boiled & sliced',
+      '1/4 cup corn kernels',
+      '1 chili pepper, minced',
+      'Fresh cilantro',
+      'Salt',
+    ],
+    steps: [
+      {
+        title: 'Cure fish',
+        time: '15 min',
+        detail: 'Toss fish cubes with lime juice, salt, and chili. Refrigerate 15 minutes until opaque.',
+        look: 'Fish turns from translucent to white as the acid "cooks" it.',
+      },
+      {
+        title: 'Assemble',
+        time: '3 min',
+        detail: 'Add red onion to the cured fish. Plate with sweet potato slices and corn. Top with cilantro.',
+        look: 'Bright white fish, purple onion, orange sweet potato — vivid plate.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_light_4',
+    name: 'Korean Chicken Soup',
+    subtitle: 'Dakguk — clear chicken broth with rice & egg',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 350, protein: 38, carbs: 26, fat: 10 },
+    cuisineBadge: 'Korean',
+    tip: 'Shredding the chicken while warm gives you the best texture.',
+    ingredients: [
+      '200g chicken breast',
+      '3 cups chicken broth',
+      '1/3 cup cooked rice',
+      '1 large egg, beaten',
+      '2 cloves garlic, sliced',
+      '1 green onion, sliced',
+      '1 tbsp soy sauce',
+      'Salt & pepper',
+    ],
+    steps: [
+      {
+        title: 'Poach chicken',
+        time: '15 min',
+        detail: 'Simmer chicken breast in broth with garlic until cooked through. Remove and shred.',
+        look: 'Clear golden broth, tender shredded chicken.',
+      },
+      {
+        title: 'Build soup',
+        time: '3 min',
+        detail: 'Return shredded chicken to broth. Add rice and soy sauce. Bring to a simmer.',
+        look: 'Light golden soup with visible rice grains and chicken shreds.',
+      },
+      {
+        title: 'Egg drop & serve',
+        time: '1 min',
+        detail: 'Slowly drizzle beaten egg into simmering soup in a thin stream. Stir gently. Top with green onion.',
+        look: 'Wispy egg ribbons floating in clear broth.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_light_5',
+    name: 'Tandoori Chicken Plate',
+    subtitle: 'Spiced chicken thighs with raita & charred vegetables',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 380, protein: 44, carbs: 14, fat: 16 },
+    cuisineBadge: 'Indian',
+    tip: 'Score the chicken deeply so the marinade penetrates — it makes a huge difference.',
+    ingredients: [
+      '200g boneless chicken thigh, scored',
+      '2 tbsp 0% Greek yogurt',
+      '1 tbsp tandoori spice mix',
+      '1 bell pepper, quartered',
+      '1 small zucchini, halved',
+      '2 tbsp raita (yogurt + cucumber + mint)',
+      'Lemon wedge',
+    ],
+    steps: [
+      {
+        title: 'Marinate',
+        time: '5 min',
+        detail: 'Coat chicken in yogurt and tandoori spice. Let rest while you prep vegetables.',
+        look: 'Bright red-orange coating on the chicken.',
+      },
+      {
+        title: 'Grill or broil',
+        time: '12 min',
+        detail: 'Cook chicken and vegetables under a hot broiler or on a grill pan until charred and cooked through.',
+        look: 'Dark char marks, chicken slightly blackened at edges, veggies blistered.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail: 'Slice chicken. Arrange with charred vegetables, a dollop of raita, and a lemon wedge.',
+        look: 'Smoky red chicken, charred veggies, cool white raita.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // VEGETARIAN BREAKFASTS (5)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_breakfast_veg_1',
+    name: 'Masala Egg Dosa',
+    subtitle: 'Crispy fermented crepe with spiced scrambled eggs and chutney',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 380, protein: 22, carbs: 42, fat: 12 },
+    cuisineBadge: 'Indian',
+    tip: 'Spread the batter paper-thin and let the edges lift before adding the egg — that is how you get the signature crunch.',
+    ingredients: [
+      '1 ready-made dosa batter (1/2 cup)',
+      '2 large eggs, beaten',
+      '1/4 tsp turmeric',
+      '1/4 tsp cumin seeds',
+      '1 green chilli, minced',
+      '2 tbsp coconut chutney',
+      '1 tsp oil',
+    ],
+    steps: [
+      {
+        title: 'Make dosa',
+        time: '4 min',
+        detail:
+          'Heat a non-stick pan on medium-high. Pour batter and spread in a thin circle. Drizzle oil around the edges and cook until golden and crisp.',
+        look: 'Lacy, golden-brown crepe with crispy edges lifting off the pan.',
+      },
+      {
+        title: 'Scramble eggs on top',
+        time: '3 min',
+        detail:
+          'Pour beaten eggs mixed with turmeric, cumin, and green chilli directly onto the dosa. Scramble gently on top until eggs are just set.',
+        look: 'Yellow-speckled egg scramble sitting on the crispy dosa surface.',
+      },
+      {
+        title: 'Fold and serve',
+        time: '1 min',
+        detail:
+          'Fold the dosa in half over the eggs. Slide onto a plate and serve with coconut chutney on the side.',
+        look: 'Half-moon golden crepe, egg peeking from the fold, white chutney alongside.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_veg_2',
+    name: 'Shakshuka',
+    subtitle: 'Eggs poached in spiced tomato-pepper sauce with feta',
+    flag: '🇮🇱',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 340, protein: 24, carbs: 22, fat: 16 },
+    cuisineBadge: 'Middle Eastern',
+    tip: 'Create deep wells in the sauce before cracking the eggs so the whites pool and cook evenly.',
+    ingredients: [
+      '2 large eggs',
+      '1 cup canned crushed tomatoes',
+      '1/2 red bell pepper, diced',
+      '1/2 tsp cumin',
+      '1/2 tsp smoked paprika',
+      '1 clove garlic, minced',
+      '2 tbsp crumbled feta',
+      '1 tsp olive oil',
+      'Fresh parsley',
+    ],
+    steps: [
+      {
+        title: 'Build the sauce',
+        time: '8 min',
+        detail:
+          'Heat olive oil in a skillet. Sauté bell pepper and garlic for 2 minutes, then add crushed tomatoes, cumin, and paprika. Simmer until thickened.',
+        look: 'Deep red, bubbling sauce with softened pepper pieces throughout.',
+      },
+      {
+        title: 'Poach eggs',
+        time: '6 min',
+        detail:
+          'Make two wells in the sauce with a spoon. Crack an egg into each well. Cover and cook on low until whites are set but yolks are still runny.',
+        look: 'White eggs nestled in red sauce, yolks visibly jiggly under a thin white film.',
+      },
+      {
+        title: 'Finish and serve',
+        time: '1 min',
+        detail:
+          'Scatter crumbled feta and torn parsley over the top. Serve straight from the skillet.',
+        look: 'Vibrant red sauce, white feta crumbles, green parsley — eaten right from the pan.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_veg_3',
+    name: 'Korean Egg Toast',
+    subtitle: 'Sweet-savoury egg sandwich with cabbage and cheese',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 360, protein: 20, carbs: 34, fat: 14 },
+    cuisineBadge: 'Korean',
+    tip: 'Add a pinch of sugar to the egg mixture — it is the secret to the street-food sweetness.',
+    ingredients: [
+      '2 slices white bread',
+      '2 large eggs',
+      '1/4 cup shredded cabbage',
+      '1 slice American or cheddar cheese',
+      '1 tsp sugar',
+      '1 tsp butter',
+      '1 tbsp ketchup',
+    ],
+    steps: [
+      {
+        title: 'Cook egg patty',
+        time: '4 min',
+        detail:
+          'Beat eggs with sugar and shredded cabbage. Melt butter in a small pan and pour in the egg mixture, shaping it to bread-size. Cook until set, flip once.',
+        look: 'Thick golden egg patty studded with shreds of cabbage, slightly puffed.',
+      },
+      {
+        title: 'Toast and assemble',
+        time: '3 min',
+        detail:
+          'Toast bread in the same pan until golden. Layer cheese on one slice, egg patty on top, drizzle ketchup, and close the sandwich. Press gently.',
+        look: 'Golden toasted bread, melted cheese oozing around a thick egg patty, streak of ketchup.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_veg_4',
+    name: 'Ful Medames',
+    subtitle: 'Stewed fava beans with lemon, cumin, and a boiled egg',
+    flag: '🇪🇬',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 370, protein: 24, carbs: 46, fat: 8 },
+    cuisineBadge: 'Middle Eastern',
+    tip: 'Mash half the beans and leave the rest whole for the best texture contrast.',
+    ingredients: [
+      '1 cup canned fava beans, drained',
+      '1 large hard-boiled egg',
+      '1 tbsp lemon juice',
+      '1/2 tsp cumin',
+      '1 clove garlic, minced',
+      '1 tsp olive oil',
+      'Pinch of salt and chilli flakes',
+      'Fresh parsley',
+    ],
+    steps: [
+      {
+        title: 'Stew beans',
+        time: '6 min',
+        detail:
+          'Heat olive oil in a small pot. Add garlic and cumin, cook 30 seconds. Add fava beans with a splash of water and simmer, mashing roughly half the beans.',
+        look: 'Thick, creamy stew with some whole beans visible, fragrant with cumin.',
+      },
+      {
+        title: 'Serve',
+        time: '2 min',
+        detail:
+          'Spoon into a bowl. Quarter the hard-boiled egg and place on top. Drizzle lemon juice, sprinkle chilli flakes and parsley.',
+        look: 'Earthy brown stew, bright yellow egg quarters, red chilli flakes, green parsley.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_breakfast_veg_5',
+    name: 'Chilaquiles Verdes',
+    subtitle: 'Baked tortilla chips in tangy tomatillo salsa with crema and egg',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'breakfast',
+    macros: { calories: 390, protein: 22, carbs: 38, fat: 16 },
+    cuisineBadge: 'Mexican',
+    tip: 'Add chips to the salsa right before serving so they stay crispy on top and soak through on the bottom.',
+    ingredients: [
+      '2 cups tortilla chips',
+      '1/2 cup salsa verde (tomatillo)',
+      '1 large fried egg',
+      '2 tbsp Mexican crema or sour cream',
+      '2 tbsp queso fresco, crumbled',
+      '1/4 avocado, sliced',
+      'Fresh coriander',
+    ],
+    steps: [
+      {
+        title: 'Simmer chips in salsa',
+        time: '3 min',
+        detail:
+          'Heat salsa verde in a skillet. Add tortilla chips and toss to coat. Cook until chips start to soften but still have some crunch.',
+        look: 'Green-coated chips, some softened, edges still crispy, steam rising.',
+      },
+      {
+        title: 'Fry egg and assemble',
+        time: '4 min',
+        detail:
+          'Fry an egg in a separate pan with a little oil until the edges are crispy. Plate the saucy chips, top with the egg, crema, queso fresco, avocado slices, and coriander.',
+        look: 'Green-sauced chips crowned with a crispy-edged egg, white crema drizzle, green avocado fans.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // VEGETARIAN LUNCHES (5)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_lunch_veg_1',
+    name: 'Chana Masala Bowl',
+    subtitle: 'Spiced chickpea curry with basmati rice and yogurt',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 460, protein: 22, carbs: 62, fat: 12 },
+    cuisineBadge: 'Indian',
+    tip: 'Dry-toast the spices in the pan before adding the chickpeas — it unlocks a deeper, nuttier flavour.',
+    ingredients: [
+      '1 cup canned chickpeas, drained',
+      '1/2 cup canned crushed tomatoes',
+      '1/2 tsp garam masala',
+      '1/2 tsp turmeric',
+      '1/2 tsp cumin',
+      '1 clove garlic, minced',
+      '1/2 cup cooked basmati rice',
+      '2 tbsp plain yogurt',
+      '1 tsp oil',
+      'Fresh coriander',
+    ],
+    steps: [
+      {
+        title: 'Cook chana masala',
+        time: '10 min',
+        detail:
+          'Heat oil in a pan. Toast cumin, turmeric, and garam masala for 30 seconds. Add garlic, cook 30 seconds more. Add tomatoes and chickpeas, simmer until thick and saucy.',
+        look: 'Rich reddish-brown sauce coating plump chickpeas, fragrant spice steam.',
+      },
+      {
+        title: 'Plate',
+        time: '2 min',
+        detail:
+          'Spoon rice into a bowl, ladle chana masala alongside. Top with yogurt and fresh coriander.',
+        look: 'White rice next to deep amber curry, cool white yogurt dollop, bright green herbs.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_veg_2',
+    name: 'Mediterranean Lentil Salad',
+    subtitle: 'French lentils with roasted peppers, feta, and lemon-herb dressing',
+    flag: '🇬🇷',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 420, protein: 24, carbs: 48, fat: 12 },
+    cuisineBadge: 'Mediterranean',
+    tip: 'Dress the lentils while still warm — they absorb the vinaigrette much better.',
+    ingredients: [
+      '3/4 cup cooked green or French lentils',
+      '1/4 cup roasted red peppers, chopped',
+      '1/4 cup cucumber, diced',
+      '2 tbsp crumbled feta',
+      '2 tbsp red onion, finely diced',
+      '1 tbsp olive oil',
+      '1 tbsp lemon juice',
+      '1 tsp dried oregano',
+      'Handful of fresh parsley',
+    ],
+    steps: [
+      {
+        title: 'Make dressing and toss',
+        time: '3 min',
+        detail:
+          'Whisk olive oil, lemon juice, and oregano together. Toss warm lentils with the dressing, then fold in roasted peppers, cucumber, and red onion.',
+        look: 'Glossy dark lentils mixed with bright red and green vegetable pieces.',
+      },
+      {
+        title: 'Finish',
+        time: '1 min',
+        detail:
+          'Transfer to a plate or container. Scatter crumbled feta and torn parsley over the top.',
+        look: 'Earthy lentil bed dotted with white feta crumbles and green parsley leaves.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_veg_3',
+    name: 'Tofu Bibimbap',
+    subtitle: 'Crispy tofu on rice with spinach, carrots, kimchi, and gochujang',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 480, protein: 26, carbs: 56, fat: 14 },
+    cuisineBadge: 'Korean',
+    tip: 'Press the tofu for 10 minutes between paper towels so it crisps up properly in the pan.',
+    ingredients: [
+      '150g firm tofu, cubed',
+      '1/2 cup cooked white rice',
+      '1/2 cup spinach, blanched',
+      '1/4 cup shredded carrot',
+      '2 tbsp kimchi',
+      '1 tbsp gochujang',
+      '1 tsp sesame oil',
+      '1 tsp soy sauce',
+      '1 tsp toasted sesame seeds',
+    ],
+    steps: [
+      {
+        title: 'Crisp tofu',
+        time: '6 min',
+        detail:
+          'Heat sesame oil in a non-stick pan over medium-high. Add tofu cubes and cook undisturbed until golden on each side, about 3 minutes per side. Season with soy sauce.',
+        look: 'Deep golden crust on all sides, slightly caramelised from the soy sauce.',
+      },
+      {
+        title: 'Assemble bowl',
+        time: '3 min',
+        detail:
+          'Place rice in the centre of a bowl. Arrange spinach, carrot, kimchi, and crispy tofu in sections around the rice. Add a spoonful of gochujang and sprinkle sesame seeds.',
+        look: 'Colourful sections radiating from a rice centre — green, orange, red, golden — with a red sauce dollop.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_veg_4',
+    name: 'Black Bean Tostadas',
+    subtitle: 'Crunchy corn tostadas with refried beans, queso, and pickled onion',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 440, protein: 22, carbs: 52, fat: 14 },
+    cuisineBadge: 'Mexican',
+    tip: 'Bake the tortillas flat in the oven at 200°C for 5 minutes instead of frying — same crunch, less oil.',
+    ingredients: [
+      '2 corn tostada shells',
+      '1/2 cup canned black beans, mashed',
+      '1/4 cup pickled red onion',
+      '2 tbsp queso fresco, crumbled',
+      '1/4 avocado, sliced',
+      '2 tbsp salsa verde',
+      '1 cup shredded lettuce',
+      'Lime wedge',
+    ],
+    steps: [
+      {
+        title: 'Warm beans',
+        time: '3 min',
+        detail:
+          'Heat mashed black beans in a small pan with a splash of water and a pinch of cumin until thick and spreadable.',
+        look: 'Smooth, dark paste bubbling gently — thick enough to hold its shape on the tostada.',
+      },
+      {
+        title: 'Build tostadas',
+        time: '3 min',
+        detail:
+          'Spread beans generously on each tostada shell. Layer with shredded lettuce, pickled onion, avocado slices, salsa verde, and queso fresco. Squeeze lime over the top.',
+        look: 'Crunchy flat shells piled high — dark beans, bright pink onion, green avocado, white cheese crumbles.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_lunch_veg_5',
+    name: 'Japanese Tofu Soba',
+    subtitle: 'Chilled buckwheat noodles with silken tofu, nori, and tsuyu dipping sauce',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'lunch',
+    macros: { calories: 390, protein: 22, carbs: 52, fat: 8 },
+    cuisineBadge: 'Japanese',
+    tip: 'Rinse the cooked soba under cold running water and rub gently to remove surface starch — this gives the noodles their signature slippery bite.',
+    ingredients: [
+      '100g dried soba noodles',
+      '150g silken tofu, cubed',
+      '2 tbsp tsuyu or soy-mirin sauce',
+      '1 green onion, sliced',
+      '1 sheet nori, sliced into strips',
+      '1 tsp toasted sesame seeds',
+      'Wasabi (optional)',
+    ],
+    steps: [
+      {
+        title: 'Cook and chill noodles',
+        time: '6 min',
+        detail:
+          'Boil soba noodles according to packet directions. Drain and rinse thoroughly under cold water until completely chilled. Shake off excess water.',
+        look: 'Grey-brown noodles glistening with cold water, no starchy residue.',
+      },
+      {
+        title: 'Plate',
+        time: '2 min',
+        detail:
+          'Mound noodles on a plate or bamboo mat. Arrange silken tofu cubes alongside. Pour tsuyu into a small dipping bowl. Garnish noodles with nori strips, green onion, sesame seeds, and a dab of wasabi.',
+        look: 'Neat coil of dark noodles, white tofu cubes, black nori strips, tiny green and white garnishes.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // VEGETARIAN DINNERS (5)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_dinner_veg_1',
+    name: 'Palak Paneer',
+    subtitle: 'Cubed paneer in creamy spiced spinach sauce with roti',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 480, protein: 28, carbs: 34, fat: 24 },
+    cuisineBadge: 'Indian',
+    tip: 'Blanch the spinach in boiling water for just 30 seconds, then ice-bath it — this keeps the sauce vivid green instead of muddy.',
+    ingredients: [
+      '150g paneer, cubed',
+      '2 cups fresh spinach',
+      '1/2 onion, diced',
+      '1 clove garlic, minced',
+      '1/2 tsp garam masala',
+      '1/4 tsp cumin',
+      '2 tbsp cream or yogurt',
+      '1 tsp ghee or oil',
+      '1 small roti or chapati',
+    ],
+    steps: [
+      {
+        title: 'Make spinach sauce',
+        time: '8 min',
+        detail:
+          'Blanch spinach 30 seconds, ice-bath, and blend to a smooth purée. Sauté onion and garlic in ghee until soft, add cumin and garam masala, then stir in spinach purée and cream. Simmer 3 minutes.',
+        look: 'Deep emerald green sauce, thick and creamy, fragrant with spices.',
+      },
+      {
+        title: 'Add paneer',
+        time: '4 min',
+        detail:
+          'Gently fold paneer cubes into the sauce. Cook on low for 3-4 minutes so the paneer absorbs flavour without breaking apart.',
+        look: 'White paneer cubes nestled in bright green sauce, slightly glossy on the surface.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Transfer to a bowl and serve with warm roti on the side.',
+        look: 'Vibrant green curry with white paneer cubes, golden roti alongside.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_veg_2',
+    name: 'Misir Wot',
+    subtitle: 'Ethiopian spiced red lentil stew with injera',
+    flag: '🇪🇹',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 440, protein: 24, carbs: 60, fat: 8 },
+    cuisineBadge: 'Ethiopian',
+    tip: 'Let the berbere spice toast in the oil for a full minute before adding liquid — it blooms the flavour dramatically.',
+    ingredients: [
+      '3/4 cup dried red lentils, rinsed',
+      '1/2 onion, finely diced',
+      '1 tbsp berbere spice',
+      '1 clove garlic, minced',
+      '1 tsp fresh ginger, grated',
+      '1 tbsp olive oil',
+      '1.5 cups water',
+      'Injera or flatbread for serving',
+    ],
+    steps: [
+      {
+        title: 'Build the base',
+        time: '5 min',
+        detail:
+          'Heat oil in a pot. Cook onion until deeply golden, about 4 minutes. Add garlic, ginger, and berbere spice. Toast spices for 1 minute, stirring constantly.',
+        look: 'Dark golden onions coated in deep red berbere, intensely aromatic.',
+      },
+      {
+        title: 'Simmer lentils',
+        time: '18 min',
+        detail:
+          'Add red lentils and water. Bring to a boil, then reduce to a simmer. Cook until lentils are completely broken down and the stew is thick, stirring occasionally.',
+        look: 'Thick, rust-coloured stew — lentils fully dissolved into a smooth, porridge-like consistency.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Ladle stew onto a plate lined with injera or serve with flatbread for scooping.',
+        look: 'Deep red-orange stew pooled on spongy injera, edges curling up to hold the sauce.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_veg_3',
+    name: 'Tempeh Teriyaki Donburi',
+    subtitle: 'Glazed tempeh slices over rice with steamed broccoli and pickled ginger',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 470, protein: 28, carbs: 54, fat: 14 },
+    cuisineBadge: 'Japanese',
+    tip: 'Slice tempeh thin (5mm) so it crisps up faster and absorbs more glaze per bite.',
+    ingredients: [
+      '150g tempeh, sliced 5mm thick',
+      '2 tbsp soy sauce',
+      '1 tbsp mirin',
+      '1 tsp rice vinegar',
+      '1 tsp maple syrup or sugar',
+      '1/2 cup cooked white rice',
+      '1 cup broccoli florets',
+      '1 tbsp pickled ginger',
+      '1 tsp sesame oil',
+    ],
+    steps: [
+      {
+        title: 'Glaze tempeh',
+        time: '8 min',
+        detail:
+          'Heat sesame oil in a pan. Cook tempeh slices until golden on both sides, about 3 minutes per side. Add soy sauce, mirin, vinegar, and sugar. Let the sauce reduce and glaze the tempeh, flipping once.',
+        look: 'Dark caramel-brown slices, glossy with thick teriyaki glaze, edges slightly charred.',
+      },
+      {
+        title: 'Steam broccoli',
+        time: '4 min',
+        detail:
+          'Microwave or steam broccoli florets until bright green and just tender. Season with a pinch of salt.',
+        look: 'Vivid green florets, slight steam rising, no brown spots.',
+      },
+      {
+        title: 'Assemble donburi',
+        time: '1 min',
+        detail:
+          'Pack rice into a bowl. Fan glazed tempeh slices over the rice. Add broccoli on the side and a small mound of pickled ginger.',
+        look: 'White rice base, dark lacquered tempeh shingles, bright green broccoli, pink ginger accent.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_veg_4',
+    name: 'Koshari',
+    subtitle: 'Egyptian rice-lentil-pasta bowl with spiced tomato sauce and crispy onions',
+    flag: '🇪🇬',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 490, protein: 22, carbs: 72, fat: 10 },
+    cuisineBadge: 'Middle Eastern',
+    tip: 'Fry the onions low and slow until deeply caramelised — they are the best part and worth the patience.',
+    ingredients: [
+      '1/3 cup cooked white rice',
+      '1/3 cup cooked brown lentils',
+      '1/3 cup cooked small pasta (ditalini or elbow)',
+      '1/4 cup canned crushed tomatoes',
+      '1/2 tsp cumin',
+      '1/4 tsp chilli flakes',
+      '1 small onion, thinly sliced',
+      '1 tbsp vinegar',
+      '1 tbsp oil',
+    ],
+    steps: [
+      {
+        title: 'Crisp onions and make sauce',
+        time: '10 min',
+        detail:
+          'Fry sliced onion in oil over medium heat until deeply golden and crispy, about 8 minutes. Remove and set aside. In the same pan, heat crushed tomatoes with cumin, chilli flakes, and vinegar for 2 minutes.',
+        look: 'Pile of dark golden crispy onion shards. Red sauce bubbling in the pan.',
+      },
+      {
+        title: 'Layer and serve',
+        time: '3 min',
+        detail:
+          'In a deep bowl, layer rice on the bottom, then lentils, then pasta. Spoon the spiced tomato sauce over everything and crown with crispy onions.',
+        look: 'Visible layers of white, brown, and pale pasta under red sauce and a tangle of fried onions.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_dinner_veg_5',
+    name: 'Quinoa Stuffed Peppers',
+    subtitle: 'Bell peppers filled with herbed quinoa, black beans, and melted cheese',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'dinner',
+    macros: { calories: 420, protein: 24, carbs: 48, fat: 14 },
+    cuisineBadge: 'Mexican',
+    tip: 'Microwave the peppers for 3 minutes before stuffing so they soften faster in the oven.',
+    ingredients: [
+      '2 medium bell peppers, halved and seeded',
+      '1/2 cup cooked quinoa',
+      '1/3 cup canned black beans, rinsed',
+      '1/4 cup corn kernels',
+      '1/4 cup salsa',
+      '1/4 cup shredded cheddar or Oaxaca cheese',
+      '1/2 tsp cumin',
+      'Fresh coriander',
+    ],
+    steps: [
+      {
+        title: 'Make filling',
+        time: '3 min',
+        detail:
+          'Mix cooked quinoa, black beans, corn, salsa, and cumin in a bowl. Taste and adjust salt.',
+        look: 'Colourful mixture — white quinoa, black beans, yellow corn, red salsa.',
+      },
+      {
+        title: 'Stuff and bake',
+        time: '20 min',
+        detail:
+          'Pack the filling into pepper halves. Top each with shredded cheese. Bake at 200°C / 400°F for 18-20 minutes until peppers are tender and cheese is bubbly.',
+        look: 'Softened pepper boats with golden-brown melted cheese on top, filling slightly puffed.',
+      },
+      {
+        title: 'Garnish',
+        time: '1 min',
+        detail:
+          'Let cool 2 minutes. Top with fresh coriander and serve.',
+        look: 'Vibrant pepper halves with bubbly cheese and bright green coriander leaves.',
+      },
+    ],
+  },
+
+  // ---------------------------------------------------------------------------
+  // VEGETARIAN SNACKS (4)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'scavenge_snack1_veg_1',
+    name: 'Paneer Tikka Bites',
+    subtitle: 'Spiced yogurt-marinated paneer cubes, grilled until charred',
+    flag: '🇮🇳',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 200, protein: 16, carbs: 6, fat: 12 },
+    cuisineBadge: 'Indian',
+    tip: 'Use thick Greek yogurt for the marinade so it clings to the paneer instead of sliding off.',
+    ingredients: [
+      '100g paneer, cubed',
+      '2 tbsp Greek yogurt',
+      '1/2 tsp tandoori or tikka spice',
+      '1/4 tsp turmeric',
+      'Pinch of salt',
+      'Lemon wedge',
+    ],
+    steps: [
+      {
+        title: 'Marinate',
+        time: '5 min',
+        detail:
+          'Toss paneer cubes in yogurt, tikka spice, turmeric, and salt. Let sit while the pan heats.',
+        look: 'Orange-coated white cubes, thick marinade clinging to every face.',
+      },
+      {
+        title: 'Grill',
+        time: '6 min',
+        detail:
+          'Cook paneer in a hot non-stick pan or under a broiler, turning every 2 minutes until charred on all sides. Squeeze lemon over and serve.',
+        look: 'Dark char spots on orange-spiced cubes, slightly smoky, lemon juice glistening.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack1_veg_2',
+    name: 'Cottage Cheese and Fruit Cup',
+    subtitle: 'Creamy cottage cheese with berries, honey, and toasted almonds',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'snack1',
+    macros: { calories: 190, protein: 18, carbs: 18, fat: 6 },
+    cuisineBadge: 'American',
+    tip: 'Use full-fat cottage cheese for a richer taste, or low-fat to keep calories down — both work.',
+    ingredients: [
+      '3/4 cup cottage cheese',
+      '1/4 cup mixed berries (blueberries, strawberries)',
+      '1 tsp honey',
+      '1 tbsp sliced almonds, toasted',
+    ],
+    steps: [
+      {
+        title: 'Assemble',
+        time: '2 min',
+        detail:
+          'Spoon cottage cheese into a bowl. Top with berries, drizzle honey, and scatter toasted almonds.',
+        look: 'White creamy base with colourful berries, golden honey drizzle, and almond slivers.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_veg_1',
+    name: 'Spiced Roasted Chickpeas',
+    subtitle: 'Crunchy oven-roasted chickpeas with smoked paprika and cumin',
+    flag: '🇱🇧',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 180, protein: 10, carbs: 24, fat: 6 },
+    cuisineBadge: 'Middle Eastern',
+    tip: 'Pat the chickpeas completely dry with paper towels before roasting — moisture is the enemy of crunch.',
+    ingredients: [
+      '1 cup canned chickpeas, drained and dried',
+      '1 tsp olive oil',
+      '1/2 tsp smoked paprika',
+      '1/4 tsp cumin',
+      'Pinch of salt and cayenne',
+    ],
+    steps: [
+      {
+        title: 'Season',
+        time: '2 min',
+        detail:
+          'Toss dried chickpeas with olive oil, smoked paprika, cumin, salt, and cayenne until evenly coated.',
+        look: 'Reddish-brown coated chickpeas, each one distinct and dry.',
+      },
+      {
+        title: 'Roast',
+        time: '25 min',
+        detail:
+          'Spread on a baking sheet in a single layer. Roast at 200°C / 400°F for 20-25 minutes, shaking halfway, until crunchy throughout.',
+        look: 'Dark golden-brown, shrunken slightly, audibly crunchy when shaken on the tray.',
+      },
+    ],
+  },
+  {
+    id: 'scavenge_snack2_veg_2',
+    name: 'Egg and Herb Rice Cake',
+    subtitle: 'Fried egg on a rice cake with cream cheese and everything seasoning',
+    flag: '🇰🇷',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 180, protein: 12, carbs: 16, fat: 8 },
+    cuisineBadge: 'Korean',
+    tip: 'Cook the egg on medium-low so the white sets gently without tough edges.',
+    ingredients: [
+      '1 large rice cake (round)',
+      '1 large egg',
+      '1 tbsp cream cheese',
+      '1/2 tsp everything bagel seasoning',
+      '1 tsp chives, sliced',
+      'Cooking spray',
+    ],
+    steps: [
+      {
+        title: 'Fry egg',
+        time: '3 min',
+        detail:
+          'Spray a small pan and cook the egg on medium-low until the white is fully set and the yolk is still soft.',
+        look: 'Smooth white, runny golden yolk, no crispy edges.',
+      },
+      {
+        title: 'Assemble',
+        time: '1 min',
+        detail:
+          'Spread cream cheese on the rice cake. Place the fried egg on top, sprinkle everything seasoning and chives.',
+        look: 'Round rice cake base, white cream cheese, soft egg, speckled seasoning, green chive rings.',
+      },
+    ],
+  },
+  // ---------------------------------------------------------------------------
+  // Dairy-Free Snack 2 Recipes
+  // ---------------------------------------------------------------------------
+  {
+    id: 'sc_snk2_df_1',
+    name: 'Apple Slices with Sunflower Seed Butter',
+    subtitle: 'Crisp apple wedges with creamy sunflower seed butter and a cinnamon dusting',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 210, protein: 5, carbs: 28, fat: 10 },
+    cuisineBadge: 'American',
+    tip: 'Squeeze a little lemon juice on the apple slices to keep them from browning if prepping ahead.',
+    ingredients: [
+      '1 medium apple, cored and sliced into wedges',
+      '1.5 tbsp sunflower seed butter',
+      'Pinch of ground cinnamon',
+    ],
+    steps: [
+      {
+        title: 'Slice',
+        time: '2 min',
+        detail:
+          'Core the apple and cut into 8-10 even wedges.',
+        look: 'Clean white-fleshed wedges fanned out on a plate.',
+      },
+      {
+        title: 'Serve',
+        time: '1 min',
+        detail:
+          'Spoon sunflower seed butter into a small dish for dipping. Dust the apple slices with cinnamon.',
+        look: 'Golden-tan seed butter beside pale apple wedges with a light cinnamon dusting.',
+      },
+    ],
+  },
+  {
+    id: 'sc_snk2_df_2',
+    name: 'Cocoa Oat Energy Balls',
+    subtitle: 'No-bake bites with oats, honey, cocoa, and peanut butter',
+    flag: '🇺🇸',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 220, protein: 7, carbs: 26, fat: 10 },
+    cuisineBadge: 'American',
+    tip: 'Chill the mixture for 15 minutes before rolling — the balls hold together much better.',
+    ingredients: [
+      '1/2 cup rolled oats',
+      '2 tbsp natural peanut butter',
+      '1 tbsp honey',
+      '1 tbsp unsweetened cocoa powder',
+      '1 tbsp mini dark chocolate chips (dairy-free)',
+    ],
+    steps: [
+      {
+        title: 'Mix',
+        time: '3 min',
+        detail:
+          'Combine oats, peanut butter, honey, and cocoa powder in a bowl. Stir until a sticky dough forms, then fold in the chocolate chips.',
+        look: 'Dark brown, thick, slightly tacky dough with visible oat flakes and chocolate chips.',
+      },
+      {
+        title: 'Roll',
+        time: '3 min',
+        detail:
+          'Scoop tablespoon-sized portions and roll between your palms into balls. Place on parchment. Refrigerate for at least 15 minutes to firm up.',
+        look: 'Even round balls, dark chocolate-brown, about 1 inch in diameter.',
+      },
+    ],
+  },
+  {
+    id: 'sc_snk2_df_3',
+    name: 'Hummus and Veggie Sticks',
+    subtitle: 'Classic hummus with carrot, cucumber, and bell pepper dippers',
+    flag: '🇱🇧',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 170, protein: 6, carbs: 18, fat: 8 },
+    cuisineBadge: 'Middle Eastern',
+    tip: 'Drizzle a tiny bit of olive oil and a pinch of paprika on the hummus for a restaurant-style finish.',
+    ingredients: [
+      '1/4 cup hummus',
+      '1 medium carrot, cut into sticks',
+      '1/4 cucumber, cut into sticks',
+      '1/2 bell pepper, cut into strips',
+    ],
+    steps: [
+      {
+        title: 'Prep veggies',
+        time: '3 min',
+        detail:
+          'Wash and cut the carrot, cucumber, and bell pepper into even sticks or strips roughly finger-length.',
+        look: 'Orange, green, and red sticks neatly arranged, all about the same length.',
+      },
+      {
+        title: 'Plate',
+        time: '1 min',
+        detail:
+          'Spoon hummus into a small bowl or onto the centre of a plate. Arrange veggie sticks around it for dipping.',
+        look: 'Smooth beige hummus in the centre with colourful veggie sticks radiating outward.',
+      },
+    ],
+  },
+  {
+    id: 'sc_snk2_df_4',
+    name: 'Rice Cake with Avocado and Everything Seasoning',
+    subtitle: 'Smashed avocado on a crunchy rice cake with a squeeze of lime',
+    flag: '🇲🇽',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 180, protein: 3, carbs: 20, fat: 10 },
+    cuisineBadge: 'Mexican',
+    tip: 'Use a fork to mash the avocado directly on the rice cake so it grips the surface instead of sliding off.',
+    ingredients: [
+      '2 plain rice cakes',
+      '1/2 small ripe avocado',
+      '1 tsp everything bagel seasoning',
+      '1 lime wedge',
+      'Pinch of flaky salt',
+    ],
+    steps: [
+      {
+        title: 'Mash',
+        time: '1 min',
+        detail:
+          'Scoop avocado onto the rice cakes and press with a fork until roughly smashed but still a bit chunky.',
+        look: 'Pale green, slightly textured avocado spread across the round rice cake.',
+      },
+      {
+        title: 'Season',
+        time: '1 min',
+        detail:
+          'Squeeze lime juice over the top. Sprinkle everything bagel seasoning and a pinch of flaky salt.',
+        look: 'Green base with speckled black and white seasoning, glistening from the lime.',
+      },
+    ],
+  },
+  {
+    id: 'sc_snk2_df_5',
+    name: 'Frozen Banana Bites with Dark Chocolate',
+    subtitle: 'Banana coins dipped in melted dark chocolate and sea salt',
+    flag: '🇧🇷',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 190, protein: 3, carbs: 30, fat: 7 },
+    cuisineBadge: 'Brazilian',
+    tip: 'Use a toothpick to dip each coin — it keeps your fingers clean and gives you more control.',
+    ingredients: [
+      '1 large banana, peeled and sliced into 1 cm coins',
+      '30 g dairy-free dark chocolate (70%+)',
+      'Pinch of flaky sea salt',
+    ],
+    steps: [
+      {
+        title: 'Dip',
+        time: '5 min',
+        detail:
+          'Melt chocolate in a small bowl in the microwave in 20-second bursts, stirring between each. Dip one flat side of each banana coin into the chocolate and place chocolate-side up on parchment paper. Sprinkle with sea salt.',
+        look: 'Yellow banana rounds with a glossy dark chocolate cap and tiny salt crystals.',
+      },
+      {
+        title: 'Freeze',
+        time: '30 min',
+        detail:
+          'Place the parchment-lined tray in the freezer for at least 30 minutes until the chocolate is solid. Serve straight from the freezer.',
+        look: 'Firm, cold bites — chocolate shell snaps cleanly when bitten.',
+      },
+    ],
+  },
+  {
+    id: 'sc_snk2_df_6',
+    name: 'Salted Edamame',
+    subtitle: 'Steamed edamame pods tossed with flaky sea salt and garlic',
+    flag: '🇯🇵',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 150, protein: 13, carbs: 10, fat: 6 },
+    cuisineBadge: 'Japanese',
+    tip: 'Squeeze each pod from the hinge end — the beans pop right out. Discard the shells as you go.',
+    ingredients: [
+      '1 cup frozen edamame in pods',
+      '1/2 tsp flaky sea salt',
+      '1/4 tsp garlic powder',
+    ],
+    steps: [
+      {
+        title: 'Cook',
+        time: '4 min',
+        detail:
+          'Boil edamame in salted water for 3-4 minutes until tender, then drain thoroughly.',
+        look: 'Bright green plump pods, steaming and glistening.',
+      },
+      {
+        title: 'Season',
+        time: '1 min',
+        detail:
+          'Toss the hot edamame with flaky sea salt and garlic powder in a bowl. Serve warm.',
+        look: 'Vivid green pods with visible salt flakes clinging to the surface.',
+      },
+    ],
+  },
+  {
+    id: 'sc_snk2_df_7',
+    name: 'Medjool Dates with Tahini and Pistachios',
+    subtitle: 'Stuffed dates drizzled with tahini and crushed pistachios',
+    flag: '🇮🇷',
+    tier: 'scavenge',
+    slot: 'snack2',
+    macros: { calories: 230, protein: 5, carbs: 34, fat: 9 },
+    cuisineBadge: 'Persian',
+    tip: 'Open each date gently along the seam and remove the pit — they hold the filling perfectly.',
+    ingredients: [
+      '3 large Medjool dates, pitted',
+      '1 tbsp tahini',
+      '1 tbsp shelled pistachios, roughly crushed',
+      'Pinch of flaky sea salt',
+    ],
+    steps: [
+      {
+        title: 'Stuff',
+        time: '2 min',
+        detail:
+          'Split each date open along the seam. Spoon about a teaspoon of tahini into the centre of each one.',
+        look: 'Dark amber dates cracked open with a pale ivory tahini filling inside.',
+      },
+      {
+        title: 'Garnish',
+        time: '1 min',
+        detail:
+          'Press crushed pistachios onto the tahini and finish with a tiny pinch of flaky salt.',
+        look: 'Rich brown dates with creamy tahini, bright green pistachio crumbles, and salt crystals.',
+      },
+    ],
+  },
+];

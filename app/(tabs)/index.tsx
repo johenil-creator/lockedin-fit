@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -34,7 +35,7 @@ import { ProfileButton } from "../../components/ProfileButton";
 import { SectionLabel } from "../../components/SectionLabel";
 import { usePlanContext } from "../../contexts/PlanContext";
 import { clearAllData, loadDailySnapshots } from "../../lib/storage";
-import { pickMessage, pickMessageWithMood } from "../../lib/lockeMessages";
+import { pickMessageWithMood } from "../../lib/lockeMessages";
 import { spacing, typography } from "../../lib/theme";
 import type { ReadinessScore } from "../../lib/types";
 import { useGifts } from "../../hooks/useGifts";
@@ -48,6 +49,49 @@ import { useWeekInReview } from "../../hooks/useWeekInReview";
 import { WeekInReviewCard } from "../../components/insights/WeekInReviewCard";
 import { scheduleStreakRiskIfNeeded } from "../../lib/notifications";
 import { useAppIcon } from "../../hooks/useAppIcon";
+import { loadMealPrefs } from "../../lib/mealStorage";
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Time-of-day aware greeting. */
+function getTimeGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+/** Staggered section entrance animation. */
+const sectionEnter = (delay: number) =>
+  FadeInDown.delay(delay).duration(350).damping(20).stiffness(150);
+
+/** Rotating motivational tips — wolf-themed. */
+const DAILY_TIPS = [
+  "The wolf on the hill is never as hungry as the wolf climbing it.",
+  "Strength doesn't come from what you can do — it comes from what you once couldn't.",
+  "The pack that trains together, conquers together.",
+  "Every rep is a step closer to the apex.",
+  "Rest is not weakness — the wolf rests before every great hunt.",
+  "Consistency beats intensity. Show up daily.",
+  "Your body adapts to what you demand from it.",
+  "The hunt is won in the preparation, not just the chase.",
+  "Progress is built one set at a time.",
+  "Discipline is doing it even when motivation fades.",
+];
+
+function getDailyTip(): string {
+  const dayOfYear = Math.floor(
+    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000,
+  );
+  return DAILY_TIPS[dayOfYear % DAILY_TIPS.length];
+}
+
+// Quick action icon color tints
+const QUICK_ACTION_COLORS: Record<string, string> = {
+  Cardio: "#E05252",
+  Exercises: "#378ADD",
+  Stats: "#BA7517",
+};
 
 // ── Local sub-components ──────────────────────────────────────────────────────
 
@@ -148,7 +192,7 @@ const RankXPRow = React.memo(function RankXPRow({
   return (
     <View style={styles.greetingBlock}>
       <Text style={[styles.greeting, { color: theme.colors.text }]}>
-        Hey, {name || "there"}
+        {getTimeGreeting()}, {name || "there"}
       </Text>
       <View style={[styles.rankXPRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 }]}>
         <RankBadge rank={rank} />
@@ -160,6 +204,11 @@ const RankXPRow = React.memo(function RankXPRow({
             progress={progress}
             nextRank={nextTier?.rank ?? null}
           />
+          {nextTier && (
+            <Text style={[styles.xpToNextLabel, { color: theme.colors.muted }]}>
+              {bandTotal - bandCurrent} XP to {nextTier.rank}
+            </Text>
+          )}
         </View>
         <Pressable
           style={styles.streakArea}
@@ -223,19 +272,28 @@ const ReadinessIndicator = React.memo(function ReadinessIndicator({ onPress }: R
     score >= 40 ? '#E3B341' :
     theme.colors.danger;
 
+  const readinessLabel =
+    score >= 70 ? "Ready to Train" :
+    score >= 40 ? "Moderate" :
+    "Recovery Needed";
+
   return (
     <Pressable
       onPress={onPress}
-      style={styles.readinessBadge}
+      style={[styles.readinessPill, { backgroundColor: dotColor + "15", borderColor: dotColor + "30" }]}
       hitSlop={6}
       accessibilityLabel={`Readiness ${score} percent. Tap for recovery details.`}
       accessibilityRole="button"
     >
       <View style={[styles.readinessDot, { backgroundColor: dotColor }]} />
-      <Text style={[styles.readinessText, { color: theme.colors.muted }]}>
-        Readiness: {score}%
+      <Text style={[styles.readinessScore, { color: dotColor }]}>
+        {score}%
       </Text>
-      <Ionicons name="chevron-forward" size={12} color={theme.colors.muted} />
+      <Text style={[styles.readinessLabel, { color: dotColor }]}>
+        {readinessLabel}
+      </Text>
+      <View style={{ flex: 1 }} />
+      <Ionicons name="chevron-forward" size={14} color={dotColor} />
     </Pressable>
   );
 });
@@ -261,9 +319,12 @@ const LockePanel = React.memo(function LockePanel({ mood, microcopy, onPress }: 
     >
       <LockeMascot size={100} mood={mood} />
       <View style={styles.lockePanelRight}>
-        <Text style={[styles.lockeMicrocopy, { color: theme.colors.text }]}>
-          {microcopy}
-        </Text>
+        <View style={[styles.speechBubble, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]}>
+          <Text style={[styles.lockeMicrocopy, { color: theme.colors.text }]}>
+            {microcopy}
+          </Text>
+          <View style={[styles.speechTail, { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.border }]} />
+        </View>
         {onPress && (
           <View style={[styles.huntCta, { backgroundColor: theme.colors.primary }]}>
             <Ionicons name="paw" size={14} color={theme.colors.primaryText} />
@@ -493,8 +554,8 @@ const QuickActionsRow = React.memo(function QuickActionsRow({ actions }: { actio
           ]}
           onPress={action.onPress}
         >
-          <View style={styles.quickActionIconWrap}>
-            <Ionicons name={action.icon} size={22} color={theme.colors.text} />
+          <View style={[styles.quickActionIconCircle, { backgroundColor: (QUICK_ACTION_COLORS[action.label] ?? theme.colors.primary) + "15" }]}>
+            <Ionicons name={action.icon} size={22} color={QUICK_ACTION_COLORS[action.label] ?? theme.colors.text} />
             {action.showBadge && (
               <View
                 style={[styles.quickActionBadge, { backgroundColor: theme.colors.primary }]}
@@ -509,8 +570,6 @@ const QuickActionsRow = React.memo(function QuickActionsRow({ actions }: { actio
     </View>
   );
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -587,10 +646,18 @@ export default function HomeScreen() {
   const { notifications, unreadCount, markRead: markNotifRead, markAllRead: markAllNotifsRead } = useNotifications();
   const { review: weekReview } = useWeekInReview();
   const [showNotifs, setShowNotifs] = useState(false);
+  const [fuelTier, setFuelTier] = useState<string | null>(null);
   const didFireInactivity   = useRef(false);
   const onboardingCheckDone = useRef(false);
   const planCelebrationShown = useRef(false);
   const isFirstFocus        = useRef(true);
+
+  // ── Check fuel plan status ──────────────────────────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      loadMealPrefs().then((p) => setFuelTier(p.setupComplete ? p.tier : null));
+    }, [])
+  );
 
   // ── Reload workouts on tab focus (fixes stale state after navigating away) ─
   useFocusEffect(
@@ -629,7 +696,7 @@ export default function HomeScreen() {
     : streak.current >= 3 ? "encouraging" as const
     : "neutral" as const;
 
-  const [speechMsg, setSpeechMsg] = useState(() => pickMessage(homeTrigger, homeMood));
+  const [speechMsg, setSpeechMsg] = useState(() => pickMessageWithMood(homeTrigger).message);
   const [tappedMood, setTappedMood] = useState<LockeMascotMood | null>(null);
   const cycleSpeech = useCallback(() => {
     const { message, mood } = pickMessageWithMood(homeTrigger);
@@ -856,49 +923,59 @@ export default function HomeScreen() {
         }
       >
         {/* 1. GREETING + RANK/XP/STREAK */}
-        <RankXPRow
-          name={profile.name}
-          rank={rank}
-          xp={xp}
-          progress={progress}
-          bandCurrent={bandCurrent}
-          bandTotal={bandTotal}
-          nextTier={nextTier}
-          streak={streak}
-          freezesRemaining={freezesRemaining}
-          onStreakPress={() => setStreakSheetOpen(true)}
-        />
+        <Animated.View entering={sectionEnter(0)}>
+          <RankXPRow
+            name={profile.name}
+            rank={rank}
+            xp={xp}
+            progress={progress}
+            bandCurrent={bandCurrent}
+            bandTotal={bandTotal}
+            nextTier={nextTier}
+            streak={streak}
+            freezesRemaining={freezesRemaining}
+            onStreakPress={() => setStreakSheetOpen(true)}
+          />
+        </Animated.View>
 
         {/* 1b. READINESS INDICATOR — lightweight cached badge */}
-        <ReadinessIndicator onPress={() => router.push("/(tabs)/recovery")} />
+        <Animated.View entering={sectionEnter(80)}>
+          <ReadinessIndicator onPress={() => router.push("/(tabs)/recovery")} />
+        </Animated.View>
 
         {/* LOCKE PANEL — wolf personality + hunt sheet trigger */}
         {has1RM && (
-          <LockePanel
-            mood={lockeMood}
-            microcopy={microcopy}
-            onPress={() => setHuntSheetOpen(true)}
-          />
+          <Animated.View entering={sectionEnter(160)}>
+            <LockePanel
+              mood={lockeMood}
+              microcopy={microcopy}
+              onPress={() => setHuntSheetOpen(true)}
+            />
+          </Animated.View>
         )}
 
         {/* 2. ACTIVE SESSION BANNER — highest priority */}
         {activeSession && (
-          <Pressable
-            style={[styles.activeBanner, { backgroundColor: theme.colors.accent }]}
-            onPress={() => router.push(`/session/${activeSession.id}`)}
-            accessibilityLabel="Resume active session"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.activeBannerTitle, { color: theme.colors.accentText }]}>
-              · Session in Progress
-            </Text>
-            <Text style={[styles.activeBannerSub, { color: theme.colors.accentText }]}>
-              {activeSession.name} — tap to continue
-            </Text>
-          </Pressable>
+          <Animated.View entering={sectionEnter(200)}>
+            <Pressable
+              style={[styles.activeBanner, { backgroundColor: theme.colors.accent }]}
+              onPress={() => router.push(`/session/${activeSession.id}`)}
+              accessibilityLabel="Resume active session"
+              accessibilityRole="button"
+            >
+              <View style={styles.activeBannerPulse} />
+              <Text style={[styles.activeBannerTitle, { color: theme.colors.accentText }]}>
+                Session in Progress
+              </Text>
+              <Text style={[styles.activeBannerSub, { color: theme.colors.accentText }]}>
+                {activeSession.name} — tap to continue
+              </Text>
+            </Pressable>
+          </Animated.View>
         )}
 
         {/* 3. TODAY'S WORKOUT CARD (PRIMARY CTA) — always near top */}
+        <Animated.View entering={sectionEnter(240)}>
         {planExercises.length > 0 ? (
           <TodayWorkoutCard
             planName={planName || "Workout"}
@@ -917,6 +994,32 @@ export default function HomeScreen() {
             onImport={() => router.push("/plan")}
           />
         )}
+        </Animated.View>
+
+        {/* FUEL PLAN CARD */}
+        {fuelTier && (() => {
+          const fuelColor = fuelTier === "apex_feast" ? "#BA7517" : fuelTier === "hunt" ? "#378ADD" : "#1D9E75";
+          const fuelLabel = fuelTier === "apex_feast" ? "Apex Feast" : fuelTier === "hunt" ? "Hunt" : "Scavenge";
+          return (
+            <Pressable
+              onPress={() => router.push("/meals")}
+              style={[styles.linkCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+            >
+              <View style={[styles.linkCardIcon, { backgroundColor: fuelColor + "18" }]}>
+                <Ionicons name="restaurant-outline" size={20} color={fuelColor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.linkCardTitle, { color: theme.colors.text }]}>
+                  {fuelLabel} Fuel Plan
+                </Text>
+                <Text style={[styles.linkCardSub, { color: theme.colors.muted }]}>
+                  Tap to see your meals for today
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+            </Pressable>
+          );
+        })()}
 
         {/* 4. 1RM BASELINE CTA */}
         {!has1RM && profile.onboardingComplete && (
@@ -929,19 +1032,17 @@ export default function HomeScreen() {
 
         {/* 6. ACTIVITY CARD — single card linking to quests screen */}
         <Pressable
-          style={[styles.activityCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+          style={[styles.linkCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
           onPress={() => router.push("/quests")}
         >
-          <View style={styles.activityCardHeader}>
-            <View style={[styles.activityIconWrap, { backgroundColor: theme.colors.accent + "18" }]}>
-              <Ionicons name="compass" size={18} color={theme.colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.activityCardTitle, { color: theme.colors.text }]}>Activity</Text>
-              <Text style={[styles.activityCardSub, { color: theme.colors.muted }]}>Quests, events & challenges</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+          <View style={[styles.linkCardIcon, { backgroundColor: theme.colors.accent + "18" }]}>
+            <Ionicons name="compass" size={20} color={theme.colors.accent} />
           </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.linkCardTitle, { color: theme.colors.text }]}>Activity</Text>
+            <Text style={[styles.linkCardSub, { color: theme.colors.muted }]}>Quests, events & challenges</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
         </Pressable>
 
         {/* 7. CONDITIONAL CARDS — gifts, review */}
@@ -955,8 +1056,22 @@ export default function HomeScreen() {
         )}
 
         {/* 8. QUICK ACTIONS ROW */}
-        <SectionLabel label="QUICK ACTIONS" style={{ marginTop: 24 }} />
-        <QuickActionsRow actions={quickActions} />
+        <Animated.View entering={sectionEnter(480)}>
+          <SectionLabel label="QUICK ACTIONS" style={{ marginTop: 24 }} />
+          <QuickActionsRow actions={quickActions} />
+        </Animated.View>
+
+        {/* 9. DAILY TIP */}
+        <Animated.View entering={sectionEnter(560)}>
+          <View style={[styles.tipCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <View style={[styles.tipIconWrap, { backgroundColor: theme.colors.primary + "15" }]}>
+              <Ionicons name="paw" size={16} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.tipText, { color: theme.colors.muted }]}>
+              {getDailyTip()}
+            </Text>
+          </View>
+        </Animated.View>
 
         {/* DEV: Tools — subtle, bottom */}
       </ScrollView>
@@ -1068,20 +1183,27 @@ const styles = StyleSheet.create({
   },
 
   // Readiness indicator (below greeting block)
-  readinessBadge: {
+  readinessPill: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
-    paddingVertical: 6,
-    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
   },
   readinessDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
-  readinessText: {
-    ...typography.caption,
+  readinessScore: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  readinessLabel: {
+    fontSize: 13,
     fontWeight: "600",
   },
 
@@ -1100,7 +1222,8 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  xpBarWrap: { flex: 1 },
+  xpBarWrap: { flex: 1, gap: 2 },
+  xpToNextLabel: { fontSize: 10, fontWeight: "600", letterSpacing: 0.3, marginTop: 1 },
   streakArea: { flexDirection: "row", alignItems: "center", gap: 3 },
   streakChipLabel: { fontSize: 12, fontWeight: "700" },
   freezeGap: { width: 3 },
@@ -1120,6 +1243,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+  },
+  activeBannerPulse: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#fff",
+    opacity: 0.9,
+    marginBottom: 6,
   },
   activeBannerTitle: { fontSize: 14, fontWeight: "700" },
   activeBannerSub:   { fontSize: 13, marginTop: spacing.xs, opacity: 0.85 },
@@ -1144,6 +1275,23 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
     gap: 8,
+  },
+  speechBubble: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    position: "relative",
+  },
+  speechTail: {
+    position: "absolute",
+    left: -6,
+    top: 14,
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+    borderLeftWidth: 1,
+    borderBottomWidth: 1,
+    transform: [{ rotate: "45deg" }],
   },
   lockeMicrocopy: {
     fontSize: 14,
@@ -1241,7 +1389,14 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  quickActionIconWrap: { position: "relative" },
+  quickActionIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
   quickActionBadge: {
     position: "absolute",
     top: -2,
@@ -1257,33 +1412,56 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Activity card
-  activityCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  activityCardHeader: {
+  // Unified link card (Fuel, Activity, etc.)
+  linkCard: {
     flexDirection: "row",
     alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 12,
     gap: 12,
   },
-  activityIconWrap: {
+  linkCardIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  activityCardTitle: {
+  linkCardTitle: {
     fontSize: 15,
     fontWeight: "700",
   },
-  activityCardSub: {
+  linkCardSub: {
     fontSize: 12,
     marginTop: 1,
+  },
+
+  // Daily tip
+  tipCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 12,
+    marginBottom: 8,
+    gap: 12,
+  },
+  tipIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  tipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 18,
+    fontStyle: "italic",
+    flex: 1,
   },
 });

@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
-import {
-  setAlternateAppIcon,
-  resetAppIcon,
-  getAppIconName,
-} from "expo-alternate-app-icons";
+
+let _icons: typeof import("expo-alternate-app-icons") | null = null;
+try {
+  _icons = require("expo-alternate-app-icons");
+} catch {
+  // Native module not available (e.g. Expo Go or missing native build)
+}
 
 type IconName =
   | "icon_disappointed"
@@ -37,10 +39,10 @@ export function useAppIcon(streak: number, daysSinceActivity: number) {
   const lastIcon = useRef<string | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
+    if (Platform.OS !== "ios" || !_icons) return;
 
     const target = resolveIcon(streak, daysSinceActivity);
-    const current = getAppIconName();
+    const current = _icons.getAppIconName();
 
     // Don't swap if already showing the right icon
     if (target === current || (target === null && current === null)) return;
@@ -50,9 +52,9 @@ export function useAppIcon(streak: number, daysSinceActivity: number) {
     lastIcon.current = target ?? "DEFAULT";
 
     if (target === null) {
-      resetAppIcon();
+      _icons.resetAppIcon();
     } else {
-      setAlternateAppIcon(target);
+      _icons.setAlternateAppIcon(target);
     }
   }, [streak, daysSinceActivity]);
 }

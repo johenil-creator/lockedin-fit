@@ -224,13 +224,13 @@ const PlanCard = React.memo(function PlanCard({ plan, startSessionFromPlan, getA
         `Replace "${currentPlanName}"? Your progress will be reset.`,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Replace", style: "destructive", onPress: () => { setPlan(plan.name, plan.exercises); router.push("/plan"); } },
+          { text: "Replace", style: "destructive", onPress: () => { setPlan(plan.name, plan.exercises); router.replace("/"); } },
         ]
       );
       return;
     }
     setPlan(plan.name, plan.exercises);
-    router.push("/plan");
+    router.replace("/");
   }
 
   async function handleStartDay1() {

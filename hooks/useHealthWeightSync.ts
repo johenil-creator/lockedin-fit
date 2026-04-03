@@ -15,6 +15,8 @@ import { AppState, Platform } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 import { getCached } from '../lib/healthkit/cache';
 import { useProfileContext } from '../contexts/ProfileContext';
+import { loadWeightLog, saveWeightLog } from '../lib/mealStorage';
+import type { WeightLogEntry } from '../src/data/mealTypes';
 
 /** Minimum ms between foreground-triggered weight syncs. */
 const DEBOUNCE_MS = 15 * 60_000; // 15 min
@@ -58,6 +60,20 @@ export function useHealthWeightSync() {
         // Only update if weight actually changed
         if (rounded && rounded !== profileRef.current.weight) {
           updateProfile({ weight: rounded });
+
+          // Also log to weight trend graph
+          const weightKg = unit === 'lbs' ? finalValue / 2.20462 : finalValue;
+          const today = new Date().toISOString().slice(0, 10);
+          const existing = await loadWeightLog();
+          const filtered = existing.filter((e) => e.date !== today);
+          const entry: WeightLogEntry = {
+            id: `wt-hk-${Date.now()}`,
+            date: today,
+            weightKg: Math.round(weightKg * 100) / 100,
+            loggedAt: new Date().toISOString(),
+            source: "healthkit",
+          };
+          await saveWeightLog([...filtered, entry]);
         }
       } catch {
         // Silent fail — weight sync is best-effort

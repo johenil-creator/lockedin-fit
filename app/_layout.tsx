@@ -124,6 +124,7 @@ export default function RootLayout() {
                     <Stack.Screen name="lifts" />
                     <Stack.Screen name="quests" />
                     <Stack.Screen name="event" />
+                    <Stack.Screen name="meals" />
                   </Stack>
                 </PlanProvider>
               </LockeProvider>

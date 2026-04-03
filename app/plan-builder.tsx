@@ -583,7 +583,7 @@ export default function PlanBuilderScreen() {
     clearPlanDraft();
     notification(NotificationType.Success);
     showToast({ message: `Created "${planName.trim()}" — ${totalExercises} exercises, ${numWeeks} weeks`, type: "success" });
-    router.replace("/(tabs)/plan");
+    router.replace("/");
   }, [planName, weeks, numWeeks, totalExercises, setPlan, showToast, router]);
 
   const handleSaveAndStart = useCallback(async () => {
@@ -630,7 +630,7 @@ export default function PlanBuilderScreen() {
     await savePlanDraft(draftData);
     setCurrentDraftId(draftId);
     showToast({ message: "Plan saved — you can edit anytime", type: "success" });
-    router.replace("/(tabs)/plan");
+    router.replace("/");
   }, [planName, goal, daysPerWeek, numWeeks, weeks, step, activeWeek, activeDay, currentDraftId, setPlan, showToast, router]);
 
   // ── Navigation ─────────────────────────────────────────────────────────────

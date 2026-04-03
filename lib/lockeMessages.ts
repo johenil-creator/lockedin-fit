@@ -357,6 +357,47 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
     ],
   },
 
+  fuel_plan_ready: {
+    neutral: [
+      "Fuel plan locked.",
+      "Plan built. Nothing left to guess.",
+    ],
+    encouraging: [
+      "Fuel plan ready. Now execute it.",
+      "Smart move. Fuel drives everything.",
+    ],
+    celebrating: [
+      "The hunt is mapped. Every meal has a job.",
+    ],
+    proud: [
+      "Plan set. Discipline starts at the plate.",
+      "Locked in. Let's eat.",
+    ],
+    focused: [
+      "Menu locked. Execute with precision.",
+    ],
+    analytical: [
+      "Macros calculated. Plan optimized.",
+    ],
+  },
+
+  fuel_weekly_refresh: {
+    neutral: [
+      "New week. New fuel. Same discipline.",
+      "Menu refreshed. Stay locked in.",
+    ],
+    encouraging: [
+      "Fresh hunt plan loaded. Keep feeding the work.",
+      "This week's fuel is ready. Go earn it.",
+    ],
+    focused: [
+      "Weekly reset. New targets on the board.",
+    ],
+    savage: [
+      "Another week mapped. No excuses at mealtime.",
+    ],
+  },
+
   home_idle: {
     neutral: [
       "Ready when you are.",

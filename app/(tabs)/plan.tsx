@@ -504,11 +504,13 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
   onImport: () => void;
 }) {
   const { theme } = useAppTheme();
+  const router = useRouter();
 
   // Press feedback
   const customScale = useSharedValue(1);
   const catalogScale = useSharedValue(1);
   const importScale = useSharedValue(1);
+  const fuelScale = useSharedValue(1);
 
   const customPress = useAnimatedStyle(() => ({
     transform: [{ scale: customScale.value }],
@@ -522,15 +524,34 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
     transform: [{ scale: importScale.value }],
     opacity: importScale.value < 1 ? 0.9 : 1,
   }));
+  const fuelPress = useAnimatedStyle(() => ({
+    transform: [{ scale: fuelScale.value }],
+    opacity: fuelScale.value < 1 ? 0.9 : 1,
+  }));
 
   const onIn = (sv: typeof customScale) => { sv.value = withTiming(0.96, { duration: 100 }); };
   const onOut = (sv: typeof customScale) => { sv.value = withTiming(1, { duration: 150 }); };
+
+  // Glow pulse
+  const glowOpacity = useSharedValue(0.12);
+  useEffect(() => {
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.35, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.12, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+      false,
+    );
+  }, []);
+  const glowStyle = useAnimatedStyle(() => ({ opacity: glowOpacity.value }));
 
   return (
     <View style={epStyles.container}>
       {/* Mascot with glow */}
       <RNAnimated.View entering={FadeIn.duration(200)} style={epStyles.mascotWrap}>
-        <View style={[epStyles.mascotGlow, { backgroundColor: theme.colors.primary + "12" }]} />
+        <View style={[epStyles.mascotRing, { borderColor: theme.colors.primary + "15" }]} />
+        <RNAnimated.View style={[epStyles.mascotGlow, { backgroundColor: theme.colors.primary }, glowStyle]} />
         <LockeMascot size={160} mood="encouraging" />
       </RNAnimated.View>
 
@@ -546,12 +567,15 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
 
       {/* Section label */}
       <RNAnimated.View entering={FadeIn.delay(200).duration(200)} style={epStyles.sectionLabelWrap}>
+        <View style={[epStyles.labelLine, { backgroundColor: theme.colors.border }]} />
         <Text style={[epStyles.sectionLabel, { color: theme.colors.muted }]}>GET STARTED</Text>
+        <View style={[epStyles.labelLine, { backgroundColor: theme.colors.border }]} />
       </RNAnimated.View>
 
       {/* Action cards — vertical stack */}
-      <RNAnimated.View entering={FadeInDown.delay(250).duration(300)} style={epStyles.cardsWrap}>
-        {/* Primary: Custom Plans */}
+      <View style={epStyles.cardsWrap}>
+        {/* Custom Plans */}
+        <RNAnimated.View entering={FadeInDown.delay(220).duration(300)}>
         <Pressable
           onPress={onCreate}
           onPressIn={() => onIn(customScale)}
@@ -559,28 +583,28 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
         >
           <RNAnimated.View
             style={[
-              epStyles.primaryCard,
-              {
-                backgroundColor: theme.colors.primary + "0A",
-                borderColor: theme.colors.primary + "44",
-              },
+              epStyles.secondaryCard,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
               customPress,
             ]}
           >
-            <View style={[epStyles.cardIconWrap, { backgroundColor: theme.colors.primary + "18" }]}>
-              <Ionicons name="hammer-outline" size={26} color={theme.colors.primary} />
+            <View style={[epStyles.cardAccent, { backgroundColor: theme.colors.primary }]} />
+            <View style={[epStyles.cardIconWrap, { backgroundColor: theme.colors.primary + "15" }]}>
+              <Ionicons name="hammer-outline" size={22} color={theme.colors.primary} />
             </View>
             <View style={epStyles.cardContent}>
-              <Text style={[epStyles.primaryLabel, { color: theme.colors.text }]}>Custom Plans</Text>
+              <Text style={[epStyles.secondaryLabel, { color: theme.colors.text }]}>Custom Plans</Text>
               <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Build from scratch or continue a saved draft</Text>
             </View>
-            <View style={[epStyles.arrowWrap, { backgroundColor: theme.colors.primary + "15" }]}>
-              <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
+            <View style={[epStyles.secondaryArrow, { backgroundColor: theme.colors.primary + "12" }]}>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
             </View>
           </RNAnimated.View>
         </Pressable>
+        </RNAnimated.View>
 
         {/* Secondary: Browse Catalog */}
+        <RNAnimated.View entering={FadeInDown.delay(290).duration(300)}>
         <Pressable
           onPress={onCatalog}
           onPressIn={() => onIn(catalogScale)}
@@ -593,6 +617,7 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
               catalogPress,
             ]}
           >
+            <View style={[epStyles.cardAccent, { backgroundColor: "#8B5CF6" }]} />
             <View style={[epStyles.cardIconWrap, { backgroundColor: "#8B5CF6" + "15" }]}>
               <Ionicons name="grid-outline" size={22} color="#8B5CF6" />
             </View>
@@ -600,11 +625,15 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
               <Text style={[epStyles.secondaryLabel, { color: theme.colors.text }]}>Browse Catalog</Text>
               <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Proven programs for strength & hypertrophy</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
+            <View style={[epStyles.secondaryArrow, { backgroundColor: "#8B5CF6" + "12" }]}>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
+            </View>
           </RNAnimated.View>
         </Pressable>
+        </RNAnimated.View>
 
         {/* Tertiary: Import Plan */}
+        <RNAnimated.View entering={FadeInDown.delay(360).duration(300)}>
         <Pressable
           onPress={onImport}
           onPressIn={() => onIn(importScale)}
@@ -617,6 +646,7 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
               importPress,
             ]}
           >
+            <View style={[epStyles.cardAccent, { backgroundColor: "#F59E0B" }]} />
             <View style={[epStyles.cardIconWrap, { backgroundColor: "#F59E0B" + "15" }]}>
               <Ionicons name="document-text-outline" size={22} color="#F59E0B" />
             </View>
@@ -624,10 +654,42 @@ function EmptyPlanState({ onCreate, onCatalog, onImport }: {
               <Text style={[epStyles.secondaryLabel, { color: theme.colors.text }]}>Import Plan</Text>
               <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Upload a CSV, Excel, or Google Sheets link</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
+            <View style={[epStyles.secondaryArrow, { backgroundColor: "#F59E0B" + "12" }]}>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
+            </View>
           </RNAnimated.View>
         </Pressable>
-      </RNAnimated.View>
+        </RNAnimated.View>
+
+        {/* Fuel Plan */}
+        <RNAnimated.View entering={FadeInDown.delay(430).duration(300)}>
+        <Pressable
+          onPress={() => router.push("/meals")}
+          onPressIn={() => onIn(fuelScale)}
+          onPressOut={() => onOut(fuelScale)}
+        >
+          <RNAnimated.View
+            style={[
+              epStyles.secondaryCard,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+              fuelPress,
+            ]}
+          >
+            <View style={[epStyles.cardAccent, { backgroundColor: "#E5793B" }]} />
+            <View style={[epStyles.cardIconWrap, { backgroundColor: "#E5793B" + "15" }]}>
+              <Ionicons name="restaurant-outline" size={22} color="#E5793B" />
+            </View>
+            <View style={epStyles.cardContent}>
+              <Text style={[epStyles.secondaryLabel, { color: theme.colors.text }]}>Fuel Plan</Text>
+              <Text style={[epStyles.cardHint, { color: theme.colors.muted }]}>Weekly meals, macros & grocery lists</Text>
+            </View>
+            <View style={[epStyles.secondaryArrow, { backgroundColor: "#E5793B" + "12" }]}>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.muted} />
+            </View>
+          </RNAnimated.View>
+        </Pressable>
+        </RNAnimated.View>
+      </View>
     </View>
   );
 }
@@ -637,8 +699,8 @@ const epStyles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 48,
-    paddingHorizontal: spacing.md,
+    paddingBottom: 40,
+    paddingHorizontal: spacing.lg,
   },
   // Mascot
   mascotWrap: {
@@ -646,33 +708,47 @@ const epStyles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 16,
   },
+  mascotRing: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 1,
+  },
   mascotGlow: {
     position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
   },
   // Greeting
   greetingWrap: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 28,
   },
   headline: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "800",
     textAlign: "center",
-    marginBottom: 6,
-    letterSpacing: 0.3,
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   subline: {
-    fontSize: 14,
+    fontSize: 15,
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 22,
   },
   // Section label
   sectionLabelWrap: {
-    alignSelf: "flex-start",
-    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: 12,
+    width: "100%",
+  },
+  labelLine: {
+    flex: 1,
+    height: 1,
   },
   sectionLabel: {
     fontSize: 11,
@@ -682,24 +758,24 @@ const epStyles = StyleSheet.create({
   },
   // Cards
   cardsWrap: {
-    gap: 10,
+    gap: 12,
     width: "100%",
-  },
-  primaryCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 16,
-    gap: 14,
   },
   secondaryCard: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
-    gap: 12,
+    padding: 16,
+    gap: 14,
+    overflow: "hidden",
+  },
+  cardAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
   },
   cardIconWrap: {
     width: 48,
@@ -711,12 +787,6 @@ const epStyles = StyleSheet.create({
   cardContent: {
     flex: 1,
   },
-  primaryLabel: {
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 2,
-    letterSpacing: 0.2,
-  },
   secondaryLabel: {
     fontSize: 14,
     fontWeight: "700",
@@ -726,10 +796,10 @@ const epStyles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  arrowWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+  secondaryArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -464,6 +464,7 @@ export async function writeWorkout(workout: HealthKitWorkoutWrite): Promise<void
       endDate: new Date(workout.endDate).toISOString(),
       duration: workout.duration * 60, // convert minutes to seconds
       energyBurned: workout.energyBurned,
+      energyBurnedUnit: 'calorie',
     };
 
     (AppleHealthKit as any).saveWorkout(

@@ -287,7 +287,9 @@ export type LockeTrigger =
   | '1rm_test'
   | 'low_performance'
   | 'high_performance'
-  | 'home_idle';
+  | 'home_idle'
+  | 'fuel_plan_ready'
+  | 'fuel_weekly_refresh';
 
 // ── Locke State Machine ───────────────────────────────────────────────────────
 
