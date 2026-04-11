@@ -2,6 +2,15 @@ import { View, Text, StyleSheet, type DimensionValue } from "react-native";
 import { useAppTheme } from "../contexts/ThemeContext";
 import type { ExerciseProgress } from "../lib/progress";
 
+const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/** Format an ISO date string to "Apr 11" style. */
+function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
 type Props = {
   data: ExerciseProgress[];
   metric?: "maxWeight" | "totalReps";
@@ -21,7 +30,7 @@ export function ProgressChart({ data, metric = "maxWeight", weightUnit = "kg" }:
       {data.map((point, i) => (
         <View key={point.sessionId} style={styles.row}>
           <Text style={[styles.label, { color: theme.colors.muted }]} numberOfLines={1}>
-            {point.date}
+            {formatShortDate(point.date)}
           </Text>
           <View style={[styles.barTrack, { backgroundColor: theme.colors.mutedBg }]}>
             <View

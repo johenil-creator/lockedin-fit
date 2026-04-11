@@ -9,6 +9,7 @@
  *   2. Readiness score < 45 for 5 out of the last 7 days
  *   3. Plateau classified as 'under_recovered'
  *   4. ACWR > 1.5 (acute load significantly exceeds chronic baseline)
+ *      — guarded: requires trainingAge ≥ 3 weeks AND chronicLoad ≥ 100
  *
  * Guard clause:
  *   Does NOT trigger if the current week is already a scheduled deload
@@ -94,6 +95,12 @@ function formatMuscleName(muscle: MuscleGroup): string {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+/** Minimum chronic load before ACWR-based trigger is reliable. */
+const MIN_CHRONIC_LOAD_FOR_ACWR = 100;
+
+/** Minimum training age (weeks) before ACWR-based trigger is reliable. */
+const MIN_TRAINING_AGE_WEEKS = 3;
+
 export type DeloadCheckParams = {
   fatigueMap: MuscleFatigueMap;
   /**
@@ -112,6 +119,10 @@ export type DeloadCheckParams = {
    * If 'pivot_deload', the scheduled deload is already in progress.
    */
   weekPosition: BlockWeekPosition;
+  /** How many weeks the user has been training. Suppresses ACWR trigger when too low. */
+  trainingAgeWeeks?: number;
+  /** 28-day chronic load. Suppresses ACWR trigger when baseline is too sparse. */
+  chronicLoad?: number;
 };
 
 /**
@@ -125,7 +136,7 @@ export type DeloadCheckParams = {
  * @param params - Pre-computed training state; no I/O performed here.
  */
 export function checkDeloadTrigger(params: DeloadCheckParams): DeloadTrigger {
-  const { fatigueMap, readinessHistory, plateau, acwr, weekPosition } = params;
+  const { fatigueMap, readinessHistory, plateau, acwr, weekPosition, trainingAgeWeeks, chronicLoad } = params;
 
   // ── Guard: already in a scheduled deload ─────────────────────────────────
   if (weekPosition === 'pivot_deload') {
@@ -164,7 +175,13 @@ export function checkDeloadTrigger(params: DeloadCheckParams): DeloadTrigger {
   }
 
   // ── Trigger 4: ACWR overreaching ─────────────────────────────────────────
-  if (acwr > ACWR_OVERREACHING) {
+  // Guard: ACWR is unreliable for new users (sparse chronic baseline inflates
+  // the ratio). Require minimum training age AND chronic load before triggering.
+  const hasReliableACWR =
+    (trainingAgeWeeks == null || trainingAgeWeeks >= MIN_TRAINING_AGE_WEEKS) &&
+    (chronicLoad == null || chronicLoad >= MIN_CHRONIC_LOAD_FOR_ACWR);
+
+  if (hasReliableACWR && acwr > ACWR_OVERREACHING) {
     reasons.push(
       `Acute:Chronic Workload Ratio is ${acwr.toFixed(2)} — significantly above the safe ceiling of 1.5.`,
     );

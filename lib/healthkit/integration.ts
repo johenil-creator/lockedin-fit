@@ -19,6 +19,9 @@ import { updateTrainingLoad } from '../adaptationModel';
 import type { WorkoutSession, TrainingLoadRecord } from '../types';
 import type { HealthKitWorkout, HealthKitWorkoutWrite } from './types';
 import { writeWorkout, checkAvailability } from './HealthKitService';
+import { loadProfile } from '../storage';
+import { estimateCalories } from '../cardioCalories';
+import type { CardioModality } from '../cardioSuggestions';
 
 // ── Enhanced Readiness ───────────────────────────────────────────────────────
 
@@ -127,6 +130,27 @@ export async function syncCompletedSession(
     const durationMs = new Date(endDate).getTime() - new Date(startDate).getTime();
     const durationMin = durationMs / 60_000;
 
+    // Resolve body weight in kg for MET-based calorie estimation
+    const profile = await loadProfile();
+    const weightKg = profile ? profileWeightKg(profile.weight, profile.weightUnit) : 75;
+
+    let energyBurned: number;
+    let distanceMeters: number | undefined;
+
+    if (session.sessionType === 'cardio') {
+      const modality = (session.cardioModality ?? 'other') as CardioModality;
+      const activeMs = session.cardioDurationMs ?? durationMs;
+      const rpe = session.cardioIntensity ?? 5;
+      const { active } = estimateCalories(modality, weightKg, activeMs, rpe);
+      energyBurned = active;
+      if (session.cardioDistanceKm && session.cardioDistanceKm > 0) {
+        distanceMeters = Math.round(session.cardioDistanceKm * 1000);
+      }
+    } else {
+      // Strength: MET ≈ 5 (resistance training, moderate) × weight × hours
+      energyBurned = Math.round(5 * weightKg * (durationMin / 60));
+    }
+
     const workout: HealthKitWorkoutWrite = {
       type:
         session.sessionType === 'cardio'
@@ -135,10 +159,8 @@ export async function syncCompletedSession(
       startDate,
       endDate,
       duration: durationMin,
-      energyBurned:
-        session.sessionType === 'cardio'
-          ? Math.round(durationMin * 8)
-          : Math.round(durationMin * 5),
+      energyBurned,
+      distanceMeters,
       metadata: { source: 'LockedInFIT', sessionId: session.id },
     };
 
@@ -148,6 +170,13 @@ export async function syncCompletedSession(
     if (__DEV__) console.warn("[healthIntegration] caught:", e);
     return false;
   }
+}
+
+/** Parse UserProfile.weight (string) into kilograms. */
+function profileWeightKg(weight: string, unit: 'kg' | 'lbs'): number {
+  const n = parseFloat(weight);
+  if (!Number.isFinite(n) || n <= 0) return 75;
+  return unit === 'lbs' ? n * 0.453592 : n;
 }
 
 function mapCardioType(modality?: string): string {

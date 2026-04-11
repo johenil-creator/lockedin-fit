@@ -1,6 +1,7 @@
 import type { WorkoutSession, XPRecord, XPHistoryEntry, RankLevel, Badge } from "./types";
 import { rankForXP, didRankUp, rankProgress, xpToNextRank, nextRank } from "./rankService";
 import { calculateSessionFangs } from "./fangsService";
+import { toDateStr } from "./challengeService";
 
 // ── XP award amounts ──────────────────────────────────────────────────────────
 
@@ -43,12 +44,6 @@ export function defaultXPRecord(): XPRecord {
 
 // ── Core award function ───────────────────────────────────────────────────────
 
-/** Get today's date as YYYY-MM-DD string. */
-function todayDateString(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 /**
  * Apply an XP award to an existing record.
  * Returns the updated record (does not mutate the input).
@@ -68,7 +63,7 @@ export function applyXP(
   };
 
   // Track daily XP — reset if the date rolled over
-  const today = todayDateString();
+  const today = toDateStr();
   const prevDayXP = record.todayDate === today ? (record.todayXP ?? 0) : 0;
 
   return {

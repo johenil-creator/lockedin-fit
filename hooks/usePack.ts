@@ -6,7 +6,8 @@ import {
   getPackDetail,
   getCachedPack,
 } from "../lib/packService";
-import { savePackInfo } from "../lib/storage";
+import { savePackInfo, loadXP, loadLockeCustomization } from "../lib/storage";
+import { queueSocialWrite } from "../lib/socialSync";
 import { useAuth } from "../contexts/AuthContext";
 import { useProfileContext } from "../contexts/ProfileContext";
 import type { PackInfo, PackMember } from "../lib/types";
@@ -60,18 +61,30 @@ export function usePack(): UsePackResult {
     const displayName = profile.name || user.displayName || user.email?.split("@")[0] || "Wolf";
     const result = await createPackService(user.uid, displayName, name, motto);
     if (result) {
+      // Read actual rank + customization so the member row matches the profile
+      const [xp, customization] = await Promise.all([loadXP(), loadLockeCustomization()]);
+      const rank = xp?.rank ?? "Runt";
       setPack(result);
       setMembers([{
         userId: user.uid,
         displayName,
-        rank: "Runt",
+        rank,
         role: "leader",
         weeklyXp: 0,
+        lockeCustomization: customization,
       }]);
+      // Ensure Firestore user doc has current rank + customization
+      // so getPackDetail() returns correct data on future loads
+      queueSocialWrite("users", user.uid, {
+        rank,
+        lockeCustomization: customization,
+      }).catch(() => {});
+      // Also fetch fresh data from Firestore in the background
+      refresh();
       return true;
     }
     return false;
-  }, [user, profile.name]);
+  }, [user, profile.name, refresh]);
 
   const join = useCallback(async (code: string): Promise<boolean> => {
     if (!user) return false;

@@ -16,6 +16,9 @@ export const MINIMUM_READ_PERMISSIONS = [
   'BodyMass',
   'Workout',
   'StepCount',
+  'Height',
+  'DateOfBirth',
+  'BiologicalSex',
 ] as const;
 
 /**

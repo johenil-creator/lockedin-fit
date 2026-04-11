@@ -32,8 +32,11 @@ import { LockeMascot } from "../../components/Locke/LockeMascot";
 import { MealSlotRow } from "../../components/meals";
 import { useMealPlan } from "../../hooks/useMealPlan";
 import { useFoodLog } from "../../hooks/useFoodLog";
-import { recipeMap } from "../../src/data/recipeCatalog";
+import { recipeMap, getRecipesBySlot } from "../../src/data/recipeCatalog";
 import { getWeekKey } from "../../lib/mealService";
+import { AppBottomSheet } from "../../components/AppBottomSheet";
+import type { Recipe } from "../../src/data/mealTypes";
+import { getDevNow, shiftDevDate, resetDevDate, getDevOffset } from "../../lib/devDateOverride";
 import type { CuisineTier, MealSlot } from "../../src/data/mealTypes";
 import { useInterstitialAd } from "../../hooks/useInterstitialAd";
 
@@ -58,9 +61,17 @@ const DAY_NAMES_FULL = [
 // ── Meal slots in display order ─────────────────────────────────────────────
 const SLOTS: MealSlot[] = ["breakfast", "snack1", "lunch", "snack2", "dinner"];
 
+const SLOT_LABELS: Record<MealSlot, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  snack1: "Snack 1",
+  snack2: "Snack 2",
+};
+
 // ── Today's date string (YYYY-MM-DD) ────────────────────────────────────────
 function todayStr(): string {
-  const d = new Date();
+  const d = __DEV__ ? getDevNow() : new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -69,7 +80,7 @@ function todayStr(): string {
 
 // ── Day index helpers ────────────────────────────────────────────────────────
 function todayDayIdx(): number {
-  const d = new Date().getDay();
+  const d = (__DEV__ ? getDevNow() : new Date()).getDay();
   return d === 0 ? 6 : d - 1;
 }
 
@@ -105,7 +116,7 @@ export default function FuelHub() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { prefs, plan, loading, macroTargets, reload, setStartDay } = useMealPlan();
+  const { prefs, plan, loading, macroTargets, reload, setStartDay, swapSlot } = useMealPlan();
   const [showDayPicker, setShowDayPicker] = useState(false);
 
   // Glow pulse behind mascot
@@ -126,6 +137,25 @@ export default function FuelHub() {
   const { show: showInterstitial } = useInterstitialAd();
   const adShownTodayRef = useRef<string | null>(null);
 
+  // ── Dev time-travel state ───────────────────────────────────────────
+  const [devOpen, setDevOpen] = useState(false);
+  const [devKey, setDevKey] = useState(0);
+
+  const devTravel = useCallback(
+    (days: number) => {
+      shiftDevDate(days);
+      setDevKey((k) => k + 1);
+      reload();
+    },
+    [reload],
+  );
+
+  const devReset = useCallback(() => {
+    resetDevDate();
+    setDevKey((k) => k + 1);
+    reload();
+  }, [reload]);
+
   // ── Reload data when screen regains focus (e.g. after settings change / logging)
   useFocusEffect(
     useCallback(() => {
@@ -145,17 +175,15 @@ export default function FuelHub() {
   // ── Derived values (hooks must always run — no early return above) ──
   const activeTier = prefs.tier ?? "scavenge";
   const tierColor = TIER_ACCENT[activeTier];
-  const today = todayStr();
-
-  // Today's day index (Mon=0 ... Sun=6)
-  const todayIdx = todayDayIdx();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const today = useMemo(() => todayStr(), [devKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const todayIdx = useMemo(() => todayDayIdx(), [devKey]);
   const todayDayName = DAY_NAMES_FULL[todayIdx];
   const startDay = prefs.startDayIndex ?? 0;
 
-  // Plan hasn't started if:
-  // 1. The plan is for a future week (weekKey > current week), OR
-  // 2. Today is before the start day within the same week
-  const currentWeekKey = getWeekKey(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const currentWeekKey = useMemo(() => getWeekKey(0), [devKey]);
   const planNotStarted =
     plan.weekKey > currentWeekKey || (plan.weekKey === currentWeekKey && todayIdx < startDay);
 
@@ -211,6 +239,33 @@ export default function FuelHub() {
     return 7 - todayIdx + startDay; // wraps to next week
   }, [planNotStarted, startDay, todayIdx]);
 
+  // ── Swap sheet state ──────────────────────────────────────────────
+  const [swapTarget, setSwapTarget] = useState<{ slot: MealSlot; currentRecipeId: string } | null>(null);
+  const swapSheetOpen = swapTarget !== null;
+
+  const handleSwapOpen = useCallback((slot: MealSlot, currentRecipeId: string) => {
+    setSwapTarget({ slot, currentRecipeId });
+  }, []);
+
+  const handleSwapClose = useCallback(() => {
+    setSwapTarget(null);
+  }, []);
+
+  const handleSwapSelect = useCallback(
+    (newRecipeId: string) => {
+      if (!swapTarget) return;
+      swapSlot(todayIdx, swapTarget.slot, newRecipeId);
+      setSwapTarget(null);
+    },
+    [swapTarget, swapSlot, todayIdx],
+  );
+
+  const swapAlternatives = useMemo<Recipe[]>(() => {
+    if (!swapTarget) return [];
+    return getRecipesBySlot(activeTier, swapTarget.slot).filter(
+      (r) => r.id !== swapTarget.currentRecipeId,
+    );
+  }, [swapTarget, activeTier]);
 
   // ── Loading / setup gate render ─────────────────────────────────────
   if (loading || !prefs.setupComplete) {
@@ -241,13 +296,13 @@ export default function FuelHub() {
               {activeTier === "apex_feast" ? "Apex Feast" : activeTier === "hunt" ? "Hunt" : "Scavenge"} Fuel Plan
             </Text>
             <Pressable
-              onPress={() => router.push("/meals/setup?prefill=1" as any)}
+              onPress={() => router.push("/meals/preferences" as any)}
               hitSlop={12}
               style={[styles.switchPlanBtn, { borderColor: theme.colors.border }]}
             >
               <Ionicons name="create-outline" size={14} color={theme.colors.muted} />
               <Text style={[styles.switchPlanText, { color: theme.colors.muted }]}>
-                Switch Plan
+                Edit Plan
               </Text>
             </Pressable>
           </Animated.View>
@@ -483,6 +538,48 @@ export default function FuelHub() {
             </Pressable>
           </Pressable>
         </Modal>
+
+        {/* ── Dev Time-Travel Panel ──────────────────────────────────── */}
+        {__DEV__ && (
+          <>
+            <Pressable
+              onPress={() => setDevOpen((o) => !o)}
+              style={styles.devFab}
+            >
+              <Ionicons name="time-outline" size={20} color="#fff" />
+            </Pressable>
+            {devOpen && (
+              <View style={styles.devPanel}>
+                <Text style={styles.devTitle}>
+                  Time Travel {getDevOffset() !== 0 ? `(${getDevOffset() > 0 ? "+" : ""}${getDevOffset()}d)` : ""}
+                </Text>
+                <Text style={styles.devDate}>
+                  Simulated: {getDevNow().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                </Text>
+                <Text style={styles.devDate}>
+                  Week: {currentWeekKey}
+                </Text>
+                <View style={styles.devRow}>
+                  <Pressable onPress={() => devTravel(-7)} style={styles.devBtn}>
+                    <Text style={styles.devBtnText}>-1w</Text>
+                  </Pressable>
+                  <Pressable onPress={() => devTravel(-1)} style={styles.devBtn}>
+                    <Text style={styles.devBtnText}>-1d</Text>
+                  </Pressable>
+                  <Pressable onPress={devReset} style={[styles.devBtn, { backgroundColor: "#c62828" }]}>
+                    <Text style={styles.devBtnText}>Reset</Text>
+                  </Pressable>
+                  <Pressable onPress={() => devTravel(1)} style={styles.devBtn}>
+                    <Text style={styles.devBtnText}>+1d</Text>
+                  </Pressable>
+                  <Pressable onPress={() => devTravel(7)} style={styles.devBtn}>
+                    <Text style={styles.devBtnText}>+1w</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </>
+        )}
       </View>
     );
   }
@@ -524,13 +621,13 @@ export default function FuelHub() {
 
 
           <Pressable
-            onPress={() => router.push("/meals/setup?prefill=1" as any)}
+            onPress={() => router.push("/meals/preferences" as any)}
             hitSlop={12}
             style={[styles.switchPlanBtn, { borderColor: theme.colors.border }]}
           >
             <Ionicons name="create-outline" size={14} color={theme.colors.muted} />
             <Text style={[styles.switchPlanText, { color: theme.colors.muted }]}>
-              Switch Plan
+              Edit Plan
             </Text>
           </Pressable>
         </Animated.View>
@@ -546,6 +643,12 @@ export default function FuelHub() {
                   {todayDayName} {"\u00B7"} {todayCalories} cal
                 </Text>
               </View>
+              <View style={styles.swapHint}>
+                <Ionicons name="swap-horizontal" size={12} color={theme.colors.primary} />
+                <Text style={[styles.swapHintText, { color: theme.colors.primary }]}>
+                  Hold a meal to swap it
+                </Text>
+              </View>
 
               {SLOTS.map((slot) => {
                 const recipeId = slotRecipeMap[slot];
@@ -559,6 +662,7 @@ export default function FuelHub() {
                     onPress={() =>
                       router.push({ pathname: "/meals/recipe", params: { recipeId } } as any)
                     }
+                    onLongPress={() => handleSwapOpen(slot, recipeId)}
                   />
                 );
               })}
@@ -639,6 +743,109 @@ export default function FuelHub() {
             </Pressable>
 
       </ScrollView>
+
+      {/* ── Swap Meal Bottom Sheet ─────────────────────────────────── */}
+      <AppBottomSheet
+        visible={swapSheetOpen}
+        onClose={handleSwapClose}
+        snapPoints={["60%"]}
+        scrollable
+      >
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          Swap{" "}
+          {swapTarget
+            ? SLOT_LABELS[swapTarget.slot]
+            : "Meal"}
+        </Text>
+        <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: spacing.md }]}>
+          Long-press any meal to swap it
+        </Text>
+
+        {swapAlternatives.map((item) => (
+          <Pressable
+            key={item.id}
+            style={[
+              styles.swapRow,
+              {
+                backgroundColor: theme.colors.mutedBg,
+                borderColor: theme.colors.border,
+              },
+            ]}
+            onPress={() => handleSwapSelect(item.id)}
+          >
+            <Text style={styles.swapFlag}>{item.flag}</Text>
+            <View style={styles.swapInfo}>
+              <Text
+                style={[styles.swapName, { color: theme.colors.text }]}
+                numberOfLines={1}
+              >
+                {item.name}
+              </Text>
+              <View style={styles.swapMeta}>
+                <Text style={[typography.caption, { color: theme.colors.muted }]}>
+                  {item.macros.calories} cal
+                </Text>
+                <View
+                  style={[
+                    styles.cuisineBadge,
+                    { backgroundColor: tierColor + "20" },
+                  ]}
+                >
+                  <Text
+                    style={[styles.cuisineBadgeText, { color: tierColor }]}
+                    numberOfLines={1}
+                  >
+                    {item.cuisineBadge}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <Ionicons name="swap-horizontal" size={18} color={theme.colors.muted} />
+          </Pressable>
+        ))}
+      </AppBottomSheet>
+
+      {/* ── Dev Time-Travel Panel ──────────────────────────────────── */}
+      {__DEV__ && (
+        <>
+          <Pressable
+            onPress={() => setDevOpen((o) => !o)}
+            style={styles.devFab}
+          >
+            <Ionicons name="time-outline" size={20} color="#fff" />
+          </Pressable>
+          {devOpen && (
+            <View style={styles.devPanel}>
+              <Text style={styles.devTitle}>
+                Time Travel {getDevOffset() !== 0 ? `(${getDevOffset() > 0 ? "+" : ""}${getDevOffset()}d)` : ""}
+              </Text>
+              <Text style={styles.devDate}>
+                Simulated: {getDevNow().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              </Text>
+              <Text style={styles.devDate}>
+                Week: {currentWeekKey}
+              </Text>
+              <View style={styles.devRow}>
+                <Pressable onPress={() => devTravel(-7)} style={styles.devBtn}>
+                  <Text style={styles.devBtnText}>-1w</Text>
+                </Pressable>
+                <Pressable onPress={() => devTravel(-1)} style={styles.devBtn}>
+                  <Text style={styles.devBtnText}>-1d</Text>
+                </Pressable>
+                <Pressable onPress={devReset} style={[styles.devBtn, { backgroundColor: "#c62828" }]}>
+                  <Text style={styles.devBtnText}>Reset</Text>
+                </Pressable>
+                <Pressable onPress={() => devTravel(1)} style={styles.devBtn}>
+                  <Text style={styles.devBtnText}>+1d</Text>
+                </Pressable>
+                <Pressable onPress={() => devTravel(7)} style={styles.devBtn}>
+                  <Text style={styles.devBtnText}>+1w</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </>
+      )}
     </View>
   );
 }
@@ -899,5 +1106,112 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.xs,
     lineHeight: 20,
+  },
+  devFab: {
+    position: "absolute",
+    bottom: 90,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#6A1B9A",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 100,
+  },
+  devPanel: {
+    position: "absolute",
+    bottom: 140,
+    right: 16,
+    left: 16,
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 12,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    zIndex: 100,
+  },
+  devTitle: {
+    color: "#ce93d8",
+    fontWeight: "700",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  devDate: {
+    color: "#aaa",
+    fontSize: 11,
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  devRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  devBtn: {
+    backgroundColor: "#6A1B9A",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  devBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  swapHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: spacing.sm,
+  },
+  swapHintText: {
+    fontSize: 11,
+    fontStyle: "italic",
+  },
+  swapRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  swapFlag: {
+    fontSize: 20,
+  },
+  swapInfo: {
+    flex: 1,
+  },
+  swapName: {
+    fontSize: typography.body.fontSize,
+    fontWeight: "600",
+  },
+  swapMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: 2,
+  },
+  cuisineBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  cuisineBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
 });

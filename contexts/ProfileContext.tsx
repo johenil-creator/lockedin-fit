@@ -37,7 +37,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       setHapticsEnabled(value.hapticsEnabled !== false);
       setLoading(false);
       setHydrated(true);
-    }).catch(() => { setLoading(false); setHydrated(true); });
+    }).catch((err) => {
+      if (__DEV__) console.warn("[ProfileContext] Failed to load profile:", err);
+      setLoading(false);
+      setHydrated(true);
+    });
   }, []);
 
   const updateProfile = useCallback(async (patch: Partial<UserProfile>) => {

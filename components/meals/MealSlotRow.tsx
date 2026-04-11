@@ -10,6 +10,7 @@ type Props = {
   slot: MealSlot;
   recipeId: string;
   onPress: () => void;
+  onLongPress?: () => void;
   logged?: boolean;
 };
 
@@ -21,7 +22,7 @@ const SLOT_LABELS: Record<MealSlot, string> = {
   snack2: "Snack 2",
 };
 
-function MealSlotRowInner({ slot, recipeId, onPress, logged }: Props) {
+function MealSlotRowInner({ slot, recipeId, onPress, onLongPress, logged }: Props) {
   const { theme } = useAppTheme();
   const recipe = recipeMap.get(recipeId);
 
@@ -37,6 +38,9 @@ function MealSlotRowInner({ slot, recipeId, onPress, logged }: Props) {
         },
       ]}
       onPress={onPress}
+      onLongPress={onLongPress}
+      accessibilityLabel={`${SLOT_LABELS[slot]}: ${recipe.name}`}
+      accessibilityRole="button"
     >
       <View style={styles.slotCol}>
         <Text style={[styles.slotLabel, { color: theme.colors.muted }]}>

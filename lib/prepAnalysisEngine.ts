@@ -322,8 +322,8 @@ export function analyzePrepPlan(
 ): PrepDayPlan {
   const usages = collectComponentUsages(plan, servings, prepDayIndex, planIsNextWeek, scopeDays);
 
-  // Build prep tasks
-  const tasks: PrepTask[] = usages.map((usage) => {
+  // Build prep tasks (skip any usage with an unknown component)
+  const tasks: PrepTask[] = usages.filter((u) => componentMap.has(u.componentId)).map((usage) => {
     const comp = componentMap.get(usage.componentId)!;
     const decision = storageDecision(comp, usage, prepDayIndex);
     const shelfLifeDays =

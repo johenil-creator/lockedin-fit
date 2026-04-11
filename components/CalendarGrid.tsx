@@ -106,21 +106,21 @@ export function CalendarGrid({ sessions, onDayPress }: Props) {
       {/* Header */}
       <View style={styles.headerRow}>
         {!isCurrentMonth && isFutureMonth ? (
-          <Pressable onPress={goToToday} style={[styles.navBtn, styles.navLeft]}>
+          <Pressable onPress={goToToday} style={[styles.navBtn, styles.navLeft]} accessibilityLabel="Go to today" accessibilityRole="button">
             <Text style={[styles.todayText, { color: theme.colors.primary }]}>Today</Text>
           </Pressable>
         ) : (
-          <Pressable onPress={prevMonth} style={[styles.navBtn, styles.navLeft]}>
+          <Pressable onPress={prevMonth} style={[styles.navBtn, styles.navLeft]} accessibilityLabel="Previous month" accessibilityRole="button">
             <Text style={[styles.navText, { color: theme.colors.primary }]}>←</Text>
           </Pressable>
         )}
         <Text style={[styles.monthLabel, { color: theme.colors.text }]}>{monthLabel}</Text>
         {!isCurrentMonth && !isFutureMonth ? (
-          <Pressable onPress={goToToday} style={[styles.navBtn, styles.navRight]}>
+          <Pressable onPress={goToToday} style={[styles.navBtn, styles.navRight]} accessibilityLabel="Go to today" accessibilityRole="button">
             <Text style={[styles.todayText, { color: theme.colors.primary }]}>Today</Text>
           </Pressable>
         ) : (
-          <Pressable onPress={nextMonth} style={[styles.navBtn, styles.navRight]}>
+          <Pressable onPress={nextMonth} style={[styles.navBtn, styles.navRight]} accessibilityLabel="Next month" accessibilityRole="button">
             <Text style={[styles.navText, { color: theme.colors.primary }]}>→</Text>
           </Pressable>
         )}
@@ -148,11 +148,15 @@ export function CalendarGrid({ sessions, onDayPress }: Props) {
             const hasActive = daySessions.some((s) => !!s.isActive);
             const count = daySessions.length;
 
+            const dayLabel = `${day} ${monthLabel}${isToday ? ', today' : ''}${hasCompleted ? ', completed' : ''}`;
+
             return (
               <Pressable
                 key={dateKey}
                 style={styles.dayCell}
                 onPress={() => onDayPress(dateKey, daySessions)}
+                accessibilityLabel={dayLabel}
+                accessibilityRole="button"
               >
                 <View
                   style={[
@@ -169,10 +173,6 @@ export function CalendarGrid({ sessions, onDayPress }: Props) {
                   >
                     {day}
                   </Text>
-                  {count > 1 && (
-                    <View style={[styles.countDot, { backgroundColor: theme.colors.accent }]} />
-                  )}
-                  {hasActive && <PulsingDot color={theme.colors.accent} />}
                 </View>
               </Pressable>
             );

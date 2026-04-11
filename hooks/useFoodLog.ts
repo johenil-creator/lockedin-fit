@@ -65,8 +65,8 @@ export function useFoodLog() {
         setLog(updated);
         await saveFoodLog(updated);
         return full;
-      } catch {
-        // silent
+      } catch (e) {
+        if (__DEV__) console.warn("[useFoodLog] save failed:", e);
       }
     },
     [],
@@ -84,8 +84,8 @@ export function useFoodLog() {
       logRef.current = updated;
       setLog(updated);
       await saveFoodLog(updated);
-    } catch {
-      // silent
+    } catch (e) {
+      if (__DEV__) console.warn("[useFoodLog] save failed:", e);
     }
   }, []);
 

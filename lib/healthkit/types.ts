@@ -179,8 +179,10 @@ export type HealthKitWorkoutWrite = {
   endDate: string;
   /** Duration in minutes */
   duration: number;
-  /** Active energy burned in kcal */
+  /** Active energy burned in kcal (Food calories) */
   energyBurned: number;
+  /** Distance in meters (optional, for modalities like running/walking/cycling) */
+  distanceMeters?: number;
   /** Optional metadata */
   metadata?: Record<string, string>;
 };
@@ -253,7 +255,7 @@ export type HealthSignalResult = {
 export class HealthKitError extends Error {
   constructor(
     message: string,
-    public readonly code: 'not_available' | 'permission_denied' | 'not_linked' | 'fetch_failed' | 'write_failed',
+    public readonly code: 'not_available' | 'permission_denied' | 'not_linked' | 'fetch_failed' | 'write_failed' | 'timeout' | 'native_error',
     public readonly originalError?: unknown,
   ) {
     super(message);

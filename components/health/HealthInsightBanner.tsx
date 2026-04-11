@@ -42,7 +42,7 @@ function deriveInsightType(factors: HealthSignalResult['factors']): InsightType 
   return type;
 }
 
-export function HealthInsightBanner({ healthSignal, insightType }: Props) {
+function HealthInsightBanner({ healthSignal, insightType }: Props) {
   const { theme } = useAppTheme();
   const [expanded, setExpanded] = useState(false);
 
@@ -55,7 +55,7 @@ export function HealthInsightBanner({ healthSignal, insightType }: Props) {
     healthSignal.score >= 70
       ? theme.colors.primary
       : healthSignal.score >= 50
-        ? '#F5A623'
+        ? '#F5A623' // warning orange — no theme.colors.warning available
         : theme.colors.danger;
 
   return (
@@ -118,6 +118,8 @@ export function HealthInsightBanner({ healthSignal, insightType }: Props) {
     </TouchableOpacity>
   );
 }
+
+export default React.memo(HealthInsightBanner);
 
 function FactorBar({
   label,

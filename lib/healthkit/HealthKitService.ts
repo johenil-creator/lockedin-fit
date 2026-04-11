@@ -458,14 +458,21 @@ export async function writeWorkout(workout: HealthKitWorkoutWrite): Promise<void
   const AppleHealthKit = getAppleHealthKit();
 
   return new Promise<void>((resolve, reject) => {
-    const options = {
+    // Pass energy in kilocalories directly. The native patch adds 'kilocalorie'
+    // → [HKUnit kilocalorieUnit] mapping so HealthKit stores the correct value.
+    const options: Record<string, unknown> = {
       type: workout.type,
       startDate: new Date(workout.startDate).toISOString(),
       endDate: new Date(workout.endDate).toISOString(),
       duration: workout.duration * 60, // convert minutes to seconds
-      energyBurned: workout.energyBurned,
-      energyBurnedUnit: 'calorie',
+      energyBurned: Math.round(workout.energyBurned),
+      energyBurnedUnit: 'kilocalorie',
     };
+
+    if (workout.distanceMeters && workout.distanceMeters > 0) {
+      options.distance = workout.distanceMeters;
+      options.distanceUnit = 'meter';
+    }
 
     (AppleHealthKit as any).saveWorkout(
       options,
@@ -478,6 +485,81 @@ export async function writeWorkout(workout: HealthKitWorkoutWrite): Promise<void
           ));
         } else {
           resolve();
+        }
+      },
+    );
+  });
+}
+
+// ── Latest Height ────────────────────────────────────────────────────────────
+
+/**
+ * Fetch latest height in centimeters from HealthKit.
+ */
+export async function fetchLatestHeight(): Promise<number | null> {
+  ensureIOS();
+  const AppleHealthKit = getAppleHealthKit();
+
+  return new Promise((resolve, reject) => {
+    (AppleHealthKit as any).getLatestHeight(
+      { unit: 'centimeter' },
+      (err: string, result: { value: number }) => {
+        if (err) reject(new HealthKitError(err, 'fetch_failed', err));
+        else {
+          const value = result?.value ?? 0;
+          resolve(value > 0 ? Math.round(value) : null);
+        }
+      },
+    );
+  });
+}
+
+// ── Date of Birth ────────────────────────────────────────────────────────────
+
+/**
+ * Fetch date of birth from HealthKit. Returns the age in years.
+ */
+export async function fetchDateOfBirth(): Promise<{ age: number; dob: string } | null> {
+  ensureIOS();
+  const AppleHealthKit = getAppleHealthKit();
+
+  return new Promise((resolve, reject) => {
+    (AppleHealthKit as any).getDateOfBirth(
+      {},
+      (err: string, result: { value: string; age: number }) => {
+        if (err) reject(new HealthKitError(err, 'fetch_failed', err));
+        else {
+          const age = result?.age;
+          if (age && age > 0 && age < 120) {
+            resolve({ age, dob: result.value ?? '' });
+          } else {
+            resolve(null);
+          }
+        }
+      },
+    );
+  });
+}
+
+// ── Biological Sex ───────────────────────────────────────────────────────────
+
+/**
+ * Fetch biological sex from HealthKit.
+ * Returns "male", "female", or null for "other"/"unknown".
+ */
+export async function fetchBiologicalSex(): Promise<'male' | 'female' | null> {
+  ensureIOS();
+  const AppleHealthKit = getAppleHealthKit();
+
+  return new Promise((resolve, reject) => {
+    (AppleHealthKit as any).getBiologicalSex(
+      {},
+      (err: string, result: { value: string }) => {
+        if (err) reject(new HealthKitError(err, 'fetch_failed', err));
+        else {
+          const val = result?.value?.toLowerCase();
+          if (val === 'male' || val === 'female') resolve(val);
+          else resolve(null);
         }
       },
     );

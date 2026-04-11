@@ -217,7 +217,7 @@ function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart, o
 
   return (
     <Pressable
-      onPress={isLocked ? undefined : isNextUp ? onStart : onToggle}
+      onPress={isLocked ? undefined : onToggle}
       disabled={isLocked}
       style={[
         dcStyles.container,
@@ -297,9 +297,6 @@ function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart, o
           </View>
 
           <View style={dcStyles.headerRight}>
-            {isCompleted && (
-              <Text style={[dcStyles.doneLabel, { color: theme.colors.success }]}>Done</Text>
-            )}
             {!isLocked && !isNextUp && !isCompleted && (
               <Ionicons
                 name={isExpanded ? "chevron-up" : "chevron-down"}

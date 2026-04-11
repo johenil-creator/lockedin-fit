@@ -44,7 +44,6 @@ import { FANGS_PER_AD_WATCH } from "../lib/adWatchService";
 import { useSeasonalShop } from "../hooks/useSeasonalShop";
 import { useXP } from "../hooks/useXP";
 import { SeasonalShopSection } from "../components/social/SeasonalShopSection";
-import { PrestigeShopSection } from "../components/social/PrestigeShopSection";
 import type { CosmeticCategory, CosmeticItem, RankLevel, LockeCustomization } from "../lib/types";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -252,7 +251,7 @@ function GridItemCard({
 
       {rarityColor && (
         <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1, color: rarityColor, textAlign: "center", marginTop: 1 }}>
-          {item.rarity.toUpperCase()}
+          {item.rarity?.toUpperCase()}
         </Text>
       )}
 
@@ -288,7 +287,7 @@ export default function LockeStudioScreen() {
   const { rank: realRank } = useXP();
   const [devRank, setDevRank] = useState<typeof realRank>(realRank);
   const rank = __DEV__ ? devRank : realRank;
-  const { seasonalItems, prestigeItems, ownedIds: shopOwnedIds, purchase: purchaseSeasonal } = useSeasonalShop(rank);
+  const { seasonalItems, ownedIds: shopOwnedIds, purchase: purchaseSeasonal } = useSeasonalShop(rank);
   const adWatch = useAdWatch();
   const studioTabs = getStudioTabs();
   const [activeTabKey, setActiveTabKey] = useState(studioTabs[0]?.key ?? "fur");
@@ -572,25 +571,6 @@ export default function LockeStudioScreen() {
                 ]);
               }}
               onEquip={(itemId) => { impact(ImpactStyle.Light); const item = seasonalItems.find((i) => i.id === itemId); if (item) selectItem(item.category as CosmeticCategory, item.preview ?? itemId); }}
-            />
-            <PrestigeShopSection
-              items={prestigeItems.filter((i) => i.category === "head_accessory" || i.category === "neck_accessory" || i.category === "ear_accessory")}
-              ownedIds={shopOwnedIds}
-              equippedIds={[customization.headAccessory, customization.neckAccessory, customization.earAccessory].filter(Boolean) as string[]}
-              currentRank={rank}
-              onPurchase={(itemId) => {
-                const item = prestigeItems.find((i) => i.id === itemId);
-                if (!item) return;
-                showAlert(`Unlock ${item.name}`, `Spend ${item.price} Fangs to unlock ${item.name}?`, [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Unlock", onPress: async () => {
-                    const result = await purchaseSeasonal(itemId);
-                    if (result.success) { notification(NotificationType.Success); selectItem(item.category as CosmeticCategory, item.preview ?? itemId); refreshFangs(); }
-                    else if (result.error) showAlert("Cannot Purchase", result.error);
-                  }},
-                ]);
-              }}
-              onEquip={(itemId) => { impact(ImpactStyle.Light); const item = prestigeItems.find((i) => i.id === itemId); if (item) selectItem(item.category as CosmeticCategory, item.preview ?? itemId); }}
             />
           </View>
         )}

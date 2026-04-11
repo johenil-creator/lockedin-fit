@@ -36,13 +36,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((value) => {
       if (value === "light") setIsDark(false);
+    }).catch((err) => {
+      if (__DEV__) console.warn("[ThemeContext] Failed to load theme preference:", err);
     });
   }, []);
 
   const toggleTheme = useCallback(() => {
     setIsDark((prev) => {
       const next = !prev;
-      AsyncStorage.setItem(STORAGE_KEY, next ? "dark" : "light");
+      AsyncStorage.setItem(STORAGE_KEY, next ? "dark" : "light").catch((err) => {
+        if (__DEV__) console.warn("[ThemeContext] Failed to persist theme preference:", err);
+      });
       return next;
     });
   }, []);

@@ -1,4 +1,5 @@
 import { exerciseCatalog } from "../src/data/exerciseCatalog";
+import { MS_PER_DAY } from "./constants";
 import type { ExerciseCatalogEntry, MuscleGroup as CatalogMuscle } from "../src/data/catalogTypes";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -195,7 +196,7 @@ function getRecentlyTrainedMuscles(
   sessions: { completedAt?: string; exercises: { name: string }[] }[],
 ): Set<string> {
   const recent = new Set<string>();
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - MS_PER_DAY;
   for (const s of sessions) {
     if (!s.completedAt || new Date(s.completedAt).getTime() < cutoff) continue;
     for (const ex of s.exercises) {

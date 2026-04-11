@@ -37,6 +37,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useAppTheme } from '../../contexts/ThemeContext';
+import { theme as staticTheme } from '../../lib/theme';
 import { getEnergyState, type MuscleVisualState } from '../../lib/muscleEnergyStates';
 import type { MuscleGroup, MuscleFatigueMap } from '../../lib/types';
 
@@ -190,7 +191,7 @@ const BACK_PATHS: Partial<Record<MuscleGroup, string[]>> = {
 };
 
 // ── Feedback overlay stroke colors (no blur — stroke + opacity for glow) ──────
-const RECOVERY_STROKE  = '#00875A';
+const RECOVERY_STROKE  = staticTheme.colors.primary;
 const OVERTRAIN_STROKE = '#FF9800';
 
 // ── Internal types ────────────────────────────────────────────────────────────

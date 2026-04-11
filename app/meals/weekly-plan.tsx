@@ -25,9 +25,11 @@ import Animated, {
 import { useAppTheme } from "../../contexts/ThemeContext";
 import { spacing, radius, typography } from "../../lib/theme";
 import { MealSlotRow } from "../../components/meals";
+import { AppBottomSheet } from "../../components/AppBottomSheet";
 import { useMealPlan } from "../../hooks/useMealPlan";
-import { recipeMap } from "../../src/data/recipeCatalog";
-import type { CuisineTier, MealSlot, DailyMealPlan } from "../../src/data/mealTypes";
+import { getDevNow } from "../../lib/devDateOverride";
+import { recipeMap, getRecipesBySlot } from "../../src/data/recipeCatalog";
+import type { CuisineTier, MealSlot, DailyMealPlan, Recipe } from "../../src/data/mealTypes";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const TIER_ACCENT: Record<CuisineTier, string> = {
@@ -52,6 +54,14 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 
 const MEAL_SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner", "snack1", "snack2"];
 
+const SLOT_LABELS: Record<MealSlot, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  snack1: "Snack",
+  snack2: "Snack",
+};
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function getWeekLabel(offset: number): string {
   if (offset === 0) return "This Week";
@@ -70,8 +80,7 @@ function computeDayCalories(day: DailyMealPlan | undefined): number {
 }
 
 function getTodayDayIndex(): number {
-  // JS getDay: 0=Sun, 1=Mon ... 6=Sat → convert to 0=Mon ... 6=Sun
-  const jsDay = new Date().getDay();
+  const jsDay = (__DEV__ ? getDevNow() : new Date()).getDay();
   return jsDay === 0 ? 6 : jsDay - 1;
 }
 
@@ -80,6 +89,12 @@ const sectionEnter = (delay: number) =>
   FadeInDown.delay(delay).duration(350).damping(20).stiffness(150);
 
 // ── Collapsible Day Row ─────────────────────────────────────────────────────
+type SwapTarget = {
+  dayIndex: number;
+  slot: MealSlot;
+  currentRecipeId: string;
+};
+
 type DayRowProps = {
   dayIndex: number;
   dayPlan: DailyMealPlan | undefined;
@@ -87,6 +102,7 @@ type DayRowProps = {
   tierColor: string;
   maxCalories: number;
   isToday: boolean;
+  onSwapOpen: (target: SwapTarget) => void;
 };
 
 const DayRow = React.memo(function DayRow({
@@ -96,6 +112,7 @@ const DayRow = React.memo(function DayRow({
   tierColor,
   maxCalories,
   isToday,
+  onSwapOpen,
 }: DayRowProps) {
   const { theme } = useAppTheme();
   const router = useRouter();
@@ -181,13 +198,31 @@ const DayRow = React.memo(function DayRow({
         <View style={styles.slotsContainer}>
           {MEAL_SLOTS.map((slot) => {
             const assignment = dayPlan?.meals.find((m) => m.slot === slot);
-            if (!assignment) return null;
+            if (!assignment) {
+              return (
+                <View
+                  key={slot}
+                  style={[
+                    styles.emptySlot,
+                    { backgroundColor: theme.colors.mutedBg, borderColor: theme.colors.muted + "40" },
+                  ]}
+                >
+                  <Text style={[styles.emptySlotText, { color: theme.colors.muted }]}>
+                    {SLOT_LABELS[slot]} · Not planned
+                  </Text>
+                  <Ionicons name="add-circle-outline" size={18} color={theme.colors.muted} />
+                </View>
+              );
+            }
             return (
               <MealSlotRow
                 key={slot}
                 slot={slot}
                 recipeId={assignment.recipeId}
                 onPress={() => handleSlotPress(assignment.recipeId)}
+                onLongPress={() =>
+                  onSwapOpen({ dayIndex, slot, currentRecipeId: assignment.recipeId })
+                }
               />
             );
           })}
@@ -203,7 +238,7 @@ export default function WeeklyPlan() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { plan, prefs, weekOffset, setWeekOffset, reload } = useMealPlan();
+  const { plan, prefs, weekOffset, setWeekOffset, swapSlot, reload } = useMealPlan();
 
   // Reload data when screen regains focus (e.g. after settings change)
   useFocusEffect(
@@ -229,6 +264,35 @@ export default function WeeklyPlan() {
     }
     return max || 2500;
   }, [plan]);
+
+  // ── Swap sheet state ──────────────────────────────────────────────
+  const [swapTarget, setSwapTarget] = useState<SwapTarget | null>(null);
+  const swapSheetOpen = swapTarget !== null;
+
+  const handleSwapOpen = useCallback((target: SwapTarget) => {
+    setSwapTarget(target);
+  }, []);
+
+  const handleSwapClose = useCallback(() => {
+    setSwapTarget(null);
+  }, []);
+
+  const handleSwapSelect = useCallback(
+    (newRecipeId: string) => {
+      if (!swapTarget) return;
+      swapSlot(swapTarget.dayIndex, swapTarget.slot, newRecipeId);
+      setSwapTarget(null);
+    },
+    [swapTarget, swapSlot],
+  );
+
+  // Alternative recipes for the swap sheet (same tier + slot, excluding current)
+  const swapAlternatives = useMemo<Recipe[]>(() => {
+    if (!swapTarget) return [];
+    return getRecipesBySlot(tier, swapTarget.slot).filter(
+      (r) => r.id !== swapTarget.currentRecipeId,
+    );
+  }, [swapTarget, tier]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -321,11 +385,79 @@ export default function WeeklyPlan() {
                 tierColor={tierColor}
                 maxCalories={maxCalories}
                 isToday={weekOffset === 0 && i === todayIndex}
+                onSwapOpen={handleSwapOpen}
               />
             </Animated.View>
           );
         })}
       </ScrollView>
+
+      {/* ── Swap Meal Bottom Sheet ─────────────────────────────────── */}
+      <AppBottomSheet
+        visible={swapSheetOpen}
+        onClose={handleSwapClose}
+        snapPoints={["60%"]}
+        scrollable
+      >
+        <Text style={[typography.subheading, { color: theme.colors.text, marginBottom: spacing.sm }]}>
+          Swap{" "}
+          {swapTarget
+            ? SLOT_LABELS[swapTarget.slot]
+            : "Meal"}
+        </Text>
+        <Text style={[typography.caption, { color: theme.colors.muted, marginBottom: spacing.md }]}>
+          Long-press any meal to swap it
+        </Text>
+
+        {swapAlternatives.length === 0 ? (
+          <Text style={[typography.body, { color: theme.colors.muted, textAlign: "center", marginTop: spacing.lg }]}>
+            No alternatives available
+          </Text>
+        ) : (
+          swapAlternatives.map((item) => (
+            <Pressable
+              key={item.id}
+              style={[
+                styles.swapRow,
+                {
+                  backgroundColor: theme.colors.mutedBg,
+                  borderColor: theme.colors.border,
+                },
+              ]}
+              onPress={() => handleSwapSelect(item.id)}
+            >
+              <Text style={styles.swapFlag}>{item.flag}</Text>
+              <View style={styles.swapInfo}>
+                <Text
+                  style={[styles.swapName, { color: theme.colors.text }]}
+                  numberOfLines={1}
+                >
+                  {item.name}
+                </Text>
+                <View style={styles.swapMeta}>
+                  <Text style={[typography.caption, { color: theme.colors.muted }]}>
+                    {item.macros.calories} cal
+                  </Text>
+                  <View
+                    style={[
+                      styles.cuisineBadge,
+                      { backgroundColor: tierColor + "20" },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.cuisineBadgeText, { color: tierColor }]}
+                      numberOfLines={1}
+                    >
+                      {item.cuisineBadge}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <Ionicons name="swap-horizontal" size={18} color={theme.colors.muted} />
+            </Pressable>
+          ))
+        )}
+      </AppBottomSheet>
     </View>
   );
 }
@@ -441,5 +573,56 @@ const styles = StyleSheet.create({
   slotsContainer: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
+  },
+  emptySlot: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    marginBottom: spacing.xs,
+  },
+  emptySlotText: {
+    fontSize: typography.body.fontSize,
+    fontWeight: "500",
+  },
+  swapRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  swapFlag: {
+    fontSize: 20,
+    marginRight: spacing.sm,
+  },
+  swapInfo: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  swapName: {
+    fontSize: typography.body.fontSize,
+    fontWeight: "600",
+  },
+  swapMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: 2,
+  },
+  cuisineBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  cuisineBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
 });

@@ -36,7 +36,7 @@ function ExerciseCardInner({ name, data, trend, weightUnit }: Props) {
   const trendInfo = TREND_ICONS[trend];
 
   return (
-    <Pressable onPress={() => setExpanded((p) => !p)}>
+    <Pressable onPress={() => setExpanded((p) => !p)} accessibilityLabel={`${expanded ? 'Hide' : 'Show'} ${name} details`} accessibilityRole="button">
       <View
         style={[
           styles.card,

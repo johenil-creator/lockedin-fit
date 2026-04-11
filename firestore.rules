@@ -104,7 +104,8 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null
-                    && resource.data.userId == request.auth.uid;
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.role == resource.data.role;
       allow delete: if request.auth != null
                     && resource.data.userId == request.auth.uid;
     }
@@ -156,10 +157,12 @@ service cloud.firestore {
 
     // ── In-App Notifications ──────────────────────────────────────────────────
     // Only the owning user can read/update/delete their notifications.
-    // Any authed user can create (system sends notifications to others).
+    // Only the owning user or system can create notifications.
+    // Sender must match fromUserId so users can't spoof notifications.
     match /inAppNotifications/{userId}/items/{notifId} {
       allow read:   if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.fromUserId == request.auth.uid;
       allow update: if request.auth != null && request.auth.uid == userId;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
@@ -254,7 +257,7 @@ service cloud.firestore {
     // writer). TODO: lock down to owner-only once finalizeWar uses a CF.
     match /fangs/{userId} {
       allow read:   if request.auth != null && request.auth.uid == userId;
-      allow write:  if request.auth != null;
+      allow write:  if request.auth != null && request.auth.uid == userId;
     }
 
     // ── Cosmetic Gifts ────────────────────────────────────────────────────────
@@ -370,9 +373,9 @@ service cloud.firestore {
     // Readable by any authed user. Only pack leaders can create/update/delete.
     match /publicPacks/{packId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null && isPackMember(packId);
-      allow update: if request.auth != null && isPackMember(packId);
-      allow delete: if request.auth != null && isPackMember(packId);
+      allow create: if request.auth != null && isPackLeader(packId);
+      allow update: if request.auth != null && isPackLeader(packId);
+      allow delete: if request.auth != null && isPackLeader(packId);
     }
 
     // ── Rate Limits (Cloud Functions only) ──────────────────────────────────

@@ -19,6 +19,7 @@ import {
   loadMealPrefs,
   saveMealPrefs,
 } from "../lib/mealStorage";
+import { getDevNow } from "../lib/devDateOverride";
 import { useProfileContext } from "../contexts/ProfileContext";
 
 const DEFAULT_PLAN: WeeklyMealPlan = {
@@ -28,6 +29,10 @@ const DEFAULT_PLAN: WeeklyMealPlan = {
   seed: 0,
   days: [],
 };
+
+// Bump this when the recipe catalog or generation algorithm changes
+// to force regeneration of stale plans.
+const PLAN_VERSION = 4;
 
 const DEFAULT_PREFS: MealPreferences = {
   tier: "scavenge",
@@ -59,6 +64,15 @@ function getCalorieTarget(prefs: MealPreferences, weightKg: number): number | un
   return targets.calories;
 }
 
+/** Collect all recipe IDs from a plan for cross-week freshness. */
+function collectRecipeIds(plan: WeeklyMealPlan): Set<string> {
+  const ids = new Set<string>();
+  for (const day of plan.days) {
+    for (const m of day.meals) ids.add(m.recipeId);
+  }
+  return ids;
+}
+
 export function useMealPlan() {
   const { profile } = useProfileContext();
   const [plan, setPlan] = useState<WeeklyMealPlan>(DEFAULT_PLAN);
@@ -68,6 +82,7 @@ export function useMealPlan() {
 
   const prefsRef = useRef<MealPreferences>(DEFAULT_PREFS);
   const weekOffsetRef = useRef(0);
+  const prevRecipeIdsRef = useRef<Set<string>>(new Set());
 
   // ── Load prefs + plan from storage ────────────────────────────────
   const loadData = useCallback(async () => {
@@ -79,14 +94,33 @@ export function useMealPlan() {
       const nextWeekKey = getWeekKey(1);
 
       // Accept the saved plan if it's for this week OR next week (when user chose a future start day)
-      const jsDay = new Date().getDay();
+      const jsDay = (__DEV__ ? getDevNow() : new Date()).getDay();
       const todayIdx = jsDay === 0 ? 6 : jsDay - 1;
       const startDay = savedPrefs.startDayIndex ?? 0;
-      const planIsForNextWeek = savedPlan.weekKey === nextWeekKey && startDay < todayIdx;
+      const planIsForNextWeek = savedPlan.weekKey === nextWeekKey && startDay > todayIdx;
 
-      if ((savedPlan.weekKey === currentWeekKey || planIsForNextWeek) && savedPlan.days.length > 0) {
+      // Check if the saved plan is from an older algorithm version
+      const savedVersion = (savedPlan as any)._v ?? 0;
+      const planIsCurrent = savedVersion >= PLAN_VERSION;
+
+      if (planIsCurrent && (savedPlan.weekKey === currentWeekKey || planIsForNextWeek) && savedPlan.days.length > 0) {
         setPlan(savedPlan);
+        prevRecipeIdsRef.current = collectRecipeIds(savedPlan);
       } else {
+        // Rolling into a new week — reset startDayIndex so the plan is
+        // active immediately (the "launch day" only applies to the first week).
+        if (savedPlan.weekKey && savedPrefs.startDayIndex !== 0) {
+          const rolledPrefs = { ...savedPrefs, startDayIndex: 0 };
+          prefsRef.current = rolledPrefs;
+          setPrefs(rolledPrefs);
+          saveMealPrefs(rolledPrefs);
+        }
+
+        // Use last week's recipes for cross-week freshness
+        const prevIds = savedPlan.days.length > 0
+          ? collectRecipeIds(savedPlan)
+          : prevRecipeIdsRef.current;
+
         const wKg = resolveWeightKg(profile.weight, profile.weightUnit);
         const calTarget = getCalorieTarget(savedPrefs, wKg);
         const fresh = generateWeeklyPlan(
@@ -95,16 +129,19 @@ export function useMealPlan() {
           recipeCatalog,
           savedPrefs.restrictions,
           calTarget,
+          prevIds,
         );
-        setPlan(fresh);
-        saveMealPlan(fresh);
+        const stamped = { ...fresh, _v: PLAN_VERSION } as any;
+        setPlan(stamped);
+        prevRecipeIdsRef.current = collectRecipeIds(stamped);
+        saveMealPlan(stamped);
       }
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profile.weight, profile.weightUnit]);
 
   // ── Mount: initial load ─────────────────────────────────────────
   useEffect(() => {
@@ -117,12 +154,17 @@ export function useMealPlan() {
       const weekKey = getWeekKey(offset);
       const wKg = resolveWeightKg(profile.weight, profile.weightUnit);
       const calTarget = getCalorieTarget(prefsRef.current, wKg);
-      const newPlan = generateWeeklyPlan(tier, weekKey, recipeCatalog, prefsRef.current.restrictions, calTarget);
-      setPlan(newPlan);
-      await saveMealPlan(newPlan);
-      return newPlan;
+      const newPlan = generateWeeklyPlan(
+        tier, weekKey, recipeCatalog, prefsRef.current.restrictions, calTarget,
+        prevRecipeIdsRef.current,
+      );
+      const stamped = { ...newPlan, _v: PLAN_VERSION } as any;
+      setPlan(stamped);
+      prevRecipeIdsRef.current = collectRecipeIds(stamped);
+      await saveMealPlan(stamped);
+      return stamped;
     },
-    [],
+    [profile.weight, profile.weightUnit],
   );
 
   // ── Swap a single slot ────────────────────────────────────────────
@@ -139,6 +181,10 @@ export function useMealPlan() {
         day.meals = day.meals.map((m, i) =>
           i === mealIdx ? { ...m, recipeId: newRecipeId } : m,
         );
+      }
+      // Preserve plan version stamp
+      if ((plan as any)._v !== undefined) {
+        (updated as any)._v = (plan as any)._v;
       }
       setPlan(updated);
       await saveMealPlan(updated);
@@ -204,7 +250,7 @@ export function useMealPlan() {
         await saveMealPrefs(updated);
 
         // Determine correct week offset: if start day already passed, generate for next week
-        const jsDay = new Date().getDay();
+        const jsDay = (__DEV__ ? getDevNow() : new Date()).getDay();
         const todayIdx = jsDay === 0 ? 6 : jsDay - 1;
         const offset = dayIndex > todayIdx ? 0 : 1;
         await generatePlan(updated.tier, offset);
@@ -227,9 +273,14 @@ export function useMealPlan() {
         const weekKey = getWeekKey(weekOffsetRef.current);
         const wKg = resolveWeightKg(profile.weight, profile.weightUnit);
         const calTarget = getCalorieTarget(updated, wKg);
-        const newPlan = generateWeeklyPlan(updated.tier, weekKey, recipeCatalog, restrictions, calTarget);
-        setPlan(newPlan);
-        await saveMealPlan(newPlan);
+        const newPlan = generateWeeklyPlan(
+          updated.tier, weekKey, recipeCatalog, restrictions, calTarget,
+          prevRecipeIdsRef.current,
+        );
+        const stamped = { ...newPlan, _v: PLAN_VERSION } as any;
+        setPlan(stamped);
+        prevRecipeIdsRef.current = collectRecipeIds(stamped);
+        await saveMealPlan(stamped);
       } catch {
         // ignore
       }

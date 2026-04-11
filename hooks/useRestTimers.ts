@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { playRestComplete } from "../lib/sounds";
+import { notification, NotificationType } from "../lib/haptics";
 
 export function useRestTimers() {
   const [restTimers, setRestTimers] = useState<Record<string, number>>({});
@@ -36,6 +38,9 @@ export function useRestTimers() {
             clearInterval(intervalsRef.current[key]);
             delete intervalsRef.current[key];
             const { [key]: _, ...rest } = prev;
+            // Play sound + haptic when rest timer completes
+            playRestComplete();
+            notification(NotificationType.Success);
             return rest;
           }
           return { ...prev, [key]: next };
@@ -60,6 +65,7 @@ export function useRestTimers() {
   const advanceTimers = useCallback((elapsedSec: number) => {
     setRestTimers((prev) => {
       const updated: Record<string, number> = {};
+      let anyExpired = false;
       for (const [key, remaining] of Object.entries(prev)) {
         const adjusted = remaining - elapsedSec;
         if (adjusted > 0) {
@@ -69,7 +75,13 @@ export function useRestTimers() {
             clearInterval(intervalsRef.current[key]);
             delete intervalsRef.current[key];
           }
+          anyExpired = true;
         }
+      }
+      // Play sound if any timer expired while app was in background
+      if (anyExpired) {
+        playRestComplete();
+        notification(NotificationType.Success);
       }
       return updated;
     });

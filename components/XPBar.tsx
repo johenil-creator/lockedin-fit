@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -18,7 +18,7 @@ type Props = {
   nextRank:     RankLevel | null;
 };
 
-export function XPBar({ totalXP, bandCurrent, bandTotal, progress, nextRank }: Props) {
+function XPBar({ totalXP, bandCurrent, bandTotal, progress, nextRank }: Props) {
   const { theme } = useAppTheme();
   const fillPct = Math.max(0, Math.min(progress, 1)) * 100;
   const animatedWidth = useSharedValue(0);
@@ -69,6 +69,8 @@ export function XPBar({ totalXP, bandCurrent, bandTotal, progress, nextRank }: P
     </View>
   );
 }
+
+export default React.memo(XPBar);
 
 const styles = StyleSheet.create({
   container: { gap: 5 },

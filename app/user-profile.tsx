@@ -8,11 +8,9 @@ import { BackButton } from "../components/BackButton";
 import { useAuth } from "../contexts/AuthContext";
 import { usePublicProfile } from "../hooks/usePublicProfile";
 import { useFriendChallenges } from "../hooks/useFriendChallenges";
-import { useStreakBattles } from "../hooks/useStreakBattles";
 import { useAccountability } from "../hooks/useAccountability";
 import { PublicProfileSheet } from "../components/social/PublicProfileSheet";
 import { ChallengeBottomSheet } from "../components/social/ChallengeBottomSheet";
-import { StreakBattleCard } from "../components/social/StreakBattleCard";
 import { addFriendById } from "../lib/xpSync";
 import { spacing, typography, radius } from "../lib/theme";
 import { Skeleton } from "../components/Skeleton";
@@ -25,7 +23,6 @@ export default function UserProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const { profile, loading } = usePublicProfile(userId ?? null);
   const { create: createChallenge } = useFriendChallenges();
-  const { battles, startBattle, activeBattleWith } = useStreakBattles();
   const { partner, pair, unpair } = useAccountability();
   const [showChallenge, setShowChallenge] = useState(false);
 
@@ -77,26 +74,9 @@ export default function UserProfileScreen() {
         }}
       />
 
-      {/* Streak Battle + Accountability buttons */}
+      {/* Accountability buttons */}
       {profile && userId && user && userId !== user.uid && (
         <View style={styles.socialActions}>
-          {activeBattleWith(userId) ? (
-            <StreakBattleCard battle={activeBattleWith(userId)!} />
-          ) : (
-            <Pressable
-              style={[styles.socialBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-              onPress={async () => {
-                const result = await startBattle(userId, profile.displayName);
-                if (result) Alert.alert("Battle Started", `Streak battle with ${profile.displayName} has begun!`);
-              }}
-            >
-              <Ionicons name="flame" size={18} color={theme.colors.accent} />
-              <Text style={[typography.body, { color: theme.colors.accent, fontWeight: "600" }]}>
-                Streak Battle
-              </Text>
-            </Pressable>
-          )}
-
           {!partner ? (
             <Pressable
               style={[styles.socialBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}

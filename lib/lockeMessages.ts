@@ -232,6 +232,37 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
     ],
   },
 
+  challenge_complete: {
+    celebrating: [
+      "30 days. Conquered.",
+      "Challenge done. That's the standard now.",
+      "You stacked every day. Respect.",
+      "Month-long work. Legendary finish.",
+    ],
+    encouraging: [
+      "Full challenge, clean finish. Proud of that.",
+      "You showed up for 30 days straight. Earned.",
+      "That's real discipline. Locked in.",
+    ],
+    proud: [
+      "30 days of showing up. That's who you are now.",
+      "Every rep stacked into this moment. Respect.",
+      "The habit held. The work paid off.",
+    ],
+    intense: [
+      "Challenge cleared. Now find a harder one.",
+      "Done doesn't mean stop. Next hunt.",
+    ],
+    focused: [
+      "Challenge logged. Execution was clean.",
+      "30 for 30. Precision finish.",
+    ],
+    analytical: [
+      "Challenge complete. Adherence verified.",
+      "30-day cycle closed. Numbers speak.",
+    ],
+  },
+
   onboarding: {
     neutral: [
       "Set your numbers. We'll use them.",

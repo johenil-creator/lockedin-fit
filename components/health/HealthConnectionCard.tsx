@@ -51,7 +51,7 @@ export function HealthConnectionCard({
     permissionStatus === 'full'
       ? theme.colors.primary
       : permissionStatus === 'partial'
-        ? '#F5A623'
+        ? '#F5A623' // warning orange — no theme.colors.warning available
         : theme.colors.muted;
 
   const statusText =
@@ -130,6 +130,8 @@ export function HealthConnectionCard({
             style={[styles.button, { backgroundColor: theme.colors.primary }]}
             onPress={onConnect}
             activeOpacity={0.7}
+            accessibilityLabel="Connect Apple Health"
+            accessibilityRole="button"
           >
             <Ionicons name="heart" size={16} color="#fff" />
             <Text style={styles.buttonText}>Connect Apple Health</Text>
@@ -140,6 +142,8 @@ export function HealthConnectionCard({
               style={[styles.button, { backgroundColor: theme.colors.primary + '20' }]}
               onPress={() => Linking.openURL('x-apple-health://')}
               activeOpacity={0.7}
+              accessibilityLabel="Manage in Health app"
+              accessibilityRole="button"
             >
               <Ionicons name="settings-outline" size={16} color={theme.colors.primary} />
               <Text style={[styles.buttonText, { color: theme.colors.primary }]}>
@@ -151,6 +155,8 @@ export function HealthConnectionCard({
               style={styles.disconnectButton}
               onPress={onDisconnect}
               activeOpacity={0.7}
+              accessibilityLabel="Disconnect Apple Health"
+              accessibilityRole="button"
             >
               <Text style={[styles.disconnectText, { color: theme.colors.danger }]}>
                 Disconnect

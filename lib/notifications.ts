@@ -4,13 +4,17 @@ import { Platform } from "react-native";
 // ── Configure notification handler ────────────────────────────────────────────
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const id = notification.request.identifier;
+    const playSound = id === "rest-timer-complete";
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: playSound,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: !playSound, // Don't clutter notification center with rest alerts
+    };
+  },
 });
 
 // ── Permission ────────────────────────────────────────────────────────────────

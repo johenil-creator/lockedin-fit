@@ -41,6 +41,11 @@ function toMachineEvent(ctx: LockeContext): LockeMachineEvent {
     case "rank_up":
       return { type: "RANK_UP" };
 
+    case "challenge_complete":
+      // Reuse the celebrating path — score pinned high so Locke lands in
+      // celebrating mood regardless of the user's current week state.
+      return { type: "WORKOUT_COMPLETE", weekScore: 95, daysSinceLastSession: 0 };
+
     case "inactivity":
       return { type: "INACTIVITY_THRESHOLD", daysSince: daysSinceLastSession };
 

@@ -1,3 +1,40 @@
+diff --git a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Utils.m b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Utils.m
+index 307056d..23864de 100644
+--- a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Utils.m
++++ b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Utils.m
+@@ -318,6 +318,9 @@ + (HKUnit *)hkUnitFromOptions:(NSDictionary *)options key:(NSString *)key withDe
+     if ([unitString isEqualToString:@"calorie"]) {
+          theUnit = [HKUnit calorieUnit];
+     }
++    if ([unitString isEqualToString:@"kilocalorie"]) {
++         theUnit = [HKUnit kilocalorieUnit];
++    }
+     if ([unitString isEqualToString:@"count"]) {
+          theUnit = [HKUnit countUnit];
+     }
+diff --git a/node_modules/react-native-health/app.plugin.js b/node_modules/react-native-health/app.plugin.js
+index 8dbb66a..00e1fa4 100644
+--- a/node_modules/react-native-health/app.plugin.js
++++ b/node_modules/react-native-health/app.plugin.js
+@@ -31,13 +31,13 @@ const withHealthKit = (
+   // Add entitlements. These are automatically synced when using EAS build for production apps.
+   config = withEntitlementsPlist(config, (config) => {
+     config.modResults['com.apple.developer.healthkit'] = true
+-    if (
+-      !Array.isArray(config.modResults['com.apple.developer.healthkit.access'])
+-    ) {
+-      config.modResults['com.apple.developer.healthkit.access'] = []
+-    }
+ 
+     if (isClinicalDataEnabled) {
++      if (
++        !Array.isArray(config.modResults['com.apple.developer.healthkit.access'])
++      ) {
++        config.modResults['com.apple.developer.healthkit.access'] = []
++      }
+       config.modResults['com.apple.developer.healthkit.access'].push(
+         'health-records',
+       )
 diff --git a/node_modules/react-native-health/index.js b/node_modules/react-native-health/index.js
 index 06e5105..2c046af 100644
 --- a/node_modules/react-native-health/index.js

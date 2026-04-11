@@ -11,8 +11,8 @@ export type IconMood =
   | "icon_disappointed";
 
 const STORAGE_KEYS = {
-  lastMood: "@lockedinfit/lastAppliedIconMood",
-  lastChanged: "@lockedinfit/lastIconChangeAt",
+  lastMood: "@lockedinfit/last-applied-icon-mood",
+  lastChanged: "@lockedinfit/last-icon-change-at",
 } as const;
 
 const THROTTLE_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -39,6 +39,8 @@ export async function setAppIcon(mood: IconMood): Promise<void> {
 export async function maybeUpdateIcon(_mood: IconMood): Promise<void> {
   // Disabled until alternate icon assets are confirmed in production build
   return;
+
+  /* eslint-disable no-unreachable */
   if (Platform.OS !== "ios" || !AppIconModule) return;
 
   const [lastMood, lastChangedStr] = await Promise.all([
@@ -47,22 +49,23 @@ export async function maybeUpdateIcon(_mood: IconMood): Promise<void> {
   ]);
 
   // Same mood — skip
-  if (lastMood === mood) return;
+  if (lastMood === _mood) return;
 
   // Throttle: within 24h, only allow icon_disappointed as override
   if (lastChangedStr) {
-    const elapsed = Date.now() - parseInt(lastChangedStr, 10);
-    if (elapsed < THROTTLE_MS && mood !== "icon_disappointed") return;
+    const elapsed = Date.now() - parseInt(lastChangedStr!, 10);
+    if (elapsed < THROTTLE_MS && _mood !== "icon_disappointed") return;
   }
 
   try {
-    await setAppIcon(mood);
+    await setAppIcon(_mood);
     await Promise.all([
-      AsyncStorage.setItem(STORAGE_KEYS.lastMood, mood),
+      AsyncStorage.setItem(STORAGE_KEYS.lastMood, _mood),
       AsyncStorage.setItem(STORAGE_KEYS.lastChanged, String(Date.now())),
     ]);
   } catch (e) {
     if (__DEV__) console.warn("[appIcon] caught:", e);
     // Swallow — icon change is non-critical
   }
+  /* eslint-enable no-unreachable */
 }

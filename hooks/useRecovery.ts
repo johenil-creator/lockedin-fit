@@ -222,7 +222,7 @@ export function useRecovery(): UseRecoveryReturn {
       const forecastRisk = Math.min(100, Math.round((overtrainedCount / 16) * 100));
 
       // ── 5. Readiness score ─────────────────────────────────────────────────
-      const readiness = computeReadiness({
+      let readiness = computeReadiness({
         fatigueMap,
         blockType,
         streakDays:  streak?.current ?? 0,
@@ -241,11 +241,22 @@ export function useRecovery(): UseRecoveryReturn {
         fatigueMap,
         readinessHistory,
         plateau,
-        acwr:        trainingLoad?.acwr ?? 1.0,
+        acwr:              trainingLoad?.acwr ?? 1.0,
         blockType,
         weekPosition,
+        trainingAgeWeeks:  trainingLoad?.trainingAgeWeeks ?? 0,
+        chronicLoad:       trainingLoad?.chronicLoad ?? 0,
       });
       const deloadTriggered = deloadTrigger.triggered;
+
+      // ── 7b. Cap readiness label when deload is triggered ────────────────────
+      // The numeric score stays (it reflects component math), but the label
+      // should never say "Ready" or "Prime" when a deload is active — that
+      // creates a contradictory "Ready" + "Deload Recommended" situation.
+      // Clone to avoid mutating the cached readiness object.
+      if (deloadTriggered && (readiness.label === 'Ready' || readiness.label === 'Prime')) {
+        readiness = { ...readiness, label: 'Manage Load' };
+      }
 
       // ── 8. Deload card content ──────────────────────────────────────────────
       const deloadCard = deloadTrigger.triggered
@@ -302,10 +313,16 @@ export function useRecovery(): UseRecoveryReturn {
         ? Math.floor((Date.now() - lastSnapshotMs) / (24 * 3_600_000))
         : 99;
 
+      // Suppress supercomp/attack commentary when coach is in rest_day or
+      // concerned mood to prevent contradictory messages (e.g., "Rest day.
+      // Non-negotiable." alongside "This is a rare window — attack.").
+      const suppressPositiveCommentary =
+        coach.mood === 'rest_day' || coach.mood === 'concerned';
+
       const commentary = getRecoveryCommentary({
         dominantState,
         peakMuscleCount,
-        chargedMuscleCount,
+        chargedMuscleCount: suppressPositiveCommentary ? 0 : chargedMuscleCount,
         rank:                xp?.rank ?? 'Scout',
         daysSinceLastSession,
         upperReadiness:      muscleReadiness.upper.score,

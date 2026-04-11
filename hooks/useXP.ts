@@ -4,6 +4,7 @@ import { defaultXPRecord, applyXP } from "../lib/xpService";
 import { rankForXP, nextRank, rankProgress, xpToNextRank, rankBandCurrent, rankBandTotal } from "../lib/rankService";
 import { getCurrentWeekKey } from "../lib/leagueService";
 import { syncWeeklyXP } from "../lib/xpSync";
+import { queueSocialWrite } from "../lib/socialSync";
 import { auth } from "../lib/firebase";
 import type { XPRecord, RankLevel } from "../lib/types";
 
@@ -24,6 +25,7 @@ export function useXP() {
   /** Award XP and persist. Returns the updated record. Syncs to Firebase fire-and-forget. */
   const awardXP = useCallback(
     async (amount: number, reason: string): Promise<XPRecord> => {
+      const oldRank = xpRef.current.rank;
       const updated = applyXP(xpRef.current, amount, reason);
       xpRef.current = updated;
       setXP(updated);
@@ -33,6 +35,10 @@ export function useXP() {
       const user = auth.currentUser;
       if (user && amount > 0) {
         syncWeeklyXP(user.uid, getCurrentWeekKey(), amount).catch(() => {});
+        // Sync rank to user doc when it changes so social features show correct rank
+        if (updated.rank !== oldRank) {
+          queueSocialWrite("users", user.uid, { rank: updated.rank }).catch(() => {});
+        }
       }
 
       return updated;
@@ -42,6 +48,7 @@ export function useXP() {
 
   /** Replace the entire XP record (used after session-end bulk award). Syncs delta to Firebase. */
   const setXPRecord = useCallback(async (record: XPRecord): Promise<void> => {
+    const oldRank = xpRef.current.rank;
     const delta = record.total - xpRef.current.total;
     xpRef.current = record;
     await saveXP(record);
@@ -52,6 +59,10 @@ export function useXP() {
       const user = auth.currentUser;
       if (user) {
         syncWeeklyXP(user.uid, getCurrentWeekKey(), delta).catch(() => {});
+        // Sync rank to user doc when it changes so social features show correct rank
+        if (record.rank !== oldRank) {
+          queueSocialWrite("users", user.uid, { rank: record.rank }).catch(() => {});
+        }
       }
     }
   }, []);

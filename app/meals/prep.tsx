@@ -75,12 +75,14 @@ function TaskCard({
   categoryColor,
   theme,
   onToggle,
+  router,
 }: {
   task: PrepTask;
   isDone: boolean;
   categoryColor: string;
   theme: any;
   onToggle: () => void;
+  router: ReturnType<typeof useRouter>;
 }) {
   const [expanded, setExpanded] = useState(!isDone);
   const expiry = EXPIRY_COLORS[task.storage.expiryStatus] ?? EXPIRY_COLORS.ok;
@@ -175,6 +177,28 @@ function TaskCard({
                   {expiry.label} — {task.storage.shelfLifeDays} day shelf life
                 </Text>
               </View>
+            )}
+
+            {task.recipeIds.length > 0 && (
+              <Pressable
+                onPress={() =>
+                  router.push(`/meals/assembly?recipeId=${task.recipeIds[0]}`)
+                }
+                hitSlop={6}
+                style={[
+                  styles.assemblyLink,
+                  {
+                    backgroundColor: categoryColor + "14",
+                    borderColor: categoryColor + "40",
+                  },
+                ]}
+              >
+                <Ionicons name="restaurant-outline" size={13} color={categoryColor} />
+                <Text style={[styles.assemblyLinkText, { color: categoryColor }]}>
+                  Cook-Day Guide
+                </Text>
+                <Ionicons name="chevron-forward" size={13} color={categoryColor} />
+              </Pressable>
             )}
           </View>
         )}
@@ -571,6 +595,7 @@ export default function PrepDayScreen() {
                     categoryColor={meta.color}
                     theme={theme}
                     onToggle={() => toggleTask(task.id)}
+                    router={router}
                   />
                 );
               })}
@@ -794,6 +819,21 @@ const styles = StyleSheet.create({
   warningText: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  assemblyLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  assemblyLinkText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   doneSection: {
     alignItems: "center",

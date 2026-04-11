@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { BackButton } from "../components/BackButton";
@@ -19,11 +18,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { usePack } from "../hooks/usePack";
 import { usePackChallenge } from "../hooks/usePackChallenge";
 import { usePackLeaderboard } from "../hooks/usePackLeaderboard";
-import { usePackChat } from "../hooks/usePackChat";
 import { PackMemberRow } from "../components/social/PackMemberRow";
 import { PackChallengeCard } from "../components/social/PackChallengeCard";
 import { PackLeaderboardCard } from "../components/social/PackLeaderboardCard";
-import { PackChatView } from "../components/social/PackChatView";
 import { PackWarCard } from "../components/pack/PackWarCard";
 import { PackBossCard } from "../components/pack/PackBossCard";
 import { PackLevelBadge } from "../components/pack/PackLevelBadge";
@@ -44,16 +41,13 @@ export default function PackDetailScreen() {
   const { pack, members, loading, leave, refresh } = usePack();
   const { challenge, create: createChallenge, refresh: refreshChallenge } = usePackChallenge(pack?.id ?? null);
   const { entries: leaderboardEntries } = usePackLeaderboard();
-  const { messages, send: sendMessage, subscribe, unsubscribe, loading: chatLoading } = usePackChat(pack?.id ?? null);
   const { war, requestWar, warLoading } = usePackWar();
   const { boss, spawnBoss, contributions, bossLoading } = usePackBoss();
   const { level: packLevel, totalXp: packTotalXp, memberCap, perks } = usePackLevel();
   const { achievements } = usePackAchievements();
   const [copyFlash, setCopyFlash] = useState(false);
   const [isPublic, setIsPublic] = useState(pack?.isPublic ?? false);
-  const [segment, setSegment] = useState<"overview" | "battles" | "challenge" | "board" | "chat">("overview");
-  const chatSubscribed = useRef(false);
-
+  const [segment, setSegment] = useState<"overview" | "battles" | "challenge" | "board">("overview");
   useEffect(() => { refresh(); }, []);
 
   // Sync public state when pack data loads/changes
@@ -72,33 +66,6 @@ export default function PackDetailScreen() {
     }
   }
 
-  // Subscribe/unsubscribe chat when segment changes or screen loses focus
-  useFocusEffect(
-    useCallback(() => {
-      if (segment === "chat" && pack && !chatSubscribed.current) {
-        subscribe();
-        chatSubscribed.current = true;
-      }
-      return () => {
-        if (chatSubscribed.current) {
-          unsubscribe();
-          chatSubscribed.current = false;
-        }
-      };
-    }, [segment, pack, subscribe, unsubscribe])
-  );
-
-  // Handle segment changes for chat subscription
-  useEffect(() => {
-    if (segment === "chat" && pack) {
-      subscribe();
-      chatSubscribed.current = true;
-    } else if (segment !== "chat" && chatSubscribed.current) {
-      unsubscribe();
-      chatSubscribed.current = false;
-    }
-  }, [segment, pack, subscribe, unsubscribe]);
-
   function handleCopyCode() {
     if (!pack) return;
     Clipboard.setString(pack.code);
@@ -110,7 +77,7 @@ export default function PackDetailScreen() {
   function handleLeave() {
     Alert.alert(
       "Leave Pack?",
-      "You will lose access to this pack's challenges, chat, and leaderboard.",
+      "You will lose access to this pack's challenges and leaderboard.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -146,7 +113,6 @@ export default function PackDetailScreen() {
     { key: "battles" as const, label: "Battles" },
     { key: "challenge" as const, label: "Challenge" },
     { key: "board" as const, label: "Board" },
-    { key: "chat" as const, label: "Chat" },
   ];
 
   return (
@@ -185,19 +151,7 @@ export default function PackDetailScreen() {
       </View>
 
       {/* Segment content */}
-      {segment === "chat" ? (
-        /* Chat is rendered outside ScrollView so it can manage its own layout */
-        <View style={[styles.chatInlineContainer, { paddingHorizontal: spacing.md }]}>
-          <PackChatView
-            messages={messages}
-            currentUserId={user?.uid ?? ""}
-            onSend={sendMessage}
-            loading={chatLoading}
-          />
-          <View style={{ height: insets.bottom }} />
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
           {segment === "overview" && (
             <>
               {/* Pack info card */}
@@ -358,7 +312,6 @@ export default function PackDetailScreen() {
 
           <View style={{ height: insets.bottom + spacing.xl }} />
         </ScrollView>
-      )}
     </View>
   );
 }
@@ -437,8 +390,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1.5,
     alignItems: "center",
-  },
-  chatInlineContainer: {
-    flex: 1,
   },
 });

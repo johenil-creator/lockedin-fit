@@ -88,6 +88,9 @@ export function usePrepDay(): UsePrepDayReturn {
 
   useEffect(() => {
     reload();
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
   }, [reload]);
 
   // ── Generate plan from current weekly meal plan ─────────────────────

@@ -58,28 +58,40 @@ function mapCardioModality(modality?: string): string {
   return map[modality ?? ''] ?? 'Other';
 }
 
-function sessionToHealthWorkout(session: WorkoutSession): HealthKitWorkoutWrite {
+/** MET value for vigorous weight lifting */
+const STRENGTH_MET = 5.0;
+/** MET value for moderate cardio (generic) */
+const CARDIO_MET = 8.0;
+/** Default body weight in kg when profile weight is unavailable */
+const DEFAULT_WEIGHT_KG = 75;
+
+function sessionToHealthWorkout(
+  session: WorkoutSession,
+  weightKg = DEFAULT_WEIGHT_KG,
+): HealthKitWorkoutWrite {
   const startDate = session.startedAt ?? session.date;
   const endDate = session.completedAt ?? new Date().toISOString();
 
   const durationMs =
     new Date(endDate).getTime() - new Date(startDate).getTime();
   const durationMin = durationMs / 60_000;
+  const durationHours = durationMin / 60;
 
   const type =
     session.sessionType === 'cardio'
       ? mapCardioModality(session.cardioModality)
       : 'TraditionalStrengthTraining';
 
+  // Calories = MET × weight_kg × duration_hours
+  const met = session.sessionType === 'cardio' ? CARDIO_MET : STRENGTH_MET;
+  const energyBurned = Math.round(met * weightKg * durationHours);
+
   return {
     type,
     startDate,
     endDate,
     duration: durationMin,
-    energyBurned:
-      session.sessionType === 'cardio'
-        ? Math.round(durationMin * 8)
-        : Math.round(durationMin * 5),
+    energyBurned,
     metadata: {
       source: 'LockedInFIT',
       sessionId: session.id,

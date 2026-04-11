@@ -22,7 +22,7 @@ import { useXP } from "../../hooks/useXP";
 import { useStreak, isoWeek } from "../../hooks/useStreak";
 import { Button } from "../../components/Button";
 import { RankBadge } from "../../components/RankBadge";
-import { XPBar } from "../../components/XPBar";
+import XPBar from "../../components/XPBar";
 import { LockeBanner } from "../../components/Locke";
 import { LockeMascot } from "../../components/Locke/LockeMascot";
 import type { LockeMascotMood } from "../../components/Locke/LockeMascot";
@@ -34,10 +34,9 @@ import Logo from "../../components/Logo";
 import { ProfileButton } from "../../components/ProfileButton";
 import { SectionLabel } from "../../components/SectionLabel";
 import { usePlanContext } from "../../contexts/PlanContext";
-import { clearAllData, loadDailySnapshots } from "../../lib/storage";
+import { clearAllData, loadActiveCardioSession } from "../../lib/storage";
 import { pickMessageWithMood } from "../../lib/lockeMessages";
 import { spacing, typography } from "../../lib/theme";
-import type { ReadinessScore } from "../../lib/types";
 import { useGifts } from "../../hooks/useGifts";
 import { GiftBanner } from "../../components/social/GiftBanner";
 import { AdBanner } from "../../components/ads/AdBanner";
@@ -49,7 +48,9 @@ import { useWeekInReview } from "../../hooks/useWeekInReview";
 import { WeekInReviewCard } from "../../components/insights/WeekInReviewCard";
 import { scheduleStreakRiskIfNeeded } from "../../lib/notifications";
 import { useAppIcon } from "../../hooks/useAppIcon";
-import { loadMealPrefs } from "../../lib/mealStorage";
+import { loadMealPrefs, loadMealPlan } from "../../lib/mealStorage";
+import { recipeMap } from "../../src/data/recipeCatalog";
+import type { DailyMealPlan } from "../../src/data/mealTypes";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ const RankXPRow = React.memo(function RankXPRow({
       <Text style={[styles.greeting, { color: theme.colors.text }]}>
         {getTimeGreeting()}, {name || "there"}
       </Text>
-      <View style={[styles.rankXPRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 }]}>
+      <View style={[styles.rankXPRow, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: theme.colors.primary, shadowOpacity: 0.25, shadowRadius: 10 }]}>
         <RankBadge rank={rank} />
         <View style={styles.xpBarWrap}>
           <XPBar
@@ -238,68 +239,6 @@ const RankXPRow = React.memo(function RankXPRow({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Lightweight readiness badge — reads cached daily snapshot from AsyncStorage
- * instead of pulling in the full useRecovery hook (which loads 7 storage items
- * and runs 11 computations). Refreshes on tab focus.
- */
-type ReadinessIndicatorProps = { onPress: () => void };
-
-const ReadinessIndicator = React.memo(function ReadinessIndicator({ onPress }: ReadinessIndicatorProps) {
-  const { theme } = useAppTheme();
-  const [readiness, setReadiness] = useState<ReadinessScore | null>(null);
-
-  // Load on mount + refresh when tab re-focuses
-  const loadReadiness = useCallback(async () => {
-    try {
-      const snapshots = await loadDailySnapshots();
-      if (snapshots.length > 0) {
-        setReadiness(snapshots[0].readinessScore);
-      }
-    } catch {
-      // Silently fail — indicator simply won't show
-    }
-  }, []);
-
-  useEffect(() => { loadReadiness(); }, [loadReadiness]);
-  useFocusEffect(useCallback(() => { loadReadiness(); }, [loadReadiness]));
-
-  if (!readiness) return null;
-
-  const score = readiness.score;
-  const dotColor =
-    score >= 70 ? theme.colors.success :
-    score >= 40 ? '#E3B341' :
-    theme.colors.danger;
-
-  const readinessLabel =
-    score >= 70 ? "Ready to Train" :
-    score >= 40 ? "Moderate" :
-    "Recovery Needed";
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.readinessPill, { backgroundColor: dotColor + "15", borderColor: dotColor + "30" }]}
-      hitSlop={6}
-      accessibilityLabel={`Readiness ${score} percent. Tap for recovery details.`}
-      accessibilityRole="button"
-    >
-      <View style={[styles.readinessDot, { backgroundColor: dotColor }]} />
-      <Text style={[styles.readinessScore, { color: dotColor }]}>
-        {score}%
-      </Text>
-      <Text style={[styles.readinessLabel, { color: dotColor }]}>
-        {readinessLabel}
-      </Text>
-      <View style={{ flex: 1 }} />
-      <Ionicons name="chevron-forward" size={14} color={dotColor} />
-    </Pressable>
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-
 /** Locke panel: mascot left + dynamic microcopy right. Only shown when has1RM. */
 type LockePanelProps = {
   mood: LockeMascotMood;
@@ -314,7 +253,7 @@ const LockePanel = React.memo(function LockePanel({ mood, microcopy, onPress }: 
       onPress={onPress}
       style={[
         styles.lockePanel,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 },
+        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: theme.colors.primary, shadowOpacity: 0.25, shadowRadius: 10 },
       ]}
     >
       <LockeMascot size={100} mood={mood} />
@@ -384,7 +323,7 @@ const TodayWorkoutCard = React.memo(function TodayWorkoutCard({
     <View
       style={[
         styles.workoutCard,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: '#00875A', shadowOpacity: 0.25, shadowRadius: 10 },
+        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: theme.colors.primary, shadowOpacity: 0.25, shadowRadius: 10 },
       ]}
     >
       <SectionLabel label="TODAY'S WORKOUT" />
@@ -630,7 +569,7 @@ export default function HomeScreen() {
   const [huntSheetOpen, setHuntSheetOpen] = useState(false);
   const { hydrated, profileRef } = useProfileContext();
   const { xp, rank, progress, toNext, nextTier, bandCurrent, bandTotal } = useXP();
-  const { streak, daysSinceActivity, restoreStreak } = useStreak();
+  const { streak, daysSinceActivity, restoreStreak, breakStreakIfStale } = useStreak();
   useAppIcon(streak.current, daysSinceActivity);
   const { show: showRewardedAd } = useRewardedAd();
   const { fire } = useLocke();
@@ -647,15 +586,43 @@ export default function HomeScreen() {
   const { review: weekReview } = useWeekInReview();
   const [showNotifs, setShowNotifs] = useState(false);
   const [fuelTier, setFuelTier] = useState<string | null>(null);
+  const [fuelToday, setFuelToday] = useState<DailyMealPlan | null>(null);
   const didFireInactivity   = useRef(false);
   const onboardingCheckDone = useRef(false);
   const planCelebrationShown = useRef(false);
   const isFirstFocus        = useRef(true);
 
+  // ── Resume interrupted cardio session ───────────────────────────────────────
+  const cardioResumeChecked = useRef(false);
+  useEffect(() => {
+    if (cardioResumeChecked.current) return;
+    cardioResumeChecked.current = true;
+    loadActiveCardioSession().then((snap) => {
+      if (!snap) return;
+      router.push({
+        pathname: "/cardio-session",
+        params: {
+          modality: snap.modality,
+          intensity: String(snap.intensity),
+          name: snap.sessionName,
+        },
+      });
+    });
+  }, []);
+
   // ── Check fuel plan status ──────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
-      loadMealPrefs().then((p) => setFuelTier(p.setupComplete ? p.tier : null));
+      Promise.all([loadMealPrefs(), loadMealPlan()]).then(([p, plan]) => {
+        setFuelTier(p.setupComplete ? p.tier : null);
+        if (p.setupComplete && plan.days.length > 0) {
+          const jsDay = new Date().getDay();
+          const todayIdx = jsDay === 0 ? 6 : jsDay - 1;
+          setFuelToday(plan.days.find((d) => d.dayIndex === todayIdx) ?? null);
+        } else {
+          setFuelToday(null);
+        }
+      });
     }, [])
   );
 
@@ -756,6 +723,20 @@ export default function HomeScreen() {
       fire({ trigger: "inactivity", daysSinceLastSession: daysSinceActivity });
     }
   }, [daysSinceActivity, workoutsLoading, gateReady]);
+
+  // ── Break streak if stale ────────────────────────────────────────────────
+  // Runs once after hydration. If the user missed enough days to break the
+  // streak (missed > freezes + rest days), current is zeroed and the old
+  // value is saved in preBreakCurrent so "Watch Ad to Save Streak" can restore.
+  const didCheckStaleStreak = useRef(false);
+  useEffect(() => {
+    if (!gateReady || didCheckStaleStreak.current) return;
+    didCheckStaleStreak.current = true;
+    const p = profileRef.current;
+    const wk = isoWeek();
+    const freezes = p.freezesResetWeek === wk ? (p.freezesRemaining ?? 2) : 2;
+    void breakStreakIfStale(p.restDays ?? [], freezes);
+  }, [gateReady, breakStreakIfStale]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -938,10 +919,6 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
-        {/* 1b. READINESS INDICATOR — lightweight cached badge */}
-        <Animated.View entering={sectionEnter(80)}>
-          <ReadinessIndicator onPress={() => router.push("/(tabs)/recovery")} />
-        </Animated.View>
 
         {/* LOCKE PANEL — wolf personality + hunt sheet trigger */}
         {has1RM && (
@@ -953,6 +930,18 @@ export default function HomeScreen() {
             />
           </Animated.View>
         )}
+
+        {/* DAILY TIP */}
+        <Animated.View entering={sectionEnter(180)}>
+          <View style={[styles.tipCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <View style={[styles.tipIconWrap, { backgroundColor: theme.colors.primary + "15" }]}>
+              <Ionicons name="paw" size={16} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.tipText, { color: theme.colors.muted }]}>
+              {getDailyTip()}
+            </Text>
+          </View>
+        </Animated.View>
 
         {/* 2. ACTIVE SESSION BANNER — highest priority */}
         {activeSession && (
@@ -1000,24 +989,57 @@ export default function HomeScreen() {
         {fuelTier && (() => {
           const fuelColor = fuelTier === "apex_feast" ? "#BA7517" : fuelTier === "hunt" ? "#378ADD" : "#1D9E75";
           const fuelLabel = fuelTier === "apex_feast" ? "Apex Feast" : fuelTier === "hunt" ? "Hunt" : "Scavenge";
+          const todayMeals = fuelToday?.meals ?? [];
+          const todayCal = todayMeals.reduce((sum, m) => {
+            const r = recipeMap.get(m.recipeId);
+            return sum + (r?.macros.calories ?? 0);
+          }, 0);
+          const mealPreviews = todayMeals.slice(0, 3).map((m) => {
+            const r = recipeMap.get(m.recipeId);
+            return r ? `${r.flag} ${r.name}` : m.recipeId;
+          });
           return (
-            <Pressable
-              onPress={() => router.push("/meals")}
-              style={[styles.linkCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
-            >
-              <View style={[styles.linkCardIcon, { backgroundColor: fuelColor + "18" }]}>
-                <Ionicons name="restaurant-outline" size={20} color={fuelColor} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.linkCardTitle, { color: theme.colors.text }]}>
-                  {fuelLabel} Fuel Plan
-                </Text>
-                <Text style={[styles.linkCardSub, { color: theme.colors.muted }]}>
-                  Tap to see your meals for today
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
-            </Pressable>
+            <Animated.View entering={sectionEnter(320)}>
+              <Pressable
+                onPress={() => router.push("/meals")}
+                style={[styles.fuelCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+              >
+                <View style={styles.fuelCardHeader}>
+                  <View style={[styles.fuelCardIcon, { backgroundColor: fuelColor + "18" }]}>
+                    <Ionicons name="restaurant-outline" size={20} color={fuelColor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.fuelCardTitle, { color: theme.colors.text }]}>
+                      {fuelLabel} Fuel Plan
+                    </Text>
+                    {todayMeals.length > 0 && (
+                      <Text style={[styles.fuelCardCal, { color: fuelColor }]}>
+                        {todayCal} cal today · {todayMeals.length} meals
+                      </Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+                </View>
+                {mealPreviews.length > 0 && (
+                  <View style={styles.fuelCardMeals}>
+                    {mealPreviews.map((label, i) => (
+                      <Text
+                        key={i}
+                        style={[styles.fuelCardMealItem, { color: theme.colors.muted }]}
+                        numberOfLines={1}
+                      >
+                        {label}
+                      </Text>
+                    ))}
+                    {todayMeals.length > 3 && (
+                      <Text style={[styles.fuelCardMealItem, { color: theme.colors.muted, fontStyle: "italic" }]}>
+                        +{todayMeals.length - 3} more
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </Pressable>
+            </Animated.View>
           );
         })()}
 
@@ -1057,21 +1079,10 @@ export default function HomeScreen() {
 
         {/* 8. QUICK ACTIONS ROW */}
         <Animated.View entering={sectionEnter(480)}>
-          <SectionLabel label="QUICK ACTIONS" style={{ marginTop: 24 }} />
+          <SectionLabel label="QUICK ACTIONS" style={{ marginTop: 8 }} />
           <QuickActionsRow actions={quickActions} />
         </Animated.View>
 
-        {/* 9. DAILY TIP */}
-        <Animated.View entering={sectionEnter(560)}>
-          <View style={[styles.tipCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-            <View style={[styles.tipIconWrap, { backgroundColor: theme.colors.primary + "15" }]}>
-              <Ionicons name="paw" size={16} color={theme.colors.primary} />
-            </View>
-            <Text style={[styles.tipText, { color: theme.colors.muted }]}>
-              {getDailyTip()}
-            </Text>
-          </View>
-        </Animated.View>
 
         {/* DEV: Tools — subtle, bottom */}
       </ScrollView>
@@ -1125,11 +1136,13 @@ export default function HomeScreen() {
         <Text style={[styles.sheetCaption, { color: theme.colors.muted }]}>
           Shields protect your streak on rest days. You get 2 each week, resetting Monday.
         </Text>
-        {daysSinceActivity > 1 && streak.current > 0 && (
+        {daysSinceActivity > 1 && (streak.current > 0 || (streak.preBreakCurrent ?? 0) > 0) && (
           <>
             <View style={[styles.sheetDivider, { backgroundColor: theme.colors.border }]} />
             <Text style={[styles.sheetCaption, { color: "#F59E0B", fontWeight: "600", marginBottom: 8 }]}>
-              Your streak is about to break!
+              {streak.current === 0
+                ? `Your ${streak.preBreakCurrent}-day streak broke!`
+                : "Your streak is about to break!"}
             </Text>
             <Pressable
               onPress={async () => {
@@ -1174,7 +1187,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16 },
 
   // Greeting block
-  greetingBlock: { marginBottom: 12 },
+  greetingBlock: { marginBottom: 16 },
   greeting: {
     fontSize: 26,
     fontWeight: "800",
@@ -1182,30 +1195,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  // Readiness indicator (below greeting block)
-  readinessPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  readinessDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  readinessScore: {
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  readinessLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
 
   // Rank/XP/Streak row
   rankXPRow: {
@@ -1242,7 +1231,7 @@ const styles = StyleSheet.create({
   activeBanner: {
     borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   activeBannerPulse: {
     width: 8,
@@ -1374,7 +1363,7 @@ const styles = StyleSheet.create({
   },
 
   // Quick actions
-  quickActionsRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  quickActionsRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
   quickActionBtn: {
     flex: 1,
     alignItems: "center",
@@ -1419,7 +1408,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
-    marginTop: 12,
+    marginBottom: 16,
     gap: 12,
   },
   linkCardIcon: {
@@ -1438,6 +1427,44 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
+  // Fuel plan card
+  fuelCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  fuelCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  fuelCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fuelCardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  fuelCardCal: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 1,
+  },
+  fuelCardMeals: {
+    paddingLeft: 52,
+    gap: 3,
+  },
+  fuelCardMealItem: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
   // Daily tip
   tipCard: {
     flexDirection: "row",
@@ -1445,8 +1472,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,
-    marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 16,
     gap: 12,
   },
   tipIconWrap: {

@@ -32,7 +32,7 @@ import { useXP } from "../hooks/useXP";
 import { useStreak, isoWeek } from "../hooks/useStreak";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { useAppTheme } from "../contexts/ThemeContext";
-import { CountdownRing } from "../components/cardio/CountdownRing";
+import CountdownRing from "../components/cardio/CountdownRing";
 import { MetricRow } from "../components/cardio/MetricRow";
 import { WorkoutControls } from "../components/cardio/WorkoutControls";
 import { LockeTipCard } from "../components/cardio/LockeTipCard";
@@ -53,6 +53,12 @@ import type { CardioModality } from "../lib/cardioSuggestions";
 import { useIconMood } from "../hooks/useIconMood";
 import { syncCompletedSession } from "../lib/healthkit/integration";
 import { cancelStreakRiskReminder } from "../lib/notifications";
+import {
+  loadActiveCardioSession,
+  saveActiveCardioSession,
+  clearActiveCardioSession,
+  type ActiveCardioSnapshot,
+} from "../lib/storage";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -91,8 +97,15 @@ export default function CardioSessionScreen() {
     name?: string;
   }>();
 
-  const modality = (params.modality ?? "other") as CardioModality;
-  const intensity = parseInt(params.intensity ?? "5");
+  const VALID_MODALITIES: CardioModality[] = [
+    "running", "cycling", "rowing", "walking", "swimming",
+    "elliptical", "stairclimber", "jump_rope", "other",
+  ];
+  const rawModality = params.modality ?? "other";
+  const modality: CardioModality = VALID_MODALITIES.includes(rawModality as CardioModality)
+    ? (rawModality as CardioModality)
+    : "other";
+  const intensity = Math.max(1, Math.min(10, parseInt(params.intensity ?? "5") || 5));
   const sessionName = params.name ?? modality.replace("_", " ");
 
   // ── Weight for calorie estimation ─────────────────────────────────────────
@@ -113,7 +126,44 @@ export default function CardioSessionScreen() {
     setShowCountdown(false);
     setIsRunning(true);
     setIsPaused(false);
+    // Persist initial snapshot so force-quit can recover
+    saveActiveCardioSession({
+      modality,
+      intensity,
+      sessionName,
+      startedAt: sessionStartRef.current,
+      elapsedSec: 0,
+      isPaused: false,
+      savedAt: Date.now(),
+    }).catch(() => {});
   }
+
+  // ── Restore session after force-quit ─────────────────────────────────────
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    loadActiveCardioSession().then((snap) => {
+      if (!snap) return;
+      // Only restore if same modality (user navigated back to same session type)
+      if (snap.modality !== modality) {
+        clearActiveCardioSession();
+        return;
+      }
+      // Compute how much time passed since last save
+      const secSinceSave = Math.floor((Date.now() - snap.savedAt) / 1000);
+      const totalElapsed = snap.isPaused
+        ? snap.elapsedSec
+        : snap.elapsedSec + secSinceSave;
+
+      sessionStartRef.current = snap.startedAt;
+      setElapsedSec(totalElapsed);
+      setIsPaused(snap.isPaused);
+      setIsRunning(true);
+      setShowCountdown(false);
+    });
+  }, []);
 
   // ── Timer state ───────────────────────────────────────────────────────────
   const [isRunning, setIsRunning] = useState(false);
@@ -131,6 +181,30 @@ export default function CardioSessionScreen() {
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
 
+  // ── Snapshot helper ──────────────────────────────────────────────────────
+  const elapsedRef = useRef(elapsedSec);
+  useEffect(() => { elapsedRef.current = elapsedSec; }, [elapsedSec]);
+
+  const persistSnapshot = useCallback(() => {
+    if (!isRunningRef.current) return;
+    saveActiveCardioSession({
+      modality,
+      intensity,
+      sessionName,
+      startedAt: sessionStartRef.current,
+      elapsedSec: elapsedRef.current,
+      isPaused: isPausedRef.current,
+      savedAt: Date.now(),
+    }).catch(() => {});
+  }, [modality, intensity, sessionName]);
+
+  // ── Periodic save (every 5s while running) ──────────────────────────────
+  useEffect(() => {
+    if (!isRunning) return;
+    const id = setInterval(persistSnapshot, 5000);
+    return () => clearInterval(id);
+  }, [isRunning, persistSnapshot]);
+
   // ── AppState background catch-up ──────────────────────────────────────────
   const bgTimestampRef = useRef<number | null>(null);
 
@@ -140,6 +214,8 @@ export default function CardioSessionScreen() {
         if (isRunningRef.current && !isPausedRef.current) {
           bgTimestampRef.current = Date.now();
         }
+        // Save snapshot when going to background
+        persistSnapshot();
       } else if (state === "active" && bgTimestampRef.current !== null) {
         const elapsed = Math.floor((Date.now() - bgTimestampRef.current) / 1000);
         bgTimestampRef.current = null;
@@ -149,7 +225,7 @@ export default function CardioSessionScreen() {
       }
     });
     return () => sub.remove();
-  }, []);
+  }, [persistSnapshot]);
 
   // ── Main tick (1 Hz) ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -178,6 +254,14 @@ export default function CardioSessionScreen() {
   function handlePause() {
     setIsPaused(true);
     impact(ImpactStyle.Light);
+    // Persist paused state immediately
+    saveActiveCardioSession({
+      modality, intensity, sessionName,
+      startedAt: sessionStartRef.current,
+      elapsedSec: elapsedRef.current,
+      isPaused: true,
+      savedAt: Date.now(),
+    }).catch(() => {});
   }
 
   function handleResume() {
@@ -204,6 +288,7 @@ export default function CardioSessionScreen() {
   const finishSession = useCallback(async () => {
     setIsRunning(false);
     setIsPaused(false);
+    await clearActiveCardioSession();
 
     const now = new Date().toISOString();
     const modalityLabel = modality.charAt(0).toUpperCase() + modality.slice(1).replace("_", " ");

@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,13 @@ import { useProfileContext } from "../../../contexts/ProfileContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing, radius, typography } from "../../../lib/theme";
 import type { ActivityLevel, BiologicalSex } from "../../../src/data/mealTypes";
+import {
+  initializeHealthKit,
+  fetchLatestHeight,
+  fetchDateOfBirth,
+  fetchBiologicalSex,
+} from "../../../lib/healthkit/HealthKitService";
+import { MINIMUM_READ_PERMISSIONS } from "../../../lib/healthkit/constants";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,6 +95,52 @@ export function BodyStatsStep({ draft, onUpdate, onContinue, onBack }: Props) {
     profileWeightRaw > 0 ? String(Math.round(profileWeightRaw)) : "",
   );
   const [heightPickerOpen, setHeightPickerOpen] = useState(false);
+
+  // Auto-fill age, height, and sex from HealthKit (iOS only, fire-and-forget)
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+
+    (async () => {
+      // Ensure HealthKit is initialized with permissions that include Height/DOB/Sex
+      try {
+        await initializeHealthKit({
+          permissions: { read: MINIMUM_READ_PERMISSIONS, write: [] },
+        });
+      } catch {
+        return; // Permission denied or unavailable — skip auto-fill
+      }
+
+      const results = await Promise.allSettled([
+        !draft.heightCm ? fetchLatestHeight() : Promise.resolve(null),
+        !draft.age ? fetchDateOfBirth() : Promise.resolve(null),
+        !draft.sex ? fetchBiologicalSex() : Promise.resolve(null),
+      ]);
+
+      const patch: Parameters<typeof onUpdate>[0] = {};
+
+      const heightResult = results[0];
+      if (heightResult.status === "fulfilled" && heightResult.value) {
+        const cm = heightResult.value as number;
+        if (cm >= 120 && cm <= 220) patch.heightCm = cm;
+      }
+
+      const dobResult = results[1];
+      if (dobResult.status === "fulfilled" && dobResult.value) {
+        const { age } = dobResult.value as { age: number; dob: string };
+        if (age > 0 && age < 120) {
+          patch.age = age;
+          setAgeText(String(age));
+        }
+      }
+
+      const sexResult = results[2];
+      if (sexResult.status === "fulfilled" && sexResult.value) {
+        patch.sex = sexResult.value as BiologicalSex;
+      }
+
+      if (Object.keys(patch).length > 0) onUpdate(patch);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sex = draft.sex;
   const activity = draft.activityLevel ?? "moderate";

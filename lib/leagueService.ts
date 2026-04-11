@@ -27,7 +27,7 @@ export type LeagueStanding = {
   xpEarned: number;
   position: number;
   isCurrentUser?: boolean;
-  lockeCustomization?: { bodyFur: string; headFur: string; eyes: string; brows: string; noseMouth: string; neckAccessory: string | null; earAccessory: string | null; aura: string | null };
+  lockeCustomization?: { bodyFur: string; headFur: string; eyes: string; brows: string; noseMouth: string; headAccessory: string | null; neckAccessory: string | null; earAccessory: string | null; aura: string | null };
 };
 
 export type WeekResult = {
@@ -161,7 +161,7 @@ export async function getLeagueStandings(
 
   // Get user display names + ranks
   const usersRef = collection(db, "users");
-  const userMap = new Map<string, { displayName: string; rank: string; lockeCustomization?: { bodyFur: string; headFur: string; eyes: string; brows: string; noseMouth: string; neckAccessory: string | null; earAccessory: string | null; aura: string | null } }>();
+  const userMap = new Map<string, { displayName: string; rank: string; lockeCustomization?: { bodyFur: string; headFur: string; eyes: string; brows: string; noseMouth: string; headAccessory: string | null; neckAccessory: string | null; earAccessory: string | null; aura: string | null } }>();
 
   // Batch fetch users (max 30 per `in` query)
   if (userIds.length > 0) {

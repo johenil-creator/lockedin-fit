@@ -140,8 +140,13 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     return { isPlanComplete: allDone, totalPlanDays: total };
   }, [exercises, completedDays]);
 
+  const value = useMemo(
+    () => ({ planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted, isPlanComplete, totalPlanDays, recalculateWeights, updateDayExercises }),
+    [planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted, isPlanComplete, totalPlanDays, recalculateWeights, updateDayExercises]
+  );
+
   return (
-    <PlanCtx.Provider value={{ planName, exercises, loading, setPlan, clearPlan, completedDays, markDayCompleted, isDayCompleted, isPlanComplete, totalPlanDays, recalculateWeights, updateDayExercises }}>
+    <PlanCtx.Provider value={value}>
       {children}
     </PlanCtx.Provider>
   );

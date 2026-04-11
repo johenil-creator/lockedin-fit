@@ -17,6 +17,8 @@ import type {
   LockeCustomization,
   PackInfo,
   AdWatchState,
+  ChallengeProgress,
+  CompletedChallenge,
 } from "./types";
 import type { ExerciseCatalogEntry } from "../src/lib/exerciseMatch";
 
@@ -56,6 +58,9 @@ const KEYS = {
   notificationPrompted: "@lockedinfit/notification-prompted",
   ormDisclaimer: "@lockedinfit/orm-disclaimer-accepted",
   adWatchState: "@lockedinfit/ad-watch-state",
+  activeChallenge: "@lockedinfit/active-challenge",
+  challengeHistory: "@lockedinfit/challenge-history",
+  activeCardioSession: "@lockedinfit/active-cardio-session",
 } as const;
 
 // ── Generic helpers ───────────────────────────────────────────────────────────
@@ -291,12 +296,18 @@ export async function saveCachedFatigueState(data: CachedFatigueState): Promise<
  */
 export async function loadRecoveryBundle(): Promise<RecoveryBundle> {
   const pairs = await AsyncStorage.multiGet([KEYS.fatigueState, KEYS.dailySnapshots]);
-  const fatigueState: CachedFatigueState | null = pairs[0][1]
-    ? JSON.parse(pairs[0][1])
-    : null;
-  const dailySnapshots: DailySnapshot[] = pairs[1][1]
-    ? JSON.parse(pairs[1][1])
-    : [];
+  let fatigueState: CachedFatigueState | null = null;
+  let dailySnapshots: DailySnapshot[] = [];
+  try {
+    if (pairs[0][1]) fatigueState = JSON.parse(pairs[0][1]);
+  } catch {
+    if (__DEV__) console.warn("[storage] corrupt fatigueState");
+  }
+  try {
+    if (pairs[1][1]) dailySnapshots = JSON.parse(pairs[1][1]);
+  } catch {
+    if (__DEV__) console.warn("[storage] corrupt dailySnapshots");
+  }
   return { fatigueState, dailySnapshots };
 }
 
@@ -318,6 +329,52 @@ export async function loadAdWatchState(): Promise<AdWatchState> {
 
 export async function saveAdWatchState(data: AdWatchState): Promise<void> {
   await save(KEYS.adWatchState, data);
+}
+
+// ── Monthly Challenges ───────────────────────────────────────────────────────
+
+export async function loadActiveChallenge(): Promise<ChallengeProgress | null> {
+  return load<ChallengeProgress>(KEYS.activeChallenge);
+}
+
+export async function saveActiveChallenge(data: ChallengeProgress): Promise<void> {
+  await save(KEYS.activeChallenge, data);
+}
+
+export async function clearActiveChallenge(): Promise<void> {
+  await AsyncStorage.removeItem(KEYS.activeChallenge);
+}
+
+export async function loadChallengeHistory(): Promise<CompletedChallenge[]> {
+  return (await load<CompletedChallenge[]>(KEYS.challengeHistory)) ?? [];
+}
+
+export async function saveChallengeHistory(data: CompletedChallenge[]): Promise<void> {
+  await save(KEYS.challengeHistory, data);
+}
+
+// ── Active Cardio Session ────────────────────────────────────────────────────
+
+export type ActiveCardioSnapshot = {
+  modality: string;
+  intensity: number;
+  sessionName: string;
+  startedAt: string;
+  elapsedSec: number;
+  isPaused: boolean;
+  savedAt: number; // Date.now() — used to compute elapsed while backgrounded
+};
+
+export async function loadActiveCardioSession(): Promise<ActiveCardioSnapshot | null> {
+  return load<ActiveCardioSnapshot>(KEYS.activeCardioSession);
+}
+
+export async function saveActiveCardioSession(data: ActiveCardioSnapshot): Promise<void> {
+  await save(KEYS.activeCardioSession, data);
+}
+
+export async function clearActiveCardioSession(): Promise<void> {
+  await AsyncStorage.removeItem(KEYS.activeCardioSession);
 }
 
 // ── Locke Customization ──────────────────────────────────────────────────────
@@ -413,5 +470,9 @@ export async function markOrmDisclaimerAccepted(): Promise<void> {
 // ── Clear All ─────────────────────────────────────────────────────────────────
 
 export async function clearAllData(): Promise<void> {
-  await AsyncStorage.multiRemove(Object.values(KEYS));
+  const allKeys = await AsyncStorage.getAllKeys();
+  const appKeys = allKeys.filter((k) => k.startsWith("@lockedinfit/"));
+  if (appKeys.length > 0) {
+    await AsyncStorage.multiRemove(appKeys);
+  }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { MS_PER_DAY } from "../lib/constants";
 import { useRecovery } from "./useRecovery";
 import { useWorkouts } from "./useWorkouts";
 import type { SmartHuntResult } from "../lib/smartHuntEngine";
@@ -20,7 +21,7 @@ export function useSmartHunt(): UseSmartHuntReturn {
   // Get recent sessions (last 48h) for the engine
   const recentSessions = useMemo(() => {
     if (!workouts) return [];
-    const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+    const cutoff = Date.now() - 2 * MS_PER_DAY;
     return workouts.filter(
       (w) => w.completedAt && new Date(w.completedAt).getTime() > cutoff,
     );

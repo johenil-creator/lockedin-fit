@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { MS_PER_DAY } from "../lib/constants";
 import {
   loadPackAchievements,
   PACK_ACHIEVEMENT_DEFS,
@@ -25,7 +26,7 @@ export function usePackAchievements(): UsePackAchievementsResult {
         if (!mounted) return;
 
         // Detect newly unlocked (unlocked within last 24 hours)
-        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        const oneDayAgo = Date.now() - MS_PER_DAY;
         const recent: PackAchievementId[] = saved
           .filter(
             (a) =>

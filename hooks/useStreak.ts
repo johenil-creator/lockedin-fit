@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadStreak, saveStreak } from "../lib/storage";
+import { toDateStr } from "../lib/challengeService";
 import type { StreakData } from "../lib/types";
 
 const DEFAULT_STREAK: StreakData = {
@@ -7,14 +8,6 @@ const DEFAULT_STREAK: StreakData = {
   longest: 0,
   lastActivityDate: "",
 };
-
-/** "YYYY-MM-DD" for a given Date (or today) in local time. */
-function toDateStr(d: Date = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 /** Days between two "YYYY-MM-DD" strings (b - a), parsed as local dates. */
 function daysBetween(a: string, b: string): number {
@@ -115,6 +108,7 @@ export function useStreak() {
         current: newCurrent,
         longest: Math.max(prev.longest, newCurrent),
         lastActivityDate: today,
+        preBreakCurrent: undefined, // clear any stale snapshot on new activity
       };
 
       streakRef.current = updated;
@@ -126,14 +120,57 @@ export function useStreak() {
   );
 
   /**
+   * Check whether the stored streak is still valid given time elapsed since
+   * the last activity. If stale (missed > freezes + rest days), snapshot the
+   * old current into `preBreakCurrent` and zero out `current`. Safe to call
+   * repeatedly — no-op if already broken or still intact.
+   *
+   * @param restDays         — profile.restDays (0=Sun … 6=Sat)
+   * @param freezesRemaining — unused freezes this week
+   */
+  const breakStreakIfStale = useCallback(
+    async (
+      restDays: number[] = [],
+      freezesRemaining: number = 2,
+    ): Promise<StreakData> => {
+      const prev = streakRef.current;
+      if (!prev.lastActivityDate || prev.current <= 0) return prev;
+
+      const today = toDateStr();
+      const gap = daysBetween(prev.lastActivityDate, today);
+      if (gap <= 1) return prev;
+
+      const missed = missedNonRestDays(prev.lastActivityDate, today, restDays);
+      if (missed <= freezesRemaining) return prev;
+
+      const updated: StreakData = {
+        ...prev,
+        current: 0,
+        preBreakCurrent: prev.current,
+      };
+      streakRef.current = updated;
+      setStreak(updated);
+      await saveStreak(updated);
+      return updated;
+    },
+    []
+  );
+
+  /**
    * Restore a broken streak (e.g. after watching a rewarded ad).
-   * Sets lastActivityDate to today so the streak resumes from where it was.
+   * Restores `current` from `preBreakCurrent` if the streak was broken due to
+   * staleness, and sets `lastActivityDate` to today so it resumes.
    */
   const restoreStreak = useCallback(async (): Promise<StreakData> => {
     const prev = streakRef.current;
+    const restoredCurrent =
+      prev.current > 0 ? prev.current : (prev.preBreakCurrent ?? 0);
     const updated: StreakData = {
       ...prev,
+      current: restoredCurrent,
+      longest: Math.max(prev.longest, restoredCurrent),
       lastActivityDate: toDateStr(),
+      preBreakCurrent: undefined,
     };
     streakRef.current = updated;
     setStreak(updated);
@@ -146,5 +183,5 @@ export function useStreak() {
     ? daysBetween(streak.lastActivityDate, toDateStr())
     : Infinity;
 
-  return { streak, loading, recordActivity, restoreStreak, daysSinceActivity };
+  return { streak, loading, recordActivity, breakStreakIfStale, restoreStreak, daysSinceActivity };
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { impact, ImpactStyle } from "../../lib/haptics";
 import { AppBottomSheet } from "../AppBottomSheet";
@@ -26,7 +26,7 @@ const FEELING_LABELS: Record<FeelingTag, string> = {
   brutal: "Brutal",
 };
 
-export function ExerciseFeedbackSheet({
+function ExerciseFeedbackSheet({
   visible,
   exerciseName,
   onSubmit,
@@ -219,6 +219,8 @@ export function ExerciseFeedbackSheet({
     </AppBottomSheet>
   );
 }
+
+export default React.memo(ExerciseFeedbackSheet);
 
 const styles = StyleSheet.create({
   title: {

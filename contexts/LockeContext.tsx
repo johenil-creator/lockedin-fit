@@ -104,7 +104,9 @@ export function LockeProvider({ children }: { children: React.ReactNode }) {
 
       // Persist the updated record
       machineRef.current = nextRecord;
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextRecord)).catch(() => {});
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextRecord)).catch((err) => {
+        if (__DEV__) console.warn("[LockeContext] Failed to persist machine record:", err);
+      });
 
       const showOverlay = ctx.trigger === "rank_up" || ctx.trigger === "pr_hit";
       const eyebrow     = ctx.trigger === "rank_up" ? "RANK UP"

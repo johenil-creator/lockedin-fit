@@ -6,6 +6,7 @@ import { useAppTheme } from "../contexts/ThemeContext";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { Card } from "../components/Card";
 import { BackButton } from "../components/BackButton";
+import Constants from "expo-constants";
 import { spacing, typography } from "../lib/theme";
 import {
   requestNotificationPermission,
@@ -493,7 +494,7 @@ export default function SettingsScreen() {
       </Card>
 
       {/* Version */}
-      <Text style={[styles.version, { color: theme.colors.muted }]}>LockedInFIT v1.0.0</Text>
+      <Text style={[styles.version, { color: theme.colors.muted }]}>LockedInFIT v{Constants.expoConfig?.version ?? "1.0.0"}</Text>
     </ScrollView>
   );
 }

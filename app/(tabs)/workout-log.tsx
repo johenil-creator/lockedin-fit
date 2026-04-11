@@ -52,6 +52,9 @@ export default function WorkoutLogScreen() {
   // Progress-specific state
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Track which date groups are expanded (keyed by date string like "2026-04-10")
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
   const exerciseNames = useMemo(() => getUniqueExerciseNames(workouts), [workouts]);
 
   // Pre-compute progress data for all exercises in one pass
@@ -91,6 +94,58 @@ export default function WorkoutLogScreen() {
         return `${y}-${m}-${day}` === selectedDate;
       })
     : workouts;
+
+  // Group displayed workouts by date, sorted newest first
+  const groupedWorkouts = useMemo(() => {
+    const groups: { dateKey: string; label: string; sessions: WorkoutSession[] }[] = [];
+    const map = new Map<string, WorkoutSession[]>();
+
+    for (const w of displayedWorkouts) {
+      const iso = w.completedAt ?? w.startedAt ?? w.date;
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + "T12:00:00") : new Date(iso);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const key = `${y}-${m}-${day}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(w);
+    }
+
+    // Sort date keys newest first
+    const sortedKeys = Array.from(map.keys()).sort((a, b) => b.localeCompare(a));
+
+    for (const key of sortedKeys) {
+      const d = new Date(key + "T12:00:00");
+      const label = d.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+      groups.push({ dateKey: key, label, sessions: map.get(key)! });
+    }
+
+    return groups;
+  }, [displayedWorkouts]);
+
+  // Determine if a group is expanded: today defaults to expanded, older defaults to collapsed
+  const isGroupExpanded = useCallback(
+    (dateKey: string) => {
+      if (dateKey in expandedGroups) return expandedGroups[dateKey];
+      // Default: today expanded, everything else collapsed
+      const today = new Date();
+      const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      return dateKey === todayKey;
+    },
+    [expandedGroups],
+  );
+
+  const toggleGroup = useCallback((dateKey: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [dateKey]: !(prev[dateKey] ?? isGroupExpanded(dateKey)),
+    }));
+  }, [isGroupExpanded]);
 
   const renderRightActions = useCallback((onDelete: () => void) => (
     <Pressable style={[styles.deleteAction, { backgroundColor: theme.colors.danger }]} onPress={onDelete}>
@@ -201,42 +256,68 @@ export default function WorkoutLogScreen() {
                   </Animated.View>
                 )
               ) : (
-                displayedWorkouts.map((item, index) => (
-                  <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(300)}>
-                    <Swipeable renderRightActions={() => renderRightActions(() =>
-                      Alert.alert(
-                        "Delete Workout?",
-                        "This will permanently remove this session from your log.",
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          { text: "Delete", style: "destructive", onPress: () => deleteWorkout(item.id) },
-                        ]
-                      )
-                    )}>
-                      <Pressable onPress={() => router.push(`/session/${item.id}`)}>
-                        <Card style={styles.row}>
-                          <View style={styles.rowContent}>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                              <Text style={[styles.rowName, { color: theme.colors.text }]}>{item.name}</Text>
-                              {item.completedAt ? (
-                                <Text style={{ backgroundColor: theme.colors.success, color: theme.colors.successText, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>✓ Done</Text>
-                              ) : item.isActive ? (
-                                <Text style={{ backgroundColor: theme.colors.danger, color: theme.colors.dangerText, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, fontSize: 11, fontWeight: "600", overflow: "hidden" }}>● Active</Text>
-                              ) : null}
-                            </View>
-                            <Text style={[styles.rowMeta, { color: theme.colors.muted }]}>
-                              {fmtDate(item.date)}
-                              {item.exercises.length > 0
-                                ? ` · ${item.exercises.length} exercise${item.exercises.length !== 1 ? "s" : ""} · ${item.exercises.reduce((a, ex) => a + ex.sets.filter(s => s.completed).length, 0)}/${item.exercises.reduce((a, ex) => a + ex.sets.length, 0)} sets`
-                                : ""}
-                            </Text>
-                          </View>
-                          <Text style={[styles.chevron, { color: theme.colors.muted }]}>›</Text>
-                        </Card>
+                groupedWorkouts.map((group) => {
+                  const expanded = isGroupExpanded(group.dateKey);
+                  return (
+                    <View key={group.dateKey} style={styles.dateGroup}>
+                      <Pressable
+                        style={[styles.dateGroupHeader, { borderBottomColor: theme.colors.border }]}
+                        onPress={() => toggleGroup(group.dateKey)}
+                      >
+                        <View style={styles.dateGroupLeft}>
+                          <Ionicons
+                            name={expanded ? "chevron-down" : "chevron-forward"}
+                            size={16}
+                            color={theme.colors.muted}
+                          />
+                          <Text style={[styles.dateGroupTitle, { color: theme.colors.text }]}>
+                            {group.label}
+                          </Text>
+                        </View>
+                        <Text style={[styles.dateGroupCount, { color: theme.colors.muted }]}>
+                          {group.sessions.length} session{group.sessions.length !== 1 ? "s" : ""}
+                        </Text>
                       </Pressable>
-                    </Swipeable>
-                  </Animated.View>
-                ))
+                      {expanded &&
+                        group.sessions.map((item, index) => (
+                          <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(300)}>
+                            <Swipeable renderRightActions={() => renderRightActions(() =>
+                              Alert.alert(
+                                "Delete Workout?",
+                                "This will permanently remove this session from your log.",
+                                [
+                                  { text: "Cancel", style: "cancel" },
+                                  { text: "Delete", style: "destructive", onPress: () => deleteWorkout(item.id) },
+                                ]
+                              )
+                            )}>
+                              <Pressable onPress={() => router.push(`/session/${item.id}`)}>
+                                <Card style={styles.row}>
+                                  <View style={styles.rowContent}>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                      <Text style={[styles.rowName, { color: theme.colors.text, flex: 1 }]} numberOfLines={1}>{item.name}</Text>
+                                      {item.completedAt ? (
+                                        <Text style={{ backgroundColor: theme.colors.success, color: theme.colors.successText, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1, fontSize: 10, fontWeight: "600", overflow: "hidden" }}>✓ Done</Text>
+                                      ) : item.isActive ? (
+                                        <Text style={{ backgroundColor: theme.colors.danger, color: theme.colors.dangerText, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1, fontSize: 10, fontWeight: "600", overflow: "hidden" }}>● Active</Text>
+                                      ) : null}
+                                    </View>
+                                    <Text style={[styles.rowMeta, { color: theme.colors.muted }]}>
+                                      {fmtDate(item.date)}
+                                      {item.exercises.length > 0
+                                        ? ` · ${item.exercises.length} exercise${item.exercises.length !== 1 ? "s" : ""} · ${item.exercises.reduce((a, ex) => a + ex.sets.filter(s => s.completed).length, 0)}/${item.exercises.reduce((a, ex) => a + ex.sets.length, 0)} sets`
+                                        : ""}
+                                    </Text>
+                                  </View>
+                                  <Text style={[styles.chevron, { color: theme.colors.muted }]}>›</Text>
+                                </Card>
+                              </Pressable>
+                            </Swipeable>
+                          </Animated.View>
+                        ))}
+                    </View>
+                  );
+                })
               )}
             </ScrollView>
           )
@@ -398,24 +479,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
-  row: { marginBottom: 0, flexDirection: "row", alignItems: "center" },
-  rowContent: { flex: 1 },
-  rowName: { fontSize: 16, fontWeight: "600" },
-  rowMeta: { fontSize: 12, marginTop: spacing.xs },
+  row: { marginBottom: spacing.sm, flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm },
+  rowContent: { flex: 1, gap: 4 },
+  rowName: { fontSize: 15, fontWeight: "600" },
+  rowMeta: { fontSize: 11, marginTop: 2 },
   chevron: { fontSize: 20 },
   deleteAction: {
     justifyContent: "center",
     alignItems: "center",
     width: 80,
     borderRadius: radius.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   deleteText: { fontWeight: "700", fontSize: 14 },
-  listHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8, marginTop: 4 },
+  listHeader: { flexDirection: "row", alignItems: "center", marginBottom: spacing.sm + 4, marginTop: spacing.sm },
   listTitle: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.0 },
   dateChip: { flexDirection: "row", alignItems: "center" },
   dateChipText: { fontSize: 13, fontWeight: "700" },
   dateChipClear: { fontSize: 16, fontWeight: "400" },
+  dateGroup: { marginBottom: spacing.xs },
+  dateGroupHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: spacing.xs,
+  },
+  dateGroupLeft: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+  dateGroupTitle: { fontSize: 14, fontWeight: "700" },
+  dateGroupCount: { fontSize: 12, fontWeight: "500" },
   // Progress styles
   volumeBanner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: spacing.md, borderRadius: radius.md, borderWidth: 1, marginBottom: spacing.md },
   volumeBannerLabel: { fontSize: 10, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 2 },

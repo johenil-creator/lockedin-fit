@@ -75,9 +75,13 @@ export async function getActiveChallenge(
     // Try cache
     const cached = await AsyncStorage.getItem(CACHE_KEY);
     if (cached) {
-      const parsed: PackChallenge = JSON.parse(cached);
-      if (parsed.packId === packId && parsed.weekKey === currentWeekKey() && parsed.status === "active") {
-        return parsed;
+      try {
+        const parsed: PackChallenge = JSON.parse(cached);
+        if (parsed.packId === packId && parsed.weekKey === currentWeekKey() && parsed.status === "active") {
+          return parsed;
+        }
+      } catch (e) {
+        if (__DEV__) console.warn("[packChallengeService] corrupt cache:", e);
       }
     }
     return null;

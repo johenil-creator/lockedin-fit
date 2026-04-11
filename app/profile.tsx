@@ -199,7 +199,7 @@ export default function ProfileScreen() {
               onChangeText={setWeight}
               onBlur={handleWeightBlur}
               placeholder="0"
-              placeholderTextColor="#BDC4CE"
+              placeholderTextColor={theme.colors.muted}
               keyboardType="numeric"
             />
             <View style={[styles.unitLabel, { backgroundColor: theme.colors.mutedBg }]}>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Text, Pressable, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -25,7 +25,7 @@ type Props = {
   onComplete: () => void;
 };
 
-export function CountdownRing({ visible, onComplete }: Props) {
+function CountdownRing({ visible, onComplete }: Props) {
   const { theme } = useAppTheme();
   const [beat, setBeat] = useState(0); // 0=3, 1=2, 2=1, 3=GO
   const progress = useSharedValue(0); // 0→1 over the full countdown
@@ -150,6 +150,8 @@ export function CountdownRing({ visible, onComplete }: Props) {
     </Animated.View>
   );
 }
+
+export default React.memo(CountdownRing);
 
 const styles = StyleSheet.create({
   overlay: {

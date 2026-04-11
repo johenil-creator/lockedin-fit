@@ -19,6 +19,8 @@ import type {
   ActivityLevel,
   BiologicalSex,
 } from "../src/data/mealTypes";
+import { getDevNow } from "./devDateOverride";
+import { MS_PER_WEEK } from "./constants";
 
 // ── Seeded LCG ──────────────────────────────────────────────────────────────
 
@@ -52,8 +54,8 @@ const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
  * weeks from the current week. offset=0 is the current week.
  */
 export function getWeekKey(offset: number): string {
-  const now = new Date();
-  const target = new Date(now.getTime() + offset * 7 * 24 * 60 * 60 * 1000);
+  const now = __DEV__ ? getDevNow() : new Date();
+  const target = new Date(now.getTime() + offset * MS_PER_WEEK);
 
   // ISO week: week starts on Monday.
   // Compute ISO week number per ISO 8601.
@@ -84,15 +86,15 @@ function passesRestrictions(recipe: Recipe, restrictions: string[]): boolean {
   for (const r of restrictions) {
     switch (r) {
       case "vegetarian": {
-        if (contains.some(c => ["fish", "shellfish", "pork", "red-meat"].includes(c))) return false;
+        if (contains.some(c => ["fish", "shellfish", "pork", "red-meat", "chicken", "turkey", "duck", "poultry"].includes(c))) return false;
         const ingText = recipe.ingredients.join(" ").toLowerCase();
-        if (/\b(chicken|turkey|duck|poultry)\b/.test(ingText)) return false;
+        if (/\b(chicken|turkey|duck|poultry|lamb|beef|veal|venison)\b/.test(ingText)) return false;
         break;
       }
       case "pescatarian": {
-        if (contains.some(c => ["pork", "red-meat"].includes(c))) return false;
+        if (contains.some(c => ["pork", "red-meat", "chicken", "turkey", "duck", "poultry"].includes(c))) return false;
         const ingText = recipe.ingredients.join(" ").toLowerCase();
-        if (/\b(chicken|turkey|duck|poultry)\b/.test(ingText)) return false;
+        if (/\b(chicken|turkey|duck|poultry|lamb|beef|veal|venison)\b/.test(ingText)) return false;
         break;
       }
       default:
@@ -105,6 +107,43 @@ function passesRestrictions(recipe: Recipe, restrictions: string[]): boolean {
 // ── Weekly Plan Generation ──────────────────────────────────────────────────
 
 const SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner", "snack1", "snack2"];
+
+/** Words to ignore when computing a dish stem. */
+const STEM_STOP = new Set([
+  // Cooking methods & adjectives
+  "simple", "classic", "easy", "quick", "homemade", "traditional", "crispy",
+  "spicy", "creamy", "loaded", "grilled", "baked", "roasted", "pan", "seared",
+  "fried", "smoked", "braised", "light", "fresh", "warm", "cold", "mini",
+  "style", "inspired", "fusion", "steamed", "stuffed", "sweet", "savory",
+  // Articles & prepositions
+  "with", "and", "the", "a", "of", "in", "on", "de", "al", "la", "le", "en",
+  "con", "del",
+  // Nationalities & origins (so "Peruvian Ceviche" and "Simple Ceviche" share stem)
+  "african", "american", "argentine", "brazilian", "caribbean", "chinese",
+  "colombian", "cuban", "dominican", "dutch", "egyptian", "ethiopian",
+  "filipino", "french", "german", "greek", "hawaiian", "indian", "indonesian",
+  "italian", "jamaican", "japanese", "korean", "lebanese", "malaysian",
+  "mediterranean", "mexican", "middle", "eastern", "moroccan", "nigerian",
+  "okinawan", "persian", "peruvian", "polish", "senegalese", "spanish",
+  "swedish", "taiwanese", "thai", "turkish", "vietnamese",
+]);
+
+/**
+ * Extract a normalised dish stem from a recipe name so that variants like
+ * "Simple Ceviche" and "Peruvian Ceviche" share the stem "ceviche".
+ * Returns the 1-2 most significant words, lowercased and sorted.
+ */
+function dishStem(name: string): string {
+  const words = name
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STEM_STOP.has(w));
+  if (words.length === 0) return name.toLowerCase();
+  // Use the last 1-2 significant words (the "noun" part — ceviche, tacos, etc.)
+  const core = words.slice(-2);
+  return core.sort().join("+");
+}
 
 /**
  * Fisher-Yates shuffle (in-place) using a seeded RNG.
@@ -121,11 +160,62 @@ function fisherYatesShuffle<T>(arr: T[], rng: () => number): T[] {
 }
 
 /**
+ * Separate an array into two halves: items NOT in the set first, then items in
+ * the set, preserving relative order within each half.
+ */
+function partitionFreshFirst<T extends { id: string }>(
+  arr: T[],
+  staleIds: Set<string>,
+): T[] {
+  const fresh: T[] = [];
+  const stale: T[] = [];
+  for (const item of arr) {
+    if (staleIds.has(item.id)) stale.push(item);
+    else fresh.push(item);
+  }
+  return [...fresh, ...stale];
+}
+
+/**
+ * Re-order an array so that adjacent items don't share the same cuisineBadge.
+ * Uses a greedy swap: if arr[i] has the same cuisine as arr[i-1], find the
+ * nearest different-cuisine item and swap. Best-effort — small pools may still
+ * have adjacent duplicates.
+ */
+function spaceCuisines(arr: Recipe[]): Recipe[] {
+  if (arr.length < 3) return arr;
+  const out = [...arr];
+  for (let i = 1; i < out.length; i++) {
+    if (out[i].cuisineBadge === out[i - 1].cuisineBadge) {
+      // Find nearest swap candidate ahead
+      let swapIdx = -1;
+      for (let j = i + 1; j < out.length; j++) {
+        if (out[j].cuisineBadge !== out[i - 1].cuisineBadge) {
+          swapIdx = j;
+          break;
+        }
+      }
+      if (swapIdx !== -1) {
+        const tmp = out[i];
+        out[i] = out[swapIdx];
+        out[swapIdx] = tmp;
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Generate a deterministic weekly meal plan.
  *
  * For each of the 5 meal slots the catalog is filtered to matching slot+tier
  * recipes, then shuffled via Fisher-Yates with a seeded LCG. One recipe is
  * assigned per day (Mon-Sun) with no repeats within a week.
+ *
+ * Variety improvements:
+ * - previousRecipeIds: recipes from last week are pushed to the back of each
+ *   pool so they are only picked when the pool is small.
+ * - Cuisine spacing: adjacent days avoid the same cuisineBadge per slot.
  *
  * If fewer than 7 recipes exist for a slot the shuffled array wraps.
  */
@@ -135,6 +225,7 @@ export function generateWeeklyPlan(
   catalog: Recipe[],
   restrictions?: string[],
   calorieTarget?: number,
+  previousRecipeIds?: Set<string>,
 ): WeeklyMealPlan {
   const restrictionKey = restrictions?.length ? `::${[...restrictions].sort().join(",")}` : "";
   const seed = hashString(`${weekKey}::${tier}${restrictionKey}`);
@@ -158,68 +249,99 @@ export function generateWeeklyPlan(
   // Build 7 days (Mon-Sun)
   const days: DailyMealPlan[] = [];
 
-  // Shuffle each slot's pool once, then assign round-robin to each day
+  // Shuffle each slot's pool, deprioritize last-week recipes, space cuisines
+  const staleIds = previousRecipeIds ?? new Set<string>();
   const shuffled: Record<MealSlot, Recipe[]> = {} as any;
   for (const slot of SLOTS) {
-    shuffled[slot] = fisherYatesShuffle([...bySlot[slot]], rng);
+    let pool = fisherYatesShuffle([...bySlot[slot]], rng);
+    if (staleIds.size > 0) pool = partitionFreshFirst(pool, staleIds);
+    pool = spaceCuisines(pool);
+    shuffled[slot] = pool;
   }
 
-  // For calorie-aware mode: filter each slot to recipes that fit the per-slot budget
-  // Budget split: breakfast ~18%, lunch ~25%, dinner ~27%, snack1 ~15%, snack2 ~15%
-  const SLOT_BUDGET: Record<MealSlot, number> = {
-    breakfast: 0.18,
-    lunch: 0.25,
-    dinner: 0.27,
-    snack1: 0.15,
-    snack2: 0.15,
-  };
-
+  // For calorie-aware mode: sort each slot's pool by calories (low → high)
+  // so the per-day cumulative budget naturally picks lighter options first.
+  // We keep the FULL pool (no pre-filter) to maximise variety.
   if (calorieTarget && calorieTarget > 0) {
-    // Filter each slot's pool to only recipes that fit within their calorie budget
-    // (with 10% tolerance), then shuffle the filtered set for variety
     for (const slot of SLOTS) {
-      const budget = Math.round(calorieTarget * SLOT_BUDGET[slot] * 1.1); // 10% tolerance
-      const filtered = bySlot[slot].filter((r) => r.macros.calories <= budget);
-      // Use filtered pool if it has enough recipes, otherwise keep full pool sorted by cal
-      if (filtered.length >= 3) {
-        bySlot[slot] = fisherYatesShuffle(filtered, rng);
-      } else {
-        bySlot[slot].sort((a, b) => a.macros.calories - b.macros.calories);
-      }
+      // Stable-sort by calories while preserving the freshness/cuisine ordering
+      // for recipes with similar calorie counts (within 50 cal).
+      shuffled[slot].sort((a, b) => {
+        const bucket = (c: number) => Math.floor(c / 50);
+        return bucket(a.macros.calories) - bucket(b.macros.calories);
+      });
     }
   }
+
+  // Track dish stems used across the entire week to avoid duplicates
+  // (e.g., "Simple Ceviche" on day 2 lunch blocks "Peruvian Ceviche" on day 5 dinner)
+  const usedStems = new Set<string>();
+  // Per-slot index tracking for round-robin advancement
+  const slotIdx: Record<MealSlot, number> = {
+    breakfast: 0, lunch: 0, dinner: 0, snack1: 0, snack2: 0,
+  };
 
   for (let d = 0; d < 7; d++) {
     const meals: MealSlotAssignment[] = [];
 
     if (calorieTarget && calorieTarget > 0) {
-      // Calorie-aware: assign all 5 slots, picking from budget-filtered pools
       let remaining = calorieTarget;
 
       for (const slot of SLOTS) {
-        const pool = bySlot[slot];
+        const pool = shuffled[slot];
         if (pool.length === 0) continue;
-        // Try round-robin first
-        const candidate = pool[d % pool.length];
-        if (candidate.macros.calories <= remaining) {
-          meals.push({ slot, recipeId: candidate.id });
-          remaining -= candidate.macros.calories;
-        } else {
-          // Find any recipe that fits remaining budget
-          const fit = pool.find((r) => r.macros.calories <= remaining);
-          if (fit) {
-            meals.push({ slot, recipeId: fit.id });
-            remaining -= fit.macros.calories;
+
+        // Find a recipe that fits budget AND hasn't had its dish stem used yet
+        let picked: Recipe | undefined;
+        for (let attempt = 0; attempt < pool.length; attempt++) {
+          const candidate = pool[(slotIdx[slot] + attempt) % pool.length];
+          const stem = dishStem(candidate.name);
+          if (candidate.macros.calories <= remaining && !usedStems.has(stem)) {
+            picked = candidate;
+            slotIdx[slot] = (slotIdx[slot] + attempt + 1) % pool.length;
+            break;
           }
+        }
+        // Fallback: accept any that fits budget (small pool)
+        if (!picked) {
+          for (let attempt = 0; attempt < pool.length; attempt++) {
+            const candidate = pool[(slotIdx[slot] + attempt) % pool.length];
+            if (candidate.macros.calories <= remaining) {
+              picked = candidate;
+              slotIdx[slot] = (slotIdx[slot] + attempt + 1) % pool.length;
+              break;
+            }
+          }
+        }
+        if (picked) {
+          meals.push({ slot, recipeId: picked.id });
+          usedStems.add(dishStem(picked.name));
+          remaining -= picked.macros.calories;
         }
       }
     } else {
-      // No calorie target — original behavior
       for (const slot of SLOTS) {
         const pool = shuffled[slot];
         if (pool.length === 0) continue;
-        const recipe = pool[d % pool.length];
-        meals.push({ slot, recipeId: recipe.id });
+
+        // Try to find an unused dish stem
+        let picked: Recipe | undefined;
+        for (let attempt = 0; attempt < pool.length; attempt++) {
+          const candidate = pool[(slotIdx[slot] + attempt) % pool.length];
+          const stem = dishStem(candidate.name);
+          if (!usedStems.has(stem)) {
+            picked = candidate;
+            slotIdx[slot] = (slotIdx[slot] + attempt + 1) % pool.length;
+            break;
+          }
+        }
+        // Fallback: just take the next in line (small pool)
+        if (!picked) {
+          picked = pool[slotIdx[slot] % pool.length];
+          slotIdx[slot] = (slotIdx[slot] + 1) % pool.length;
+        }
+        meals.push({ slot, recipeId: picked.id });
+        usedStems.add(dishStem(picked.name));
       }
     }
 

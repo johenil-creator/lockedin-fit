@@ -33,8 +33,6 @@ import { postActivity } from "../lib/activityService";
 import { updateChallengeProgress } from "../lib/packChallengeService";
 import { updateChallengeScore } from "../lib/friendChallengeService";
 import { updateQuestProgress } from "../lib/questService";
-import { checkMilestones, postMilestoneActivity, loadAchievedMilestones, saveAchievedMilestones } from "../lib/milestoneService";
-import { checkBattleBreaks } from "../lib/streakBattleService";
 import { updateMutualStreak } from "../lib/accountabilityService";
 import { updateWarXp, getActiveWar } from "../lib/packWarService";
 import { dealDamage, getBossStatus } from "../lib/packBossService";
@@ -42,7 +40,7 @@ import { addPackXpAndLevel } from "../lib/packLevelService";
 import { updateEventScore, getActiveEvent, getEventFangsMultiplier } from "../lib/seasonalEventService";
 import { trackEvent } from "../lib/engagementTracker";
 import { maybePromptNotifications } from "../lib/notificationPrompt";
-import { loadPackInfo, loadWorkouts, loadStreak } from "../lib/storage";
+import { loadPackInfo } from "../lib/storage";
 import { glowColors, spacing, radius } from "../lib/theme";
 const FANGS_ICON = require("../assets/fangs_icon.png");
 import { LockeMascot } from "../components/Locke/LockeMascot";
@@ -656,90 +654,57 @@ export default function WorkoutCompleteScreen() {
 
     // Credit fangs + post activity + update challenges (fire-and-forget)
     if (user && params.fangsEarned) {
-      earnFangs(user.uid, params.fangsEarned, "workout_complete").catch(() => {});
+      earnFangs(user.uid, params.fangsEarned, "workout_complete").catch((e) => { if (__DEV__) console.warn("[workout-complete] earnFangs:", e); });
       postActivity(user.uid, user.displayName ?? "Unknown", "workout_complete", {
         sessionName: params.sessionName,
         setsCompleted: params.setsCompleted,
         xpEarned: params.xpAwarded,
-      }).catch(() => {});
+      }).catch((e) => { if (__DEV__) console.warn("[workout-complete] postActivity:", e); });
 
       // Pack challenge progress (fire-and-forget)
       loadPackInfo().then((packInfo) => {
         if (packInfo) {
-          updateChallengeProgress(packInfo.id, "sets", params!.setsCompleted).catch(() => {});
-          updateChallengeProgress(packInfo.id, "sessions", 1).catch(() => {});
-          updateChallengeProgress(packInfo.id, "xp", params!.xpAwarded).catch(() => {});
+          updateChallengeProgress(packInfo.id, "sets", params!.setsCompleted).catch((e) => { if (__DEV__) console.warn("[workout-complete] challenge update (sets):", e); });
+          updateChallengeProgress(packInfo.id, "sessions", 1).catch((e) => { if (__DEV__) console.warn("[workout-complete] challenge update (sessions):", e); });
+          updateChallengeProgress(packInfo.id, "xp", params!.xpAwarded).catch((e) => { if (__DEV__) console.warn("[workout-complete] challenge update (xp):", e); });
         }
-      }).catch(() => {});
+      }).catch((e) => { if (__DEV__) console.warn("[workout-complete] loadPackInfo (challenges):", e); });
 
       // 1v1 challenge scores (fire-and-forget)
-      updateChallengeScore(user.uid, "sets", params.setsCompleted).catch(() => {});
-      updateChallengeScore(user.uid, "sessions", 1).catch(() => {});
-      updateChallengeScore(user.uid, "xp", params.xpAwarded).catch(() => {});
+      updateChallengeScore(user.uid, "sets", params.setsCompleted).catch((e) => { if (__DEV__) console.warn("[workout-complete] 1v1 score (sets):", e); });
+      updateChallengeScore(user.uid, "sessions", 1).catch((e) => { if (__DEV__) console.warn("[workout-complete] 1v1 score (sessions):", e); });
+      updateChallengeScore(user.uid, "xp", params.xpAwarded).catch((e) => { if (__DEV__) console.warn("[workout-complete] 1v1 score (xp):", e); });
 
       // Quest progress (fire-and-forget)
-      updateQuestProgress("sets", params.setsCompleted).catch(() => {});
-      updateQuestProgress("sessions", 1).catch(() => {});
-      updateQuestProgress("xp", params.xpAwarded).catch(() => {});
-      updateQuestProgress("exercises", params.exerciseCount).catch(() => {});
-
-      // Milestone checks (fire-and-forget)
-      (async () => {
-        try {
-          const [allWorkouts, streakData, achieved] = await Promise.all([
-            loadWorkouts(),
-            loadStreak(),
-            loadAchievedMilestones(),
-          ]);
-          const workoutCount = allWorkouts.filter((w) => !!w.completedAt).length;
-          const prCount = allWorkouts.filter((w) => w.prAwarded).length;
-          const rank = params!.newRank || params!.previousRank || "Runt";
-          const newMilestones = checkMilestones(
-            workoutCount,
-            streakData?.current ?? 0,
-            prCount,
-            rank as any,
-            achieved
-          );
-          if (newMilestones.length > 0) {
-            const updatedAchieved = [...achieved, ...newMilestones];
-            await saveAchievedMilestones(updatedAchieved);
-            for (const m of newMilestones) {
-              postMilestoneActivity(user!.uid, user!.displayName ?? "Unknown", m, 0).catch(() => {});
-            }
-          }
-        } catch {}
-      })();
-
-      // Streak battle checks (fire-and-forget)
-      loadStreak().then((s) => {
-        if (s) checkBattleBreaks(user!.uid, s.current).catch(() => {});
-      }).catch(() => {});
+      updateQuestProgress("sets", params.setsCompleted).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (sets):", e); });
+      updateQuestProgress("sessions", 1).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (sessions):", e); });
+      updateQuestProgress("xp", params.xpAwarded).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (xp):", e); });
+      updateQuestProgress("exercises", params.exerciseCount).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (exercises):", e); });
 
       // Accountability partner mutual streak (fire-and-forget)
-      updateMutualStreak(user!.uid).catch(() => {});
+      updateMutualStreak(user!.uid).catch((e) => { if (__DEV__) console.warn("[workout-complete] mutual streak:", e); });
 
       // Pack war XP + boss damage + pack level (fire-and-forget)
       loadPackInfo().then((packInfo) => {
         if (packInfo) {
           getActiveWar(packInfo.id).then((war) => {
-            if (war) updateWarXp(war.id, packInfo.id, params!.xpAwarded).catch(() => {});
-          }).catch(() => {});
+            if (war) updateWarXp(war.id, packInfo.id, params!.xpAwarded).catch((e) => { if (__DEV__) console.warn("[workout-complete] war XP:", e); });
+          }).catch((e) => { if (__DEV__) console.warn("[workout-complete] getActiveWar:", e); });
           getBossStatus(packInfo.id).then((boss) => {
             if (boss && boss.status === "active") {
-              dealDamage(boss.id, user!.uid, user!.displayName ?? "Unknown", params!.setsCompleted).catch(() => {});
+              dealDamage(boss.id, user!.uid, user!.displayName ?? "Unknown", params!.setsCompleted).catch((e) => { if (__DEV__) console.warn("[workout-complete] boss damage:", e); });
             }
-          }).catch(() => {});
-          addPackXpAndLevel(packInfo.id, params!.xpAwarded).catch(() => {});
+          }).catch((e) => { if (__DEV__) console.warn("[workout-complete] getBossStatus:", e); });
+          addPackXpAndLevel(packInfo.id, params!.xpAwarded).catch((e) => { if (__DEV__) console.warn("[workout-complete] pack XP/level:", e); });
         }
-      }).catch(() => {});
+      }).catch((e) => { if (__DEV__) console.warn("[workout-complete] loadPackInfo (war/boss):", e); });
 
       // Seasonal event score + engagement tracking (fire-and-forget)
       const activeEvt = getActiveEvent();
       if (activeEvt) {
-        updateEventScore(user!.uid, activeEvt.event.id, params!.setsCompleted).catch(() => {});
+        updateEventScore(user!.uid, activeEvt.event.id, params!.setsCompleted).catch((e) => { if (__DEV__) console.warn("[workout-complete] event score:", e); });
       }
-      trackEvent("workout_complete").catch(() => {});
+      trackEvent("workout_complete").catch((e) => { if (__DEV__) console.warn("[workout-complete] trackEvent:", e); });
     }
 
     // Button press spring

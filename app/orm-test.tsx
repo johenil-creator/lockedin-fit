@@ -19,6 +19,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useProfileContext } from "../contexts/ProfileContext";
 import { usePlanContext } from "../contexts/PlanContext";
 import { useWorkouts } from "../hooks/useWorkouts";
+import { useStreak, isoWeek } from "../hooks/useStreak";
+import { useXP } from "../hooks/useXP";
 import { useOrmTest } from "../hooks/useOrmTest";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { useLocke } from "../contexts/LockeContext";
@@ -31,6 +33,10 @@ import { Skeleton } from "../components/Skeleton";
 import { AppBottomSheet } from "../components/AppBottomSheet";
 import { LIFT_TIPS } from "../lib/liftTips";
 import { hasAcceptedOrmDisclaimer, markOrmDisclaimerAccepted } from "../lib/storage";
+import { makeId } from "../lib/helpers";
+import { awardSessionXP } from "../lib/xpService";
+import { syncCompletedSession } from "../lib/healthkit/integration";
+import type { WorkoutSession, SessionExercise, SetEntry, OrmTestSession } from "../lib/types";
 
 // ── Progress Bar ────────────────────────────────────────────────────────────
 
@@ -83,7 +89,9 @@ export default function OrmTestScreen() {
   const { theme } = useAppTheme();
   const { profile, updateProfile } = useProfileContext();
   const { exercises, recalculateWeights } = usePlanContext();
-  const { workouts } = useWorkouts();
+  const { workouts, addWorkout } = useWorkouts();
+  const { recordActivity } = useStreak();
+  const { xp, setXPRecord } = useXP();
   const { showToast } = useToast();
   const ormTest = useOrmTest(updateProfile);
   const { fire } = useLocke();
@@ -263,11 +271,89 @@ export default function OrmTestScreen() {
     }
   }
 
+  // ── Record the completed 1RM test as a WorkoutSession ──────────────────────
+  //
+  // Creates a strength workout from the test's lifts so it appears in history,
+  // counts toward streak, awards XP, and syncs to Apple Health.
+  async function recordTestAsWorkout(testSession: OrmTestSession) {
+    const now = new Date().toISOString();
+    const startedAt = testSession.startedAt;
+
+    const sessionExercises: SessionExercise[] = testSession.lifts
+      .filter((lift) => lift.completed)
+      .map((lift) => {
+        const sets: SetEntry[] = lift.sets
+          .filter((s) => s.completed)
+          .map((s) => ({
+            reps: String(s.reps),
+            weight: String(s.weight),
+            completed: true,
+            isWarmUp: s.prescribedPct < 0.7, // bar + 50% + 60% treated as warmup
+          }));
+        return {
+          exerciseId: makeId(),
+          name: lift.liftLabel,
+          sets,
+          equipment: "barbell",
+          loadSource: "orm",
+        };
+      });
+
+    if (sessionExercises.length === 0) return;
+
+    const workoutSession: WorkoutSession = {
+      id: makeId(),
+      name: "1RM Strength Trial",
+      date: now,
+      startedAt,
+      completedAt: now,
+      isActive: false,
+      exercises: sessionExercises,
+      sessionType: "strength",
+      xpClaimed: true,
+    };
+
+    await addWorkout(workoutSession);
+
+    // ── Streak (with freeze + rest-day support) ───────────────────────────
+    const restDays = profile.restDays ?? [];
+    const week = isoWeek();
+    const freezesLeft =
+      profile.freezesResetWeek === week
+        ? (profile.freezesRemaining ?? 2)
+        : 2;
+    const { streak: newStreak, freezesUsed } = await recordActivity(
+      new Date(),
+      restDays,
+      freezesLeft
+    );
+    if (freezesUsed > 0 || profile.freezesResetWeek !== week) {
+      updateProfile({
+        freezesRemaining: freezesLeft - freezesUsed,
+        freezesResetWeek: week,
+      });
+    }
+
+    // ── XP award (1RM test always treated as a PR since it establishes baseline) ─
+    const xpResult = awardSessionXP(xp, workoutSession, true, newStreak.current);
+    await setXPRecord(xpResult.updatedRecord);
+
+    // ── Sync to Apple Health (fire-and-forget) ───────────────────────────
+    void syncCompletedSession(workoutSession);
+  }
+
   async function handleFinish() {
     if (isSaving) return;
     setIsSaving(true);
     try {
+      // Capture the pre-finish session so we can record it as a workout
+      // (finishTest clears local storage and flips status to "completed").
+      const testSession = ormTest.session;
       await ormTest.finishTest();
+
+      if (testSession) {
+        await recordTestAsWorkout(testSession);
+      }
 
       if (exercises.length > 0) {
         Alert.alert(

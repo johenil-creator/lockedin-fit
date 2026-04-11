@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { StyleSheet, Text } from "react-native";
 import Animated, {
   useSharedValue,
@@ -79,7 +79,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     : theme.colors.text;
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={useMemo(() => ({ showToast }), [showToast])}>
       {children}
       {toast && (
         <Animated.View

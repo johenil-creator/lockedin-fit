@@ -75,7 +75,7 @@ import { useRestTimers } from "../../hooks/useRestTimers";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { useToast } from "../../contexts/ToastContext";
 import { makeId } from "../../lib/helpers";
-import { ExerciseFeedbackSheet } from "../../components/session/ExerciseFeedbackSheet";
+import ExerciseFeedbackSheet from "../../components/session/ExerciseFeedbackSheet";
 import { CoachMarks } from "../../components/session/CoachMarks";
 import type {
   WorkoutSession,

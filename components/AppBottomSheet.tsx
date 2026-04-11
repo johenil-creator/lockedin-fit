@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useMemo } from "react";
 import { StyleSheet } from "react-native";
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetBackdrop, BottomSheetView, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useAppTheme } from "../contexts/ThemeContext";
 
 type Props = {
@@ -9,6 +9,7 @@ type Props = {
   children: React.ReactNode;
   snapPoints?: (string | number)[];
   enableDynamicSizing?: boolean;
+  scrollable?: boolean;
 };
 
 export function AppBottomSheet({
@@ -17,6 +18,7 @@ export function AppBottomSheet({
   children,
   snapPoints: userSnapPoints,
   enableDynamicSizing = true,
+  scrollable = false,
 }: Props) {
   const { theme } = useAppTheme();
   const ref = useRef<BottomSheet>(null);
@@ -81,9 +83,15 @@ export function AppBottomSheet({
       backgroundStyle={[styles.background, { backgroundColor: theme.colors.surface }]}
       handleIndicatorStyle={{ backgroundColor: theme.colors.muted }}
     >
-      <BottomSheetView style={styles.content}>
-        {children}
-      </BottomSheetView>
+      {scrollable ? (
+        <BottomSheetScrollView contentContainerStyle={styles.content}>
+          {children}
+        </BottomSheetScrollView>
+      ) : (
+        <BottomSheetView style={styles.content}>
+          {children}
+        </BottomSheetView>
+      )}
     </BottomSheet>
   );
 }

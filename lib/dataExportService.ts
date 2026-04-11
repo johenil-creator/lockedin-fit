@@ -9,7 +9,7 @@
 import { Share } from "react-native";
 import { httpsCallable } from "firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { functions, isFirebaseConfigured } from "./firebase";
 
 // ── Types ───────────────────────────────────────────────────────────────────

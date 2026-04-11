@@ -147,6 +147,13 @@ export type UserProfile = {
   badges?: Badge[];
   friendCode?: string;
   friends?: Friend[];
+  /**
+   * "YYYY-MM-DD" of the last challenge day the user completed. Persists across
+   * abandon/rejoin cycles so a user can't farm rewards by repeatedly joining
+   * and abandoning on the same calendar day. Separate from
+   * ChallengeProgress.lastCompletedDate, which is wiped on abandonChallenge().
+   */
+  lastChallengeDayCompletedDate?: string;
 };
 
 // ── Friends ─────────────────────────────────────────────────────────────────
@@ -231,6 +238,7 @@ export type StreakData = {
   current: number;            // consecutive training days
   longest: number;
   lastActivityDate: string;   // ISO date "YYYY-MM-DD"
+  preBreakCurrent?: number;   // snapshot of `current` right before a stale break; used by restoreStreak
 };
 
 // ── Cardio PRs & Badges ───────────────────────────────────────────────────────
@@ -283,6 +291,7 @@ export type LockeTrigger =
   | 'streak_milestone'
   | 'inactivity'
   | 'rank_up'
+  | 'challenge_complete'
   | 'onboarding'
   | '1rm_test'
   | 'low_performance'
@@ -780,6 +789,59 @@ export type WeeklyObjective = {
   weekKey: string;
   quest: Quest;
   progress: QuestProgress;
+};
+
+// ── Monthly Calisthenics Challenges ─────────────────────────────────────────
+
+/** A single prescribed set within a challenge day. */
+export type ChallengeSet = {
+  reps: number;
+  /** Optional per-set rest override in seconds. Defaults to day rest if absent. */
+  restSeconds?: number;
+};
+
+/** A day in a monthly challenge — either a workout day or a rest day. */
+export type ChallengeDay = {
+  dayNumber: number;              // 1-indexed (1..totalDays)
+  isRest: boolean;
+  sets?: ChallengeSet[];          // omitted on rest days
+  totalReps?: number;             // convenience sum of all set reps
+};
+
+/** Static definition of a monthly challenge (lives in lib/challengeCatalog). */
+export type ChallengeDefinition = {
+  id: string;                     // e.g. "pushup-ladder-30"
+  title: string;                  // e.g. "30-Day Push-Up Ladder"
+  tagline: string;                // short hook
+  description: string;            // multi-sentence intro
+  exerciseName: string;           // canonical name e.g. "Push-Up"
+  equipment: string;              // "bodyweight" etc.
+  targetMuscles: string[];        // ["chest","triceps"] etc.
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  totalDays: number;              // e.g. 30
+  defaultRestSeconds: number;     // between sets
+  schedule: ChallengeDay[];       // totalDays entries
+};
+
+/** Per-user progress on an active challenge (persisted to AsyncStorage). */
+export type ChallengeProgress = {
+  challengeId: string;
+  startedAt: string;              // ISO timestamp when user joined
+  completedDays: number[];        // dayNumbers completed (workout days only)
+  skippedRestDays: number[];      // rest dayNumbers the user has acknowledged
+  lastAdvancedAt: string;         // ISO of last day advance
+  currentDayNumber: number;       // next day to attempt (1..totalDays)
+  /** "YYYY-MM-DD" local-date of the last day marked complete. Used to lock
+   *  the next day until midnight so users can't speed-run the challenge. */
+  lastCompletedDate?: string;
+};
+
+/** Archived completed challenge (kept for history badges). */
+export type CompletedChallenge = {
+  challengeId: string;
+  startedAt: string;
+  completedAt: string;
+  totalDaysCompleted: number;
 };
 
 export type CosmeticRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'prestige';
