@@ -291,6 +291,8 @@ type TodayWorkoutCardProps = {
   /** null = has next day | true = active session | false = today done (calendar lock) */
   ctaState: "start" | "resume" | "today_done" | "plan_done";
   onStart: () => void;
+  onQuick: () => void;
+  onNewPlan: () => void;
 };
 
 const TodayWorkoutCard = React.memo(function TodayWorkoutCard({
@@ -302,17 +304,19 @@ const TodayWorkoutCard = React.memo(function TodayWorkoutCard({
   totalDayCount,
   ctaState,
   onStart,
+  onQuick,
+  onNewPlan,
 }: TodayWorkoutCardProps) {
   const { theme } = useAppTheme();
   const planProgress = totalDayCount > 0 ? completedDayCount / totalDayCount : 0;
 
   const ctaLabel =
-    ctaState === "resume"     ? "Resume Session"  :
-    ctaState === "today_done" ? "Today Complete"  :
-    ctaState === "plan_done"  ? "Plan Complete"   :
+    ctaState === "resume"     ? "Resume Session"    :
+    ctaState === "today_done" ? "Today Complete"    :
+    ctaState === "plan_done"  ? "Start New Plan"    :
                                 "Start Today's Session";
 
-  const ctaDisabled = ctaState === "today_done" || ctaState === "plan_done";
+  const ctaDisabled = ctaState === "today_done";
 
   const subtitle =
     week && day
@@ -370,10 +374,19 @@ const TodayWorkoutCard = React.memo(function TodayWorkoutCard({
       <View style={styles.workoutCardBtnWrap}>
         <Button
           label={ctaLabel}
-          onPress={onStart}
+          onPress={ctaState === "plan_done" ? onNewPlan : onStart}
           disabled={ctaDisabled}
         />
       </View>
+      <Pressable
+        style={styles.quickHuntLink}
+        onPress={onQuick}
+        accessibilityRole="button"
+        accessibilityLabel="Start a quick workout"
+      >
+        <Ionicons name="flash-outline" size={14} color={theme.colors.muted} />
+        <Text style={[styles.quickHuntText, { color: theme.colors.muted }]}>Quick Hunt</Text>
+      </Pressable>
     </View>
   );
 });
@@ -551,6 +564,11 @@ function detectRecentPR(workouts: ReturnType<typeof useWorkouts>["workouts"]): b
   return !!last.prAwarded;
 }
 
+// ── Plan celebration guard ─────────────────────────────────────────────────────
+// Module-level so it survives component remounts (e.g. navigating back from plan-complete).
+// Stores the planName for which the celebration was already shown this session.
+let _planCelebrationShownFor: string | null = null;
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -580,6 +598,7 @@ export default function HomeScreen() {
     completedDays,
     isPlanComplete,
     totalPlanDays,
+    clearPlan,
   } = usePlanContext();
   const { pendingGifts, claim: claimGift } = useGifts();
   const { notifications, unreadCount, markRead: markNotifRead, markAllRead: markAllNotifsRead } = useNotifications();
@@ -591,6 +610,8 @@ export default function HomeScreen() {
   const onboardingCheckDone = useRef(false);
   const planCelebrationShown = useRef(false);
   const isFirstFocus        = useRef(true);
+  // Module-level guard: survives component remounts within the same JS session.
+  // Prevents plan-complete from firing again when the user navigates back to home.
 
   // ── Resume interrupted cardio session ───────────────────────────────────────
   const cardioResumeChecked = useRef(false);
@@ -703,12 +724,17 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!gateReady) return;
-    if (!isPlanComplete || planCelebrationShown.current) return;
+    if (!isPlanComplete) return;
+    const key = planName || "Your Plan";
+    // Guard against re-firing on remount: check both the ref (current render cycle)
+    // and the module-level variable (survives remounts within the same JS session).
+    if (planCelebrationShown.current || _planCelebrationShownFor === key) return;
     planCelebrationShown.current = true;
+    _planCelebrationShownFor = key;
     router.push({
       pathname: "/plan-complete",
       params: {
-        planName:      planName || "Your Plan",
+        planName:      key,
         totalDays:     String(totalPlanDays),
         totalSessions: String(workouts.filter((w) => !!w.completedAt).length),
       },
@@ -975,6 +1001,8 @@ export default function HomeScreen() {
             totalDayCount={totalPlanDays}
             ctaState={ctaState}
             onStart={handleStartSession}
+            onQuick={() => router.push("/start-session")}
+            onNewPlan={() => { clearPlan(); router.push("/plan"); }}
           />
         ) : (
           <NoPlanCard
@@ -1333,6 +1361,8 @@ const styles = StyleSheet.create({
   },
   planProgressFill: { height: "100%", borderRadius: 999, minWidth: 4 },
   workoutCardBtnWrap: { marginTop: 16 },
+  quickHuntLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 12, paddingVertical: 4 },
+  quickHuntText: { fontSize: 13, fontWeight: "500" as const },
   noPlanBtns: { gap: 8 },
 
   // Baseline CTA

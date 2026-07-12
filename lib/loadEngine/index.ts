@@ -3,12 +3,33 @@ import type {
   UserProfile,
   WorkoutSession,
 } from "../types";
-import { classifyExercise } from "./classifier";
+import { classifyExercise, getExerciseEquipment } from "./classifier";
+
+/**
+ * Dumbbell exercises that use a SINGLE dumbbell held with both hands.
+ * These should NOT have their weight halved (they are not paired per-hand exercises).
+ */
+const SINGLE_DUMBBELL_IDS = new Set([
+  "goblet_squat",
+  "dumbbell_pullover",
+  "db_pullover",
+]);
+
+/**
+ * Returns true if this exercise is a paired dumbbell exercise
+ * (one dumbbell in each hand) and the calculated weight should be
+ * divided by 2 to give the per-hand display weight.
+ */
+function isPairedDumbbell(exerciseName: string, catalogId: string | undefined): boolean {
+  const equipment = getExerciseEquipment(exerciseName);
+  if (equipment !== 'dumbbell') return false;
+  if (catalogId && SINGLE_DUMBBELL_IDS.has(catalogId)) return false;
+  return true;
+}
 import {
   get1RM,
   calculateWorkingWeight,
   buildWarmUpSets,
-  buildWarmUpsFromWorkingWeight,
   getLastUsedWeight,
   applyRPEProgression,
   roundToPlate,
@@ -78,8 +99,14 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
   const prescription = getWeekPrescription(weekNumber, compound, classification.pattern);
   const unit = profile.weightUnit ?? "kg";
 
+  // Bodyweight exercises (pull-ups, dips, push-ups, etc.) should never have
+  // a weight auto-filled from 1RM or pattern estimates — the weight field stays
+  // empty so users can optionally add load (belt, vest) themselves.
+  // History (Tier 2) still works so weighted reps from past sessions carry forward.
+  const isBodyweight = getExerciseEquipment(exerciseName) === "bodyweight";
+
   // ── Tier 1: ORM-based ───────────────────────────────────────────────────
-  if (classification.baseLift && classification.confidence >= 0.5) {
+  if (!isBodyweight && classification.baseLift && classification.confidence >= 0.5) {
     const orm = get1RM(profile, classification.baseLift);
     if (orm !== null) {
       const workingWeight = calculateWorkingWeight(
@@ -90,22 +117,26 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
       );
 
       if (workingWeight !== null && workingWeight > 0) {
+        const paired = isPairedDumbbell(exerciseName, classification.catalogId ?? undefined);
+        const displayWeight = paired ? roundToPlate(workingWeight / 2, unit) : workingWeight;
+
         const warmUps = plannedWarmUpCount > 0
-          ? buildWarmUpSets(orm, classification.modifier.fraction, prescription.intensity, unit, plannedWarmUpCount)
+          ? buildWarmUpSets({ workingWeight: displayWeight, unit, count: plannedWarmUpCount, targetReps, exerciseName })
           : [];
 
         const workingSets = Array.from({ length: workingSetCount }, () => ({
-          weight: String(workingWeight),
+          weight: String(displayWeight),
           reps: targetReps,
         }));
 
         return {
-          workingWeight,
+          workingWeight: displayWeight,
           source: "orm",
           warmUps,
           workingSets,
           targetRPE: prescription.rpe,
           classification,
+          perHand: paired || undefined,
         };
       }
     }
@@ -119,7 +150,7 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
       const adjusted = applyRPEProgression(lastNum, prescription.rpe, unit);
 
       const warmUps = plannedWarmUpCount > 0
-        ? buildWarmUpsFromWorkingWeight(adjusted, unit, plannedWarmUpCount)
+        ? buildWarmUpSets({ workingWeight: adjusted, unit, count: plannedWarmUpCount, targetReps, exerciseName })
         : [];
 
       const workingSets = Array.from({ length: workingSetCount }, () => ({
@@ -139,29 +170,33 @@ export function resolveExerciseLoad(params: ResolveExerciseLoadParams): Exercise
   }
 
   // ── Tier 3: Smart pattern/cross-lift/bodyweight estimation ──────────────
-  // Conditioning exercises (treadmill, bike, etc.) have no weight — skip estimation
-  if (classification.pattern !== "conditioning") {
+  // Conditioning and bodyweight exercises have no auto-fill weight — skip estimation
+  if (!isBodyweight && classification.pattern !== "conditioning") {
     // Use block-aware intensity scaling for the estimate
     const blockMultiplier = getBlockIntensityMultiplier(weekNumber);
     const estimate = estimatePatternWeight(profile, classification.pattern, blockMultiplier);
 
     if (estimate !== null && estimate.weight > 0) {
+      const paired = isPairedDumbbell(exerciseName, classification.catalogId ?? undefined);
+      const displayWeight = paired ? roundToPlate(estimate.weight / 2, unit) : estimate.weight;
+
       const warmUps = plannedWarmUpCount > 0
-        ? buildWarmUpsFromWorkingWeight(estimate.weight, unit, plannedWarmUpCount)
+        ? buildWarmUpSets({ workingWeight: displayWeight, unit, count: plannedWarmUpCount, targetReps, exerciseName })
         : [];
 
       const workingSets = Array.from({ length: workingSetCount }, () => ({
-        weight: String(estimate.weight),
+        weight: String(displayWeight),
         reps: targetReps,
       }));
 
       return {
-        workingWeight: estimate.weight,
-        source: "rpe-estimate", // closest semantic source — it's an estimate
+        workingWeight: displayWeight,
+        source: "rpe-estimate",
         warmUps,
         workingSets,
         targetRPE: prescription.rpe,
         classification,
+        perHand: paired || undefined,
       };
     }
   }

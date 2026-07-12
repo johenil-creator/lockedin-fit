@@ -5,6 +5,7 @@ export type SetEntry = {
   weight: string;
   completed: boolean;
   isWarmUp?: boolean;
+  side?: 'L' | 'R';
 };
 
 // ── Exercise Feedback ───────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ export type SessionExercise = {
   matchedModifier?: number;
   equipment?: string;  // catalog equipment type (barbell, bodyweight, etc.)
   feedback?: ExerciseFeedback;  // user-reported post-exercise feedback
+  isUnilateral?: boolean;
 };
 
 export type WorkoutSession = {
@@ -64,6 +66,8 @@ export type WorkoutSession = {
   // ── Idempotency flags ─────────────────────────────────────────────────────
   prAwarded?: boolean;
   badgesUnlocked?: string[];         // badge IDs already awarded for this session
+  // ── Challenge link ────────────────────────────────────────────────────────
+  challengeId?: string;              // set when session was started from a 30-day challenge
 };
 
 export type Exercise = {
@@ -77,6 +81,8 @@ export type Exercise = {
   warmUpSets?: string;
   restTime?: string;
   notes?: string;
+  isUnilateral?: boolean;
+  side?: 'L' | 'R' | null;
 };
 
 export type ProgressionRule = {
@@ -370,6 +376,8 @@ export type ExerciseLoadResult = {
   workingSets: { weight: string; reps: string }[];
   targetRPE: number;
   classification: ExerciseClassification;
+  /** True when workingWeight is per-hand (paired dumbbell exercise). UI should show "(each)". */
+  perHand?: boolean;
 };
 
 // ── Social & Customization ──────────────────────────────────────────────────

@@ -54,6 +54,7 @@ export interface ExerciseCatalogEntry {
   primaryMuscles: MuscleGroup[];
   secondaryMuscles: MuscleGroup[];
   equipment: Equipment;
+  isUnilateral?: boolean;
   anchorLift?: BaseLift;
   modifier?: number;
   cues?: string[];

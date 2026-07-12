@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   impact,
@@ -22,13 +22,20 @@ type Props = {
     surface: string;
     success: string;
     accent: string;
+    danger: string;
   };
   onComplete: (actualSeconds: number) => void;
+  /** Called when the timer starts. `timerTarget` is 0 for countup mode. */
+  onTimerStart?: (timerTarget: number) => void;
+  /** Called each second while running. `remaining` is 0 in countup mode. */
+  onTick?: (remaining: number, elapsed: number) => void;
+  /** Called when the timer pauses, stops early, or auto-completes. */
+  onTimerStop?: () => void;
 };
 
 type TimerState = "idle" | "running" | "paused" | "completed";
 
-/* ─── helpers ─── */
+/* --- helpers --- */
 
 function formatTime(secs: number): string {
   const m = Math.floor(secs / 60);
@@ -38,8 +45,9 @@ function formatTime(secs: number): string {
 
 /** Preset options for the inline time picker */
 const TIME_PRESETS = [10, 15, 20, 30, 45, 60, 90, 120];
+const NUDGE_STEP = 5;
 
-/* ─── component ─── */
+/* --- component --- */
 
 function TimedSetInputInner({
   targetSeconds,
@@ -48,37 +56,50 @@ function TimedSetInputInner({
   isFutureSet,
   colors,
   onComplete,
+  onTimerStart,
+  onTick,
+  onTimerStop,
 }: Props) {
-  const target = targetSeconds || 60;
+  const isCountup = targetSeconds === 0;
+  const target = isCountup ? 0 : targetSeconds || 60;
 
-  // Stable callback ref — never causes effect re-runs
+  // Stable callback refs -- never cause effect re-runs
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const onTimerStartRef = useRef(onTimerStart);
+  onTimerStartRef.current = onTimerStart;
+  const onTickRef = useRef(onTick);
+  onTickRef.current = onTick;
+  const onTimerStopRef = useRef(onTimerStop);
+  onTimerStopRef.current = onTimerStop;
 
   const [timerState, setTimerState] = useState<TimerState>(
     completed ? "completed" : "idle"
   );
-  const [remaining, setRemaining] = useState(target);
-  const [adjustedTarget, setAdjustedTarget] = useState(target);
+  const [remaining, setRemaining] = useState(isCountup ? 0 : target);
+  const [adjustedTarget, setAdjustedTarget] = useState(isCountup ? 0 : target);
   const [actualElapsed, setActualElapsed] = useState(0);
   const [showPicker, setShowPicker] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
 
+  // Urgency pulse animation
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+  const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
   // Sync target when it changes externally and timer is idle
   useEffect(() => {
-    if (timerState === "idle") {
+    if (timerState === "idle" && !isCountup) {
       setAdjustedTarget(target);
       setRemaining(target);
     }
-  }, [target, timerState]);
+  }, [target, timerState, isCountup]);
 
-  // Sync completed prop from parent (e.g. checkmark tapped while running/paused)
+  // Sync completed prop from parent
   useEffect(() => {
     if (completed && timerState !== "completed") {
       clearTimer();
-      // If timer was running or paused, record the actual elapsed time
       if ((timerState === "running" || timerState === "paused") && actualElapsed > 0) {
         onCompleteRef.current(actualElapsed);
       }
@@ -86,30 +107,90 @@ function TimedSetInputInner({
     }
   }, [completed]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Core timer — only depends on timerState
+  // Urgency pulse: when countdown has <= 3 seconds remaining
+  useEffect(() => {
+    if (!isCountup && timerState === "running" && remaining <= 3 && remaining > 0) {
+      if (!pulseLoopRef.current) {
+        pulseLoopRef.current = Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: false,
+            }),
+            Animated.timing(pulseAnim, {
+              toValue: 0,
+              duration: 300,
+              useNativeDriver: false,
+            }),
+          ])
+        );
+        pulseLoopRef.current.start();
+      }
+    } else {
+      if (pulseLoopRef.current) {
+        pulseLoopRef.current.stop();
+        pulseLoopRef.current = null;
+        pulseAnim.setValue(0);
+      }
+    }
+  }, [timerState, remaining, isCountup, pulseAnim]);
+
+  // Cleanup pulse on unmount
+  useEffect(() => {
+    return () => {
+      if (pulseLoopRef.current) {
+        pulseLoopRef.current.stop();
+        pulseLoopRef.current = null;
+      }
+    };
+  }, []);
+
+  // Core timer
   useEffect(() => {
     if (timerState === "running") {
       startTimeRef.current = Date.now();
-      intervalRef.current = setInterval(() => {
-        setRemaining((prev) => {
-          if (prev <= 1) {
-            // Timer finished naturally
-            clearInterval(intervalRef.current!);
-            intervalRef.current = null;
-            notification(NotificationType.Success);
+
+      if (isCountup) {
+        // Count UP mode
+        intervalRef.current = setInterval(() => {
+          setActualElapsed((el) => {
+            const next = el + 1;
+            if (next % 10 === 0) impact(ImpactStyle.Light);
+            onTickRef.current?.(0, next);
+            return next;
+          });
+        }, 1000);
+      } else {
+        // Count DOWN mode
+        intervalRef.current = setInterval(() => {
+          setRemaining((prev) => {
+            if (prev <= 1) {
+              clearInterval(intervalRef.current!);
+              intervalRef.current = null;
+              notification(NotificationType.Success);
+              setActualElapsed((el) => {
+                const finalElapsed = el + 1;
+                onCompleteRef.current(finalElapsed);
+                onTimerStopRef.current?.();
+                return finalElapsed;
+              });
+              setTimerState("completed");
+              return 0;
+            }
+            const next = prev - 1;
+            if (next === 3) impact(ImpactStyle.Light);
+            else if (next === 2) impact(ImpactStyle.Medium);
+            else if (next === 1) impact(ImpactStyle.Heavy);
             setActualElapsed((el) => {
-              const finalElapsed = el + 1;
-              // Fire completion with full target (ran to zero)
-              onCompleteRef.current(finalElapsed);
-              return finalElapsed;
+              const nextEl = el + 1;
+              onTickRef.current?.(next, nextEl);
+              return nextEl;
             });
-            setTimerState("completed");
-            return 0;
-          }
-          setActualElapsed((el) => el + 1);
-          return prev - 1;
-        });
-      }, 1000);
+            return next;
+          });
+        }, 1000);
+      }
     }
 
     return () => {
@@ -127,27 +208,36 @@ function TimedSetInputInner({
     }
   }, []);
 
-  /* ─── actions ─── */
+  /* --- actions --- */
 
   const handlePlay = useCallback(() => {
     if (completed || isFutureSet || locked) return;
     impact(ImpactStyle.Medium);
     if (timerState === "paused") {
-      // Resume — keep remaining and elapsed as-is
       setTimerState("running");
     } else {
-      // Fresh start
       setActualElapsed(0);
-      setRemaining(adjustedTarget);
+      if (!isCountup) setRemaining(adjustedTarget);
+      onTimerStartRef.current?.(isCountup ? 0 : adjustedTarget);
       setTimerState("running");
     }
-  }, [completed, isFutureSet, locked, adjustedTarget, timerState]);
+  }, [completed, isFutureSet, locked, adjustedTarget, timerState, isCountup]);
 
   const handlePause = useCallback(() => {
     impact(ImpactStyle.Light);
     clearTimer();
+    onTimerStopRef.current?.();
     setTimerState("paused");
   }, [clearTimer]);
+
+  const handleStop = useCallback(() => {
+    impact(ImpactStyle.Medium);
+    clearTimer();
+    notification(NotificationType.Success);
+    onCompleteRef.current(actualElapsed);
+    onTimerStopRef.current?.();
+    setTimerState("completed");
+  }, [clearTimer, actualElapsed]);
 
   const handleTimeAdjust = useCallback(
     (seconds: number) => {
@@ -160,52 +250,102 @@ function TimedSetInputInner({
     [timerState]
   );
 
+  const handleNudge = useCallback(
+    (delta: number) => {
+      if (timerState !== "idle" || isCountup) return;
+      impact(ImpactStyle.Light);
+      setAdjustedTarget((prev) => {
+        const next = Math.max(NUDGE_STEP, prev + delta);
+        setRemaining(next);
+        return next;
+      });
+    },
+    [timerState, isCountup]
+  );
+
   const togglePicker = useCallback(() => {
-    if (timerState !== "idle" || isFutureSet || locked) return;
+    if (timerState !== "idle" || isFutureSet || locked || isCountup) return;
     impact(ImpactStyle.Light);
     setShowPicker((prev) => !prev);
-  }, [timerState, isFutureSet, locked]);
+  }, [timerState, isFutureSet, locked, isCountup]);
 
-  /* ─── render: completed ─── */
+  // Interpolated color for urgency pulse
+  const urgencyColor = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.primary, colors.danger],
+  });
+
+  /* --- render: completed --- */
 
   if (timerState === "completed" || completed) {
-    const displayTime = actualElapsed > 0 ? actualElapsed : target;
-    const ranFull = actualElapsed >= adjustedTarget;
+    const displayTime = actualElapsed > 0 ? actualElapsed : (isCountup ? 0 : target);
+    const ranFull = isCountup || actualElapsed >= adjustedTarget;
     return (
       <View style={[styles.container, { backgroundColor: colors.mutedBg }]}>
         <View style={styles.content}>
-          <Text style={[styles.timeText, { color: colors.success }]}>
-            {formatTime(displayTime)}
-          </Text>
-          {!ranFull && actualElapsed > 0 && (
-            <Text style={[styles.subtargetText, { color: colors.muted }]}>
-              / {formatTime(adjustedTarget)}
+          <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+          {ranFull || actualElapsed === 0 ? (
+            // Full completion or externally marked complete: single green time
+            <Text style={[styles.timeText, { color: colors.success }]}>
+              {formatTime(displayTime)}
             </Text>
+          ) : (
+            // Stopped early: achieved / target in muted tones
+            <>
+              <Text style={[styles.timeText, { color: colors.text }]}>
+                {formatTime(displayTime)}
+              </Text>
+              <Text style={[styles.subtargetText, { color: colors.muted }]}>
+                / {formatTime(adjustedTarget)}
+              </Text>
+            </>
           )}
         </View>
       </View>
     );
   }
 
-  /* ─── render: future / locked ─── */
+  /* --- render: future / locked --- */
 
   if (isFutureSet || locked) {
     return (
       <View style={[styles.container, { backgroundColor: colors.mutedBg }]}>
         <View style={styles.content}>
           <Text style={[styles.timeText, { color: colors.muted }]}>
-            {formatTime(adjustedTarget)}
+            {isCountup ? "Max" : formatTime(adjustedTarget)}
           </Text>
         </View>
       </View>
     );
   }
 
-  /* ─── render: running ─── */
+  /* --- render: running --- */
 
   if (timerState === "running") {
+    if (isCountup) {
+      // Countup running: show elapsed time + stop button
+      return (
+        <View
+          style={[
+            styles.container,
+            styles.runningContainer,
+            { backgroundColor: colors.mutedBg, borderColor: colors.primary },
+          ]}
+        >
+          <Pressable onPress={handleStop} style={styles.runningContent}>
+            <Ionicons name="stop" size={16} color={colors.primary} />
+            <Text style={[styles.countdownText, { color: colors.primary }]}>
+              {formatTime(actualElapsed)}
+            </Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    // Countdown running
     const elapsed = adjustedTarget - remaining;
     const progress = adjustedTarget > 0 ? elapsed / adjustedTarget : 0;
+    const isUrgent = remaining <= 3 && remaining > 0;
 
     return (
       <View
@@ -228,17 +368,43 @@ function TimedSetInputInner({
 
         <Pressable onPress={handlePause} style={styles.runningContent}>
           <Ionicons name="pause" size={16} color={colors.primary} />
-          <Text style={[styles.countdownText, { color: colors.primary }]}>
-            {formatTime(remaining)}
-          </Text>
+          {isUrgent ? (
+            <Animated.Text
+              style={[styles.countdownText, { color: urgencyColor }]}
+            >
+              {formatTime(remaining)}
+            </Animated.Text>
+          ) : (
+            <Text style={[styles.countdownText, { color: colors.primary }]}>
+              {formatTime(remaining)}
+            </Text>
+          )}
         </Pressable>
       </View>
     );
   }
 
-  /* ─── render: paused ─── */
+  /* --- render: paused --- */
 
   if (timerState === "paused") {
+    if (isCountup) {
+      return (
+        <View style={[styles.container, { backgroundColor: colors.mutedBg }]}>
+          <View style={styles.runningContent}>
+            <Pressable onPress={handlePlay} style={styles.pausedBtnGroup}>
+              <Ionicons name="play" size={16} color={colors.accent} />
+              <Text style={[styles.countdownText, { color: colors.text }]}>
+                {formatTime(actualElapsed)}
+              </Text>
+            </Pressable>
+            <Pressable onPress={handleStop} hitSlop={8}>
+              <Ionicons name="stop-circle" size={22} color={colors.primary} />
+            </Pressable>
+          </View>
+        </View>
+      );
+    }
+
     const elapsed = adjustedTarget - remaining;
     const progress = adjustedTarget > 0 ? elapsed / adjustedTarget : 0;
 
@@ -263,8 +429,29 @@ function TimedSetInputInner({
     );
   }
 
-  /* ─── render: idle ─── */
+  /* --- render: idle --- */
 
+  if (isCountup) {
+    // Countup idle: play button + "Start" label
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={[styles.container, { backgroundColor: colors.mutedBg }]}>
+          <View style={styles.idleContent}>
+            <Pressable
+              onPress={handlePlay}
+              style={[styles.playBtn, { backgroundColor: colors.primary + "20" }]}
+              hitSlop={8}
+            >
+              <Ionicons name="play" size={16} color={colors.primary} />
+            </Pressable>
+            <Text style={[styles.timeText, { color: colors.muted }]}>Start</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // Countdown idle
   return (
     <View style={{ flex: 1 }}>
       <View style={[styles.container, { backgroundColor: colors.mutedBg }]}>
@@ -278,21 +465,22 @@ function TimedSetInputInner({
             <Ionicons name="play" size={16} color={colors.primary} />
           </Pressable>
 
-          {/* Tappable time — opens picker, does NOT start timer */}
-          <Pressable onPress={togglePicker} hitSlop={4}>
+          {/* Tappable time — opens preset picker */}
+          <Pressable onPress={togglePicker} hitSlop={6} style={styles.idleTimeBtn}>
             <Text
               style={[
                 styles.timeText,
-                {
-                  color: colors.text,
-                  textDecorationLine: "underline",
-                  textDecorationColor: colors.muted,
-                  textDecorationStyle: "dotted",
-                },
+                { color: colors.text },
               ]}
             >
               {formatTime(adjustedTarget)}
             </Text>
+            <Ionicons
+              name={showPicker ? "chevron-up" : "chevron-down"}
+              size={12}
+              color={colors.muted}
+              style={{ marginLeft: 2 }}
+            />
           </Pressable>
         </View>
       </View>
@@ -338,7 +526,7 @@ function TimedSetInputInner({
   );
 }
 
-/* ─── memo ─── */
+/* --- memo --- */
 
 export const TimedSetInput = React.memo(TimedSetInputInner, (prev, next) => {
   return (
@@ -347,11 +535,11 @@ export const TimedSetInput = React.memo(TimedSetInputInner, (prev, next) => {
     prev.locked === next.locked &&
     prev.isFutureSet === next.isFutureSet &&
     prev.colors === next.colors
-    // onComplete intentionally excluded — stored in ref
+    // onComplete, onTimerStart, onTick, onTimerStop intentionally excluded -- stored in refs
   );
 });
 
-/* ─── styles ─── */
+/* --- styles --- */
 
 const styles = StyleSheet.create({
   container: {
@@ -359,7 +547,7 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
     borderRadius: 10,
-    height: 44,
+    height: 48,
     marginRight: 12,
     justifyContent: "center",
   },
@@ -385,8 +573,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 8,
+  },
+  idleTimeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   runningContent: {
     flex: 1,
@@ -395,6 +588,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     paddingHorizontal: 8,
+  },
+  pausedBtnGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   playBtn: {
     width: 30,

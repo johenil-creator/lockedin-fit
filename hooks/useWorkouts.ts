@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { WorkoutSession, Exercise, UserProfile } from "../lib/types";
 import { loadWorkouts, saveWorkouts } from "../lib/storage";
 import { resolveExerciseLoad } from "../lib/loadEngine";
+import { isExerciseUnilateral } from "../lib/loadEngine/classifier";
 import { makeId } from "../lib/helpers";
 
 export function useWorkouts() {
@@ -128,30 +129,41 @@ export function useWorkouts() {
                 })
               : null;
 
-            let warmUpEntries: { reps: string; weight: string; completed: boolean; isWarmUp: true }[];
-            if (load && load.warmUps.length > 0) {
-              warmUpEntries = load.warmUps.map((wu) => ({
-                reps: wu.reps,
-                weight: wu.weight,
-                completed: false,
-                isWarmUp: true as const,
-              }));
-            } else {
-              warmUpEntries = Array.from({ length: plannedWarmUpCount }, () => ({
-                reps: "",
-                weight: "",
-                completed: false,
-                isWarmUp: true as const,
-              }));
-            }
+            const isUnilateral = isExerciseUnilateral(ex.exercise);
 
-            let workingSets: { reps: string; weight: string; completed: boolean }[];
+            type WarmUpEntry = { reps: string; weight: string; completed: boolean; isWarmUp: true; side?: 'L' | 'R' };
+            let warmUpEntries: WarmUpEntry[];
+            const bilateralWarmUps: WarmUpEntry[] = (load && load.warmUps.length > 0)
+              ? load.warmUps.map((wu) => ({ reps: wu.reps, weight: wu.weight, completed: false, isWarmUp: true as const }))
+              : Array.from({ length: plannedWarmUpCount }, () => ({ reps: "", weight: "", completed: false, isWarmUp: true as const }));
+            warmUpEntries = isUnilateral
+              ? bilateralWarmUps.flatMap((wu) => [
+                  { ...wu, side: 'L' as const },
+                  { ...wu, side: 'R' as const },
+                ])
+              : bilateralWarmUps;
+
+            let workingSets: { reps: string; weight: string; completed: boolean; side?: 'L' | 'R' }[];
             if (load && load.workingSets.length > 0) {
-              workingSets = load.workingSets.map((ws) => ({
+              const resolvedSets = load.workingSets.map((ws) => ({
                 reps: ws.reps,
                 weight: ws.weight,
                 completed: false,
               }));
+              if (isUnilateral) {
+                workingSets = resolvedSets.flatMap((ws) => [
+                  { ...ws, side: 'L' as const },
+                  { ...ws, side: 'R' as const },
+                ]);
+              } else {
+                workingSets = resolvedSets;
+              }
+            } else if (isUnilateral) {
+              // Create paired L/R sets: [L1, R1, L2, R2, L3, R3, ...]
+              workingSets = Array.from({ length: workingSetCount }, () => [
+                { reps: targetReps, weight: "", completed: false, side: 'L' as const },
+                { reps: targetReps, weight: "", completed: false, side: 'R' as const },
+              ]).flat();
             } else {
               // No autofill — load engine will fill when 1RM data is available
               workingSets = Array.from({ length: workingSetCount }, () => ({
@@ -167,13 +179,14 @@ export function useWorkouts() {
               sets: [...warmUpEntries, ...workingSets],
               warmUpSets: warmUpEntries.length,
               restTime:   parseInt(ex.restTime ?? "90", 10) || 90,
-              notes:      ex.notes ?? "",
+              notes:      ex.comments || ex.notes || "",
               loadSource: load?.source,
               targetRPE:  load?.targetRPE,
               catalogId:       load?.classification.catalogId ?? undefined,
               matchedPattern:  load?.classification.pattern,
               matchedAnchor:   load?.classification.baseLift ?? undefined,
               matchedModifier: load?.classification.modifier.fraction,
+              isUnilateral:    isUnilateral || undefined,
             };
           }),
         };
@@ -225,9 +238,28 @@ export function useWorkouts() {
                 })
               : null;
 
-            const workingSets = load && load.workingSets.length > 0
-              ? load.workingSets.map((ws) => ({ reps: ws.reps, weight: ws.weight, completed: false }))
-              : Array.from({ length: workingSetCount }, () => ({ reps: targetReps, weight: "", completed: false }));
+            const isUnilateral = isExerciseUnilateral(ex.exercise);
+
+            let workingSets: { reps: string; weight: string; completed: boolean; side?: 'L' | 'R' }[];
+            if (load && load.workingSets.length > 0) {
+              const resolvedSets = load.workingSets.map((ws) => ({ reps: ws.reps, weight: ws.weight, completed: false }));
+              if (isUnilateral) {
+                workingSets = resolvedSets.flatMap((ws) => [
+                  { ...ws, side: 'L' as const },
+                  { ...ws, side: 'R' as const },
+                ]);
+              } else {
+                workingSets = resolvedSets;
+              }
+            } else if (isUnilateral) {
+              // Create paired L/R sets: [L1, R1, L2, R2, L3, R3, ...]
+              workingSets = Array.from({ length: workingSetCount }, () => [
+                { reps: targetReps, weight: "", completed: false, side: 'L' as const },
+                { reps: targetReps, weight: "", completed: false, side: 'R' as const },
+              ]).flat();
+            } else {
+              workingSets = Array.from({ length: workingSetCount }, () => ({ reps: targetReps, weight: "", completed: false }));
+            }
 
             return {
               exerciseId: makeId(),
@@ -242,6 +274,7 @@ export function useWorkouts() {
               matchedPattern: load?.classification.pattern,
               matchedAnchor: load?.classification.baseLift ?? undefined,
               matchedModifier: load?.classification.modifier.fraction,
+              isUnilateral: isUnilateral || undefined,
             };
           }),
         };

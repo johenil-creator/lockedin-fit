@@ -136,17 +136,157 @@ const TIMED_IDS = new Set([
   "hollow_hold",
   "back_extension_hold",
   "copenhagen_plank",
+  "front_lever",
+  "tuck_planche",
+  "planche_lean",
+  "wall_handstand_hold",
+]);
+
+/**
+ * Catalog IDs that are definitively reps-based exercises whose names might
+ * otherwise trigger a false-positive match in TIMED_PATTERNS.
+ *
+ * Example: "Hollow Rock" contains the word "hollow" which matches the
+ * TIMED_PATTERNS \bhollow\b token, but the exercise is counted in reps.
+ */
+const REPS_IDS = new Set([
+  "hollow_rock",       // reps — "hollow" word triggers false-positive pattern match
+  "tuck_dragon_flag",  // reps — explicitly listed for clarity
+  "windshield_wipers", // reps
+  "v_ups",             // reps
+  "front_lever_raise", // reps — dynamic raise and lower from hang, not a static hold
+]);
+
+const UNILATERAL_IDS = new Set([
+  // Timed + unilateral (isometric holds, one side at a time)
+  'side_plank',
+  'copenhagen_plank',
+  // Reps + unilateral (strength exercises, one side at a time)
+  'pistol_squat',
+  'shrimp_squat',
+  'skater_squat',
+  'single_leg_back_extension',
+  'natural_leg_extension',        // single-leg variant
+  'bulgarian_split_squat',
+  'single_leg_dumbbell_rdl',
+  'single_leg_romanian_deadlift_db',
+  'single_leg_glute_bridge',
+  'single_leg_leg_curl',
+  'leg_curl_single_leg',
+  'leg_extension_single_leg',
+  'leg_press_single_leg',
+  'single_leg_glute_kickback',
+  'hip_thrust_single_leg',
+  'hip_thrust_b_stance',
+  'b_stance_dumbbell_rdl',
+  'kickstand_rdl',
+  'single_arm_row',
+  'dumbbell_row',
+  'row_dumbbell',
+  'meadows_row',
+  'kroc_row',
+  'landmine_press',
+  'single_arm_dumbbell_shoulder_press',
+  'single_arm_cable_curl',
+  'single_arm_lat_pulldown',
+  'lat_pulldown_single_arm',
+  'cable_row_single_arm',
+  'cable_lateral_raise',
+  'cable_tricep_kickback',
+  'tricep_extension_single_arm',
+  'lat_pulldown_half_kneeling',
+  'glute_kickback_cable',
+  'cable_glute_kickback',
+  'suitcase_carry',
+  'overhead_carry',
+  'waiter_walk',
 ]);
 
 /** Name patterns that indicate a timed/isometric exercise. */
-const TIMED_PATTERNS = /\b(plank|hold|iso(?:metric)?|l[- ]sit|dead\s*hang|wall\s*sit|hollow)\b/i;
+const TIMED_PATTERNS = /\b(plank|hold|iso(?:metric)?|l[- ]sit|dead\s*hang|wall\s*sit|hollow|planche|lever)\b/i;
 
 /**
  * Returns true if the exercise should use duration (seconds) instead of reps.
- * Checks catalog ID first (O(1)), then falls back to name pattern matching.
+ *
+ * Resolution order:
+ * 1. Catalog ID in TIMED_IDS → true  (highest confidence, explicit allow-list)
+ * 2. Catalog ID in REPS_IDS  → false (explicit deny-list blocks pattern false-positives)
+ * 3. TIMED_PATTERNS regex on name → pattern-based fallback for uncatalogued names
  */
 export function isExerciseTimed(name: string): boolean {
   const entry = nameIndex.get(name.toLowerCase().trim());
-  if (entry && TIMED_IDS.has(entry.id)) return true;
+  if (entry) {
+    if (TIMED_IDS.has(entry.id)) return true;
+    if (REPS_IDS.has(entry.id)) return false;
+  }
   return TIMED_PATTERNS.test(name);
+}
+
+/**
+ * Returns true if the exercise is unilateral (one side at a time).
+ *
+ * Resolution order:
+ * 1. Catalog ID in UNILATERAL_IDS → true  (explicit allow-list)
+ * 2. Catalog entry's isUnilateral field → true (catalog-level flag)
+ * 3. Pattern fallback on name for uncatalogued exercises
+ */
+export function isExerciseUnilateral(exerciseName: string): boolean {
+  const entry = nameIndex.get(exerciseName.toLowerCase().trim());
+  if (entry) {
+    // Check UNILATERAL_IDS by catalog id
+    if (UNILATERAL_IDS.has(entry.id)) return true;
+    // Check catalog's isUnilateral field if present
+    if ((entry as any).isUnilateral) return true;
+    return false;
+  }
+  // Pattern fallback for uncatalogued exercises
+  return /\bsingle[- ](leg|arm)\b|\bper\s*side\b|\bunilateral\b/i.test(exerciseName);
+}
+
+/**
+ * Parse a reps field that may contain a time expression and return the
+ * target duration in whole seconds.
+ *
+ * Examples:
+ * - "8s hold" → 8
+ * - "8s" → 8
+ * - "20-30s" → 20 (lower bound)
+ * - "max" → 0 (open-ended countup)
+ * - "0" → 0
+ * - "60" → 60 (plain number treated as seconds for timed exercises)
+ * - "" → 0
+ *
+ * Returns 0 as the default/fallback.
+ */
+export function getTimedTargetSeconds(repsStr: string): number {
+  const s = repsStr.trim().toLowerCase();
+  if (!s || s === "max") return 0;
+
+  // "20-30s" or "20-30" → take the lower bound
+  const rangeMatch = s.match(/^(\d+)\s*-\s*\d+/);
+  if (rangeMatch) return parseInt(rangeMatch[1], 10);
+
+  // "8s hold", "8s", "30 s" → extract leading number
+  const secMatch = s.match(/^(\d+)\s*s/);
+  if (secMatch) return parseInt(secMatch[1], 10);
+
+  // Plain number → treat as seconds
+  const plainMatch = s.match(/^(\d+)$/);
+  if (plainMatch) return parseInt(plainMatch[1], 10);
+
+  return 0;
+}
+
+/**
+ * Returns true when the reps string signals an open-ended max hold
+ * (countup mode).
+ *
+ * - "max" → true
+ * - "0" → true
+ * - "0s" → true
+ * - everything else → false
+ */
+export function isCountupMode(repsStr: string): boolean {
+  const s = repsStr.trim().toLowerCase();
+  return s === "max" || s === "0" || s === "0s";
 }

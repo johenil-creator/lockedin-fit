@@ -20,6 +20,23 @@ import type { MovementPattern } from "./types";
 import type { MuscleGroup, MuscleFatigueMap } from "./types";
 import type { WorkoutSession } from "./types";
 import { findExercise } from "../src/lib/exerciseMatch";
+import { isExerciseTimed } from "./loadEngine/classifier";
+
+// ── Side-suffix normalisation ─────────────────────────────────────────────────
+
+/**
+ * Matches common side suffixes appended to unilateral exercise names, e.g.:
+ *   "Copenhagen Plank Left"         → "Copenhagen Plank"
+ *   "Pistol Squat (Right)"          → "Pistol Squat"
+ *   "Single-Leg RDL [L]"            → "Single-Leg RDL"
+ *   "Lunge Right Leg"               → "Lunge"
+ *   "Bicep Curl L"                  → "Bicep Curl"
+ */
+const SIDE_SUFFIX_RE = /\s*[\(\[]\s*(left|right|l|r)\s*[\)\]]\s*$|\s+(left|right)\s*(leg|arm|side)?\s*$|\s+[LR]\s*$/i;
+
+function stripSideSuffix(name: string): string {
+  return name.replace(SIDE_SUFFIX_RE, '').trim();
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -120,7 +137,18 @@ export function getMusclesWorked(
   pattern: MovementPattern,
 ): MuscleGroups {
   // ── Step 1: Catalog lookup ───────────────────────────────────────────────
-  const entry = findExercise(exerciseName);
+  let entry = findExercise(exerciseName);
+
+  // If the exact name wasn't found, try stripping a side suffix so that
+  // "Copenhagen Plank Left" / "Pistol Squat (Right)" resolve to their
+  // catalog entries ("Copenhagen Plank" / "Pistol Squat").
+  if (!entry) {
+    const stripped = stripSideSuffix(exerciseName);
+    if (stripped !== exerciseName) {
+      entry = findExercise(stripped);
+    }
+  }
+
   if (entry) {
     return {
       // Safe cast: catalog MuscleGroup is a subset of recovery MuscleGroup
@@ -189,18 +217,47 @@ export function computeSessionFatigue(session: WorkoutSession): MuscleFatigueMap
     const rpe = Math.max(1, Math.min(10, exercise.feedback?.rpe ?? exercise.targetRPE ?? 7));
     const intensity = rpe / RPE_NEUTRAL;
 
-    for (const set of exercise.sets) {
-      // Skip incomplete sets and warm-up sets
-      if (!set.completed || set.isWarmUp) continue;
+    // Timed/isometric exercises: reps stores seconds held.
+    // Volume = sets × avgSecondsHeld × 0.5 (isometric TUT ~half fatigue vs dynamic reps).
+    const timed = isExerciseTimed(exercise.name);
 
-      const primaryLoad   = BASE_FATIGUE_PER_SET * intensity;
-      const secondaryLoad = primaryLoad * SECONDARY_CREDIT;
+    if (timed) {
+      const completedSets = exercise.sets.filter(s => s.completed && !s.isWarmUp);
+      if (completedSets.length === 0) continue;
+
+      const avgSecondsHeld = completedSets.reduce((sum, s) => sum + (parseInt(s.reps, 10) || 0), 0) / completedSets.length;
+      const timedVolume = completedSets.length * avgSecondsHeld * 0.5;
+      // Scale by intensity like normal sets, normalised per-set so the formula
+      // stays on the same 0-100 fatigue scale as dynamic exercises.
+      const perSetLoad = (timedVolume / completedSets.length) * (intensity / RPE_NEUTRAL);
+      const primaryLoad   = perSetLoad;
+      const secondaryLoad = perSetLoad * SECONDARY_CREDIT;
+
+      // Isometric holds cause deep tension but less eccentric damage than dynamic lifts,
+      // so they recover ~20% faster. Apply 0.8 scaling before feeding into the recovery
+      // estimator (see recoveryEstimator.ts for the decay model).
+      const isometricRecoveryFactor = 0.8;
 
       for (const muscle of primary) {
-        fatigue[muscle] = Math.min(100, fatigue[muscle] + primaryLoad);
+        fatigue[muscle] = Math.min(100, fatigue[muscle] + primaryLoad * completedSets.length * isometricRecoveryFactor);
       }
       for (const muscle of secondary) {
-        fatigue[muscle] = Math.min(100, fatigue[muscle] + secondaryLoad);
+        fatigue[muscle] = Math.min(100, fatigue[muscle] + secondaryLoad * completedSets.length * isometricRecoveryFactor);
+      }
+    } else {
+      for (const set of exercise.sets) {
+        // Skip incomplete sets and warm-up sets
+        if (!set.completed || set.isWarmUp) continue;
+
+        const primaryLoad   = BASE_FATIGUE_PER_SET * intensity;
+        const secondaryLoad = primaryLoad * SECONDARY_CREDIT;
+
+        for (const muscle of primary) {
+          fatigue[muscle] = Math.min(100, fatigue[muscle] + primaryLoad);
+        }
+        for (const muscle of secondary) {
+          fatigue[muscle] = Math.min(100, fatigue[muscle] + secondaryLoad);
+        }
       }
     }
   }

@@ -33,7 +33,69 @@ import { PRHighlights } from "../../components/progress/PRHighlights";
 import { ExerciseCard } from "../../components/progress/ExerciseCard";
 import { LockeCommentary } from "../../components/progress/LockeCommentary";
 import { spacing, radius } from "../../lib/theme";
-import type { WorkoutSession } from "../../lib/types";
+import { isExerciseTimed, isExerciseUnilateral } from "../../lib/loadEngine/classifier";
+import type { WorkoutSession, SetEntry } from "../../lib/types";
+
+/** Format whole seconds as M:SS (e.g. 90 → "1:30", 15 → "0:15") */
+function fmtDuration(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Build a short set summary string for an exercise's completed sets */
+function exerciseSetSummary(
+  ex: { name: string; sets: SetEntry[] },
+): string | null {
+  const done = ex.sets.filter((s) => s.completed);
+  if (done.length === 0) return null;
+
+  const timed = isExerciseTimed(ex.name);
+  const isUnilateral = done.some((s) => (s as any).side != null);
+
+  if (isUnilateral) {
+    const leftSets = done.filter((s) => (s as any).side === 'L');
+    const rightSets = done.filter((s) => (s as any).side === 'R');
+    const setCount = Math.max(leftSets.length, rightSets.length);
+
+    if (timed) {
+      const leftAvg = leftSets.length
+        ? Math.round(leftSets.reduce((s, x) => s + (parseInt(x.reps) || 0), 0) / leftSets.length)
+        : 0;
+      const rightAvg = rightSets.length
+        ? Math.round(rightSets.reduce((s, x) => s + (parseInt(x.reps) || 0), 0) / rightSets.length)
+        : 0;
+      if (Math.abs(leftAvg - rightAvg) <= 1) {
+        return `${setCount} \u00d7 ${fmtDuration(leftAvg)} per side`;
+      }
+      return `${setCount} sets \u2014 L ${fmtDuration(leftAvg)} / R ${fmtDuration(rightAvg)} avg`;
+    } else {
+      const leftAvg = leftSets.length
+        ? Math.round(leftSets.reduce((s, x) => s + (parseFloat(x.reps) || 0), 0) / leftSets.length)
+        : 0;
+      const rightAvg = rightSets.length
+        ? Math.round(rightSets.reduce((s, x) => s + (parseFloat(x.reps) || 0), 0) / rightSets.length)
+        : 0;
+      if (leftAvg === rightAvg) {
+        return `${setCount} \u00d7 ${leftAvg} reps per side`;
+      }
+      return `${setCount} sets \u2014 L ${leftAvg} / R ${rightAvg} reps avg`;
+    }
+  }
+
+  // Bilateral logic
+  if (timed) {
+    const secs = done.map((s) => parseInt(s.reps, 10) || 0);
+    const allSame = secs.every((v) => v === secs[0]);
+    if (allSame) return `${done.length} \u00d7 ${fmtDuration(secs[0])}`;
+    return secs.map((s) => fmtDuration(s)).join(", ");
+  }
+
+  const reps = done.map((s) => parseInt(s.reps, 10) || 0);
+  const allSame = reps.every((v) => v === reps[0]);
+  if (allSame) return `${done.length} \u00d7 ${reps[0]}`;
+  return reps.join(", ");
+}
 
 export default function WorkoutLogScreen() {
   const router = useRouter();
@@ -308,6 +370,52 @@ export default function WorkoutLogScreen() {
                                         ? ` · ${item.exercises.length} exercise${item.exercises.length !== 1 ? "s" : ""} · ${item.exercises.reduce((a, ex) => a + ex.sets.filter(s => s.completed).length, 0)}/${item.exercises.reduce((a, ex) => a + ex.sets.length, 0)} sets`
                                         : ""}
                                     </Text>
+                                    {/* Exercise breakdown */}
+                                    {item.exercises.length > 0 && (
+                                      <View style={styles.exBreakdown}>
+                                        {item.exercises.map((ex) => {
+                                          const timed = isExerciseTimed(ex.name);
+                                          const summary = exerciseSetSummary(ex);
+                                          if (!summary) return null;
+                                          const completedSets = ex.sets.filter((s) => s.completed);
+                                          const isUnilateral = completedSets.some((s) => (s as any).side != null);
+                                          const totalSecs = timed
+                                            ? completedSets.reduce((a, s) => a + (parseInt(s.reps, 10) || 0), 0)
+                                            : 0;
+                                          // For unilateral timed: compute per-side totals
+                                          const leftTotalSecs = (timed && isUnilateral)
+                                            ? completedSets.filter((s) => (s as any).side === 'L').reduce((a, s) => a + (parseInt(s.reps, 10) || 0), 0)
+                                            : 0;
+                                          const rightTotalSecs = (timed && isUnilateral)
+                                            ? completedSets.filter((s) => (s as any).side === 'R').reduce((a, s) => a + (parseInt(s.reps, 10) || 0), 0)
+                                            : 0;
+                                          return (
+                                            <View key={ex.exerciseId} style={styles.exRow}>
+                                              <View style={styles.exNameRow}>
+                                                {timed && (
+                                                  <Ionicons name="timer-outline" size={14} color={theme.colors.muted} />
+                                                )}
+                                                <Text style={[styles.exName, { color: theme.colors.text }]} numberOfLines={1}>
+                                                  {ex.name}
+                                                </Text>
+                                                <Text style={[styles.exSets, { color: theme.colors.muted }]}>
+                                                  {summary}
+                                                </Text>
+                                              </View>
+                                              {timed && totalSecs > 0 && (
+                                                <Text style={[styles.exTotal, { color: theme.colors.muted }]}>
+                                                  {isUnilateral
+                                                    ? leftTotalSecs === rightTotalSecs
+                                                      ? `Total per side: ${fmtDuration(leftTotalSecs)} held`
+                                                      : `L: ${fmtDuration(leftTotalSecs)} / R: ${fmtDuration(rightTotalSecs)} held`
+                                                    : `Total: ${fmtDuration(totalSecs)} held`}
+                                                </Text>
+                                              )}
+                                            </View>
+                                          );
+                                        })}
+                                      </View>
+                                    )}
                                   </View>
                                   <Text style={[styles.chevron, { color: theme.colors.muted }]}>›</Text>
                                 </Card>
@@ -518,6 +626,13 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, padding: 0 },
   sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 8 },
   noResults: { textAlign: "center", marginTop: 20, fontSize: 14 },
+  // Exercise breakdown inside session card
+  exBreakdown: { marginTop: 6, gap: 3 },
+  exRow: { gap: 1 },
+  exNameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  exName: { fontSize: 12, fontWeight: "500", flexShrink: 1 },
+  exSets: { fontSize: 11 },
+  exTotal: { fontSize: 10, marginLeft: 18 },
 });
 
 const emptyStyles = StyleSheet.create({

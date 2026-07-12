@@ -127,7 +127,7 @@ export default function PlanCompleteScreen() {
         </View>
       </Animated.View>
 
-      <Animated.View style={btnStyle}>
+      <Animated.View style={[{ alignSelf: "stretch" }, btnStyle]}>
         <Pressable
           style={[styles.btn, { backgroundColor: theme.colors.primary }]}
           onPress={goHome}

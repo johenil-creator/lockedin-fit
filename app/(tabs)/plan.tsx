@@ -71,7 +71,7 @@ function ExerciseCard({ exercise: ex }: { exercise: Exercise }) {
         </View>
       </View>
       {!!ex.comments && (
-        <Text style={[exStyles.comments, { color: theme.colors.muted }]}>{ex.comments}</Text>
+        <Text style={[exStyles.comments, { color: theme.colors.muted }]} numberOfLines={2}>{ex.comments}</Text>
       )}
     </Card>
   );
@@ -1194,7 +1194,7 @@ export default function PlanScreen() {
       <AppBottomSheet
         visible={menuVisible}
         onClose={() => setMenuVisible(false)}
-        snapPoints={["30%"]}
+        snapPoints={["52%"]}
       >
         <View style={menuStyles.container}>
           {has1RM && (
@@ -1210,6 +1210,26 @@ export default function PlanScreen() {
               </View>
             </Pressable>
           )}
+          <Pressable
+            style={menuStyles.item}
+            onPress={() => { setMenuVisible(false); router.push("/start-session"); }}
+          >
+            <Ionicons name="flash-outline" size={20} color={theme.colors.text} />
+            <View style={menuStyles.itemText}>
+              <Text style={[menuStyles.itemLabel, { color: theme.colors.text }]}>Quick Hunt</Text>
+              <Text style={[menuStyles.itemHint, { color: theme.colors.muted }]}>Start a freestyle workout outside your plan</Text>
+            </View>
+          </Pressable>
+          <Pressable
+            style={menuStyles.item}
+            onPress={() => { setMenuVisible(false); router.push("/meals"); }}
+          >
+            <Ionicons name="restaurant-outline" size={20} color={theme.colors.text} />
+            <View style={menuStyles.itemText}>
+              <Text style={[menuStyles.itemLabel, { color: theme.colors.text }]}>Fuel Plan</Text>
+              <Text style={[menuStyles.itemHint, { color: theme.colors.muted }]}>Weekly meals, macros & grocery lists</Text>
+            </View>
+          </Pressable>
           <Pressable
             style={menuStyles.item}
             onPress={() => { setMenuVisible(false); handleClear(); }}

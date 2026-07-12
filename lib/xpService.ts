@@ -2,6 +2,7 @@ import type { WorkoutSession, XPRecord, XPHistoryEntry, RankLevel, Badge } from 
 import { rankForXP, didRankUp, rankProgress, xpToNextRank, nextRank } from "./rankService";
 import { calculateSessionFangs } from "./fangsService";
 import { toDateStr } from "./challengeService";
+import { isExerciseTimed } from "./loadEngine/classifier";
 
 // ── XP award amounts ──────────────────────────────────────────────────────────
 
@@ -24,6 +25,14 @@ const DURATION_TIERS: [number, number][] = [
   [45 * 60, 5],  // 45+ min → +5 XP
   [30 * 60, 3],  // 30+ min → +3 XP
   [15 * 60, 1],  // 15+ min → +1 XP
+];
+
+/** Isometric volume tiers: [seconds, xp] — highest match wins */
+const ISOMETRIC_TIERS: [number, number][] = [
+  [300, 35], // 300s+ → 35 XP  "Isometric beast"
+  [120, 20], // 120s+ → 20 XP  "Hold master"
+  [60,  10], //  60s+ → 10 XP  "Solid holds"
+  [30,   5], //  30s+ →  5 XP  "First holds"
 ];
 
 /** Streak milestones: [days, xp, label] */
@@ -167,7 +176,28 @@ export function awardSessionXP(
     }
   }
 
-  // 6. Rank-up bonus (applied after all other XP so threshold can be crossed)
+  // 6. Isometric volume bonus — reward timed (isometric) holds
+  let totalSecondsHeld = 0;
+  for (const ex of session.exercises) {
+    if (!isExerciseTimed(ex.name)) continue;
+    for (const set of ex.sets) {
+      if (!set.completed) continue;
+      const secs = parseInt(set.reps as string, 10);
+      if (isNaN(secs) || secs <= 0) continue;
+      totalSecondsHeld += secs;
+    }
+  }
+  if (totalSecondsHeld > 0) {
+    for (const [threshold, xp] of ISOMETRIC_TIERS) {
+      if (totalSecondsHeld >= threshold) {
+        current = applyXP(current, xp, "Isometric volume");
+        breakdown.push({ reason: "Isometric volume", amount: xp });
+        break;
+      }
+    }
+  }
+
+  // 7. Rank-up bonus (applied after all other XP so threshold can be crossed)
   const rankedUp = didRankUp(oldTotal, current.total);
   if (rankedUp) {
     current = applyXP(current, XP_AWARDS.RANK_UP, `Ranked up to ${current.rank}`);
@@ -222,6 +252,7 @@ export type WorkoutCompleteParams = {
   newPRs?:          string[];   // PR keys to display on complete screen
   newBadges?:       Badge[];
   fangsEarned?:     number;     // Fangs currency earned this session
+  challengeId?:     string;     // set when session originated from a 30-day challenge
 };
 
 export function buildWorkoutCompleteParams(

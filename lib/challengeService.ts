@@ -13,6 +13,13 @@ import type {
   CompletedChallenge,
 } from './types';
 import { getChallengeDefinition } from './challengeCatalog';
+import {
+  loadActiveChallenge,
+  saveActiveChallenge,
+  clearActiveChallenge,
+  loadChallengeHistory,
+  saveChallengeHistory,
+} from './storage';
 
 /** "YYYY-MM-DD" for a given Date (or today) in local time. */
 export function toDateStr(d: Date = new Date()): string {
@@ -181,4 +188,36 @@ export function detectMilestoneCrossed(
     if (beforePct < t && afterPct >= t) return name;
   }
   return null;
+}
+
+/**
+ * Standalone async helper — advance the active challenge day without needing
+ * the useChallenge hook. Safe to call from workout-complete.tsx as a
+ * fire-and-forget side effect after a challenge session finishes.
+ *
+ * No-op if no challenge is active or the active challenge ID doesn't match.
+ */
+export async function advanceChallengeDay(
+  challengeId: string,
+): Promise<{ archived: boolean }> {
+  const current = await loadActiveChallenge();
+  if (!current || current.challengeId !== challengeId) return { archived: false };
+
+  const def = getChallengeDefinition(challengeId);
+  if (!def) return { archived: false };
+
+  const next = advanceProgress(current, def);
+
+  if (isProgressComplete(next, def)) {
+    const archived = buildCompletedRecord(next);
+    const history = await loadChallengeHistory();
+    await Promise.all([
+      clearActiveChallenge(),
+      saveChallengeHistory([archived, ...history].slice(0, 50)),
+    ]);
+    return { archived: true };
+  }
+
+  await saveActiveChallenge(next);
+  return { archived: false };
 }

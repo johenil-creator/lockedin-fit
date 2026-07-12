@@ -36,8 +36,9 @@ import { checkBadges } from "../../lib/badgeService";
 import { syncCompletedSession } from "../../lib/healthkit/integration";
 import { resolveExerciseLoad } from "../../lib/loadEngine";
 import { sanitizeWeight } from "../../lib/sanitizeWeight";
-import { getExerciseEquipment, isExerciseTimed } from "../../lib/loadEngine/classifier";
+import { getExerciseEquipment, isExerciseTimed, getTimedTargetSeconds, isCountupMode, isExerciseUnilateral } from "../../lib/loadEngine/classifier";
 import { TimedSetInput } from "../../components/session/TimedSetInput";
+import { TimedHoldOverlay } from "../../components/session/TimedHoldOverlay";
 import { ExercisePicker } from "../../components/plan-builder/ExercisePicker";
 import { findExercise, addCustomEntry } from "../../src/lib/exerciseMatch";
 import type { ExerciseCatalogEntry } from "../../src/lib/exerciseMatch";
@@ -308,18 +309,28 @@ export default function SessionScreen() {
   const [classifyPattern, setClassifyPattern] = useState("squat");
   const [classifyAnchor, setClassifyAnchor] = useState("none");
   const [showCues, setShowCues] = useState(false);
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
 
   // Exercise feedback sheet state
   const [feedbackTarget, setFeedbackTarget] = useState<{ exerciseId: string; exerciseName: string } | null>(null);
   const [pendingNav, setPendingNav] = useState<{ type: 'next'; nextExId: string } | { type: 'list' } | null>(null);
 
   // PR flash state
-  const [prFlash, setPrFlash] = useState<string | null>(null); // exercise name
+  const [prFlash, setPrFlash] = useState<{ name: string; isTimed: boolean } | null>(null); // exercise name + type
   const prFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hold overlay state (fullscreen modal during a timed set)
+  const [holdOverlay, setHoldOverlay] = useState<{
+    visible: boolean;
+    exerciseName: string;
+    remaining: number;
+    elapsed: number;
+    target: number;
+  }>({ visible: false, exerciseName: "", remaining: 0, elapsed: 0, target: 0 });
 
   // Pre-computed PR baselines: { exerciseName: { best1RM, bestBWReps } }
   // Built once at session load to avoid O(n²) on every set completion.
-  const prBaselinesRef = useRef<Record<string, { best1RM: number; bestBWReps: number }>>({});
+  const prBaselinesRef = useRef<Record<string, { best1RM: number; bestBWReps: number; bestHoldTime: number }>>({});
 
   // Rest timers
   const { restTimers, startRestTimer, dismissRestTimer, advanceTimers } = useRestTimers();
@@ -417,21 +428,28 @@ export default function SessionScreen() {
   // ── Build PR baselines from workout history (O(n) once, O(1) lookups) ─────
   useEffect(() => {
     if (!session) return;
-    const baselines: Record<string, { best1RM: number; bestBWReps: number }> = {};
+    const baselines: Record<string, { best1RM: number; bestBWReps: number; bestHoldTime: number }> = {};
     for (const w of workouts) {
       if (w.id === session.id || !w.completedAt) continue;
       for (const ex of w.exercises) {
-        if (!baselines[ex.name]) baselines[ex.name] = { best1RM: 0, bestBWReps: 0 };
+        if (!baselines[ex.name]) baselines[ex.name] = { best1RM: 0, bestBWReps: 0, bestHoldTime: 0 };
         const b = baselines[ex.name];
+        const timed = isExerciseTimed(ex.name);
         for (const s of ex.sets) {
           if (!s.completed) continue;
           const wt = parseFloat(s.weight);
           const rp = parseFloat(s.reps);
-          if (!isNaN(wt) && !isNaN(rp) && rp > 0) {
-            b.best1RM = Math.max(b.best1RM, wt * (1 + rp / 30));
-          }
-          if (!s.isWarmUp && !isNaN(rp)) {
-            b.bestBWReps = Math.max(b.bestBWReps, rp);
+          if (timed) {
+            if (!s.isWarmUp && !isNaN(rp) && rp > 0) {
+              b.bestHoldTime = Math.max(b.bestHoldTime, rp);
+            }
+          } else {
+            if (!isNaN(wt) && !isNaN(rp) && rp > 0) {
+              b.best1RM = Math.max(b.best1RM, wt * (1 + rp / 30));
+            }
+            if (!s.isWarmUp && !isNaN(rp)) {
+              b.bestBWReps = Math.max(b.bestBWReps, rp);
+            }
           }
         }
       }
@@ -642,11 +660,26 @@ export default function SessionScreen() {
 
   function addSet(exId: string) {
     if (!session) return;
-    const updated = session.exercises.map((ex) =>
-      ex.exerciseId === exId
-        ? { ...ex, sets: [...ex.sets, { reps: "", weight: "", completed: false }] }
-        : ex
-    );
+    const updated = session.exercises.map((ex) => {
+      if (ex.exerciseId !== exId) return ex;
+      // For timed exercises, copy the target from an existing working set so the
+      // new set doesn't default to "Max" (which happens when reps is "" → 0).
+      const isTimed = isExerciseTimed(ex.name);
+      const defaultReps = isTimed
+        ? (ex.sets.find((s) => !s.isWarmUp && s.reps && s.reps !== "0")?.reps ?? "30")
+        : "";
+      if (ex.isUnilateral) {
+        return {
+          ...ex,
+          sets: [
+            ...ex.sets,
+            { reps: defaultReps, weight: "", completed: false, side: 'L' as const },
+            { reps: defaultReps, weight: "", completed: false, side: 'R' as const },
+          ],
+        };
+      }
+      return { ...ex, sets: [...ex.sets, { reps: defaultReps, weight: "", completed: false }] };
+    });
     update({ ...session, exercises: updated });
   }
 
@@ -693,19 +726,27 @@ export default function SessionScreen() {
       const wasCompleted = ex.sets[setIdx]?.completed;
       if (!wasCompleted) {
         hapticSetComplete();
-        startRestTimer(exId, setIdx, ex.restTime ?? profile.defaultRestTimer ?? 90);
+        // Don't start rest timer after L side — only after R side (or bilateral)
+        const completedSet = ex.sets[setIdx];
+        const skipRest = ex.isUnilateral && completedSet?.side === 'L';
+        if (!skipRest) {
+          startRestTimer(exId, setIdx, ex.restTime ?? profile.defaultRestTimer ?? 90);
+        }
 
         // PR detection — O(1) lookup against pre-computed baselines
         const setData = { ...ex.sets[setIdx], ...patch };
         const w = parseFloat(setData.weight);
         const r = parseFloat(setData.reps);
         const isBodyweight = ex.equipment === "bodyweight";
+        const isTimed = isExerciseTimed(ex.name);
         const baseline = prBaselinesRef.current[ex.name];
 
         if (!setData.isWarmUp && !isNaN(r) && r > 0 && baseline) {
           let prDetected = false;
 
-          if (!isNaN(w) && w > 0) {
+          if (isTimed) {
+            if (baseline.bestHoldTime > 0 && r > baseline.bestHoldTime) prDetected = true;
+          } else if (!isNaN(w) && w > 0) {
             const current1RM = w * (1 + r / 30);
             if (baseline.best1RM > 0 && current1RM > baseline.best1RM) prDetected = true;
           } else if (isBodyweight) {
@@ -714,7 +755,7 @@ export default function SessionScreen() {
 
           if (prDetected) {
             if (prFlashTimer.current) clearTimeout(prFlashTimer.current);
-            setPrFlash(ex.name);
+            setPrFlash({ name: ex.name, isTimed });
             hapticPR();
             prFlashTimer.current = setTimeout(() => setPrFlash(null), 2500);
           }
@@ -775,11 +816,18 @@ export default function SessionScreen() {
       const warmUpWeight = load.warmUps.length > 0
         ? load.warmUps[load.warmUps.length - 1].weight
         : "";
-      // Insert warm-up set before the first working set
+      // Insert warm-up set(s) before the first working set
       const firstWorkingIdx = ex.sets.findIndex((s) => !s.isWarmUp);
       const insertIdx = firstWorkingIdx === -1 ? ex.sets.length : firstWorkingIdx;
       const newSets = [...ex.sets];
-      newSets.splice(insertIdx, 0, { reps: "", weight: warmUpWeight, completed: false, isWarmUp: true });
+      if (ex.isUnilateral) {
+        newSets.splice(insertIdx, 0,
+          { reps: "", weight: warmUpWeight, completed: false, isWarmUp: true, side: 'L' as const },
+          { reps: "", weight: warmUpWeight, completed: false, isWarmUp: true, side: 'R' as const },
+        );
+      } else {
+        newSets.splice(insertIdx, 0, { reps: "", weight: warmUpWeight, completed: false, isWarmUp: true });
+      }
       return { ...ex, sets: newSets, warmUpSets: (ex.warmUpSets ?? 0) + 1 };
     });
     update({ ...session, exercises: updated });
@@ -1000,17 +1048,28 @@ export default function SessionScreen() {
         </View>
       )}
 
+      {/* Fullscreen hold overlay — rendered as a Modal so it sits above everything */}
+      <TimedHoldOverlay
+        visible={holdOverlay.visible}
+        exerciseName={holdOverlay.exerciseName}
+        remaining={holdOverlay.remaining}
+        elapsed={holdOverlay.elapsed}
+        target={holdOverlay.target}
+        onDismiss={() => setHoldOverlay((prev) => ({ ...prev, visible: false }))}
+        colors={theme.colors}
+      />
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {activeExercise ? (
           /* ── Focused Exercise View ─────────────────────────────────── */
           <View>
-            {prFlash === activeExercise.name && (
+            {prFlash?.name === activeExercise.name && (
               <Animated.View
                 entering={FadeIn.duration(200)}
                 exiting={FadeOut.duration(300)}
                 style={[styles.prBadge, { backgroundColor: theme.colors.success }]}
               >
-                <Text style={[styles.prBadgeText, { color: theme.colors.successText }]}>NEW PR!</Text>
+                <Text style={[styles.prBadgeText, { color: theme.colors.successText }]}>{prFlash.isTimed ? "NEW BEST!" : "NEW PR!"}</Text>
               </Animated.View>
             )}
             <View style={styles.focusedTitleRow}>
@@ -1025,12 +1084,40 @@ export default function SessionScreen() {
               </Pressable>
             </View>
 
+            {/* Coach notes from imported plan */}
+            {!!activeExercise.notes && (
+              <Pressable
+                onPress={() => setExpandedNotes(prev => ({ ...prev, [activeExercise.exerciseId]: !prev[activeExercise.exerciseId] }))}
+                style={[styles.noteStrip, { backgroundColor: theme.colors.accent + "0D", borderLeftColor: theme.colors.accent }]}
+              >
+                <Text style={{ color: theme.colors.accent, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginRight: 6 }}>NOTE</Text>
+                <Text
+                  style={[styles.noteText, { color: theme.colors.muted }]}
+                  numberOfLines={expandedNotes[activeExercise.exerciseId] ? undefined : 1}
+                >
+                  {activeExercise.notes}
+                </Text>
+                {activeExercise.notes.length > 60 && (
+                  <Text style={{ color: theme.colors.muted, fontSize: 10, marginLeft: 4 }}>
+                    {expandedNotes[activeExercise.exerciseId] ? "▲" : "▼"}
+                  </Text>
+                )}
+              </Pressable>
+            )}
+
             <View style={styles.focusedContent}>
+
               {/* Set headers */}
               <View style={styles.setHeaderRow}>
                 <Text style={[styles.setHeaderCell, styles.setColNum, { color: theme.colors.text, opacity: 0.6 }]}>SET</Text>
-                <Text style={[styles.setHeaderCell, styles.setColWeight, { color: theme.colors.text, opacity: 0.6 }]}>WEIGHT <Text style={{ fontSize: 7 }}>({sessionUnit})</Text></Text>
-                <Text style={[styles.setHeaderCell, styles.setColReps, { color: theme.colors.text, opacity: 0.6 }]}>{isExerciseTimed(activeExercise.name) ? "TIMER" : "REPS"}</Text>
+                <Text style={[styles.setHeaderCell, isExerciseTimed(activeExercise.name) ? styles.setColWeightTimed : styles.setColWeight, { color: theme.colors.text, opacity: 0.6 }]}>
+                  {isExerciseTimed(activeExercise.name)
+                    ? "LOAD"
+                    : getExerciseEquipment(activeExercise.name) === 'dumbbell'
+                      ? <><Text>WEIGHT </Text><Text style={{ fontSize: 7 }}>({sessionUnit} each)</Text></>
+                      : <><Text>WEIGHT </Text><Text style={{ fontSize: 7 }}>({sessionUnit})</Text></>}
+                </Text>
+                <Text style={[styles.setHeaderCell, isExerciseTimed(activeExercise.name) ? styles.setColRepsTimed : styles.setColReps, { color: theme.colors.text, opacity: 0.6 }]}>{isExerciseTimed(activeExercise.name) ? "HOLD" : "REPS"}</Text>
                 <View style={styles.setColCheck} />
               </View>
 
@@ -1045,6 +1132,7 @@ export default function SessionScreen() {
                 const workingIndex = isWarmUp
                   ? 0
                   : activeExercise.sets.slice(0, i).filter((prev) => !prev.isWarmUp).length + 1;
+                const sideLabel = activeExercise.isUnilateral && s.side ? s.side : null;
                 const isCurrent = isCurrentSet(activeExercise, i);
                 const locked = isSetLocked(activeExercise, i);
                 const isFutureSet = i > getCurrentSetIndex(activeExercise);
@@ -1065,7 +1153,20 @@ export default function SessionScreen() {
                       isFutureSet && { opacity: 0.4 },
                     ]}>
                       <View style={styles.setColNum}>
-                        {isWarmUp ? (
+                        {sideLabel ? (
+                          <View style={[
+                            styles.warmUpBadge,
+                            { backgroundColor: sideLabel === 'L' ? '#3B82F6' : '#F97316' }
+                          ]}>
+                            <Text style={[styles.warmUpBadgeText, { color: '#FFFFFF' }]}>
+                              {(() => {
+                                const sameTypeBefore = activeExercise.sets.slice(0, i).filter((x) => !!x.isWarmUp === isWarmUp).length;
+                                const pairNum = Math.ceil((sameTypeBefore + 1) / 2);
+                                return `${isWarmUp ? 'W' : ''}${pairNum}${sideLabel}`;
+                              })()}
+                            </Text>
+                          </View>
+                        ) : isWarmUp ? (
                           <View style={[styles.warmUpBadge, { backgroundColor: isFutureSet ? theme.colors.muted : theme.colors.accent }]}>
                             <Text style={[styles.warmUpBadgeText, { color: theme.colors.accentText }]}>W{warmUpIndex}</Text>
                           </View>
@@ -1079,8 +1180,8 @@ export default function SessionScreen() {
                         )}
                       </View>
                       <TextInput
-                        style={[styles.setInput, styles.setColWeight, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
-                        placeholder={isBWExercise ? "BW" : sessionUnit}
+                        style={[styles.setInput, isTimed ? styles.setColWeightTimed : styles.setColWeight, { backgroundColor: theme.colors.mutedBg, color: isFutureSet ? theme.colors.muted : theme.colors.text }]}
+                        placeholder={isBWExercise || (isTimed && !s.weight) ? "BW" : sessionUnit}
                         placeholderTextColor={theme.colors.muted}
                         value={s.weight}
                         onChangeText={(v) => updateSet(activeExercise.exerciseId, i, { weight: v })}
@@ -1089,6 +1190,7 @@ export default function SessionScreen() {
                         editable={!isFutureSet}
                       />
                       {isTimed ? (
+                        <View style={{ flex: 1.45 }}>
                         <TimedSetInput
                           targetSeconds={parseInt(s.reps, 10) || 0}
                           completed={s.completed}
@@ -1096,7 +1198,11 @@ export default function SessionScreen() {
                           isFutureSet={isFutureSet}
                           colors={theme.colors}
                           onComplete={(actualSeconds: number) => updateSet(activeExercise.exerciseId, i, { completed: true, reps: String(actualSeconds) })}
+                          onTimerStart={(timerTarget) => setHoldOverlay({ visible: true, exerciseName: activeExercise.name, remaining: timerTarget, elapsed: 0, target: timerTarget })}
+                          onTick={(remaining, elapsed) => setHoldOverlay((prev) => ({ ...prev, remaining, elapsed }))}
+                          onTimerStop={() => setHoldOverlay((prev) => ({ ...prev, visible: false }))}
                         />
+                        </View>
                       ) : (
                         <TextInput
                           style={[
@@ -1164,6 +1270,13 @@ export default function SessionScreen() {
                         </Text>
                         <Text style={{ color: theme.colors.muted, fontSize: 11, marginLeft: 8 }}>tap to skip</Text>
                       </Pressable>
+                    )}
+                    {/* Switch sides prompt for unilateral exercises */}
+                    {activeExercise.isUnilateral && s.side === 'L' && s.completed &&
+                     activeExercise.sets[i + 1] && !activeExercise.sets[i + 1].completed && (
+                      <Text style={[styles.switchSidesHint, { color: theme.colors.muted }]}>
+                        Switch sides →
+                      </Text>
                     )}
                   </View>
                 );
@@ -1499,6 +1612,9 @@ export default function SessionScreen() {
                 if (newBadges.length > 0) {
                   wcParams.newBadges = newBadges;
                 }
+                if (completed.challengeId) {
+                  wcParams.challengeId = completed.challengeId;
+                }
                 setPendingCompleteParams(wcParams);
               }}
             >
@@ -1742,7 +1858,9 @@ const styles = StyleSheet.create({
   // Column widths
   setColNum: { width: 56 },
   setColWeight: { flex: 1, marginRight: 12 },
+  setColWeightTimed: { flex: 0.65, marginRight: 12 },
   setColReps: { flex: 1, marginRight: 12 },
+  setColRepsTimed: { flex: 1.45, marginRight: 12 },
   setColCheck: { width: 40 },
   // Set rows
   setRow: { flexDirection: "row", alignItems: "center", marginBottom: 8, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 8 },
@@ -1777,6 +1895,12 @@ const styles = StyleSheet.create({
     marginLeft: 56,
   },
   restPillText: { fontSize: 13, fontWeight: "600", fontFamily: "monospace" },
+  switchSidesHint: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: 4,
+    marginRight: 12,
+  },
   deleteAction: {
     backgroundColor: "#ff3b30",
     borderRadius: 10,
@@ -1846,6 +1970,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     marginBottom: 6,
+  },
+  noteStrip: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderLeftWidth: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 4,
+    marginBottom: 8,
+    borderRadius: 6,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontStyle: "italic",
   },
   exerciseListRow: {
     flexDirection: "row",

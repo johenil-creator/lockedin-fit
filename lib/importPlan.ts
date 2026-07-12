@@ -6,6 +6,7 @@
  */
 
 import type { Exercise } from "./types";
+import { isExerciseTimed } from "./loadEngine/classifier";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,21 @@ export type ValidationResult =
 
 /** Reject files larger than this. */
 export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+// ── Side-detection ────────────────────────────────────────────────────────────
+
+// Matches side suffixes like "(Left)", "(R)", "- Left Leg", " L", " R"
+const SIDE_SUFFIX_RE = /\s*[\(\[]\s*(left|right|l|r)\s*[\)\]]\s*$|\s*[-–—]\s*(left|right)\s*(leg|arm|side)?\s*$|\s+([LR])\s*$/i;
+// Matches "per side" / "each side" in notes/comments
+const PER_SIDE_NOTE_RE = /\bper\s*side\b|\beach\s*side\b|\beach\s*leg\b|\beach\s*arm\b/i;
+
+function extractSide(raw: string): { side: 'L' | 'R' | null; cleaned: string } {
+  const match = raw.match(SIDE_SUFFIX_RE);
+  if (!match) return { side: null, cleaned: raw };
+  const token = (match[1] || match[2] || match[4] || '').toLowerCase();
+  const side: 'L' | 'R' = /^(l|left)$/.test(token) ? 'L' : 'R';
+  return { side, cleaned: raw.replace(SIDE_SUFFIX_RE, '').trim() };
+}
 
 // ── URL parsing ───────────────────────────────────────────────────────────────
 
@@ -102,6 +118,68 @@ function sanitizeRestTime(val: string): string {
   return "";
 }
 
+// ── Timed reps parser ─────────────────────────────────────────────────────────
+
+/**
+ * Parses a reps string that may contain a time expression and returns the
+ * numeric seconds as a string suitable for storage in the `reps` field.
+ *
+ * Examples:
+ *   "8s hold"      → "8"
+ *   "8s"           → "8"
+ *   "8 sec hold"   → "8"
+ *   "8 seconds"    → "8"
+ *   "20-30s"       → "20"   (lower bound of range)
+ *   "20-30 sec"    → "20"
+ *   "30-45s"       → "30"
+ *   "max"          → "0"    (0 signals open-ended countup mode)
+ *   "max hold"     → "0"
+ *   "AMRAP"        → "0"    (as many reps as possible → countup)
+ *   "failure"      → "0"
+ *   "hold"         → "0"    (standalone "hold" → countup)
+ *   "8"            → "8"    (already numeric — pass through)
+ *   "6-8"          → "6-8"  (rep range — pass through unchanged, not timed)
+ *   "8 each"       → "8"    (strip "each")
+ *   "10 each"      → "10"
+ * Returns null if the string does not look time-based at all (caller keeps original).
+ */
+export function parseTimedReps(raw: string): string | null {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  // "max", "max hold", "max effort", etc. → 0 (countup mode)
+  if (trimmed === "max" || trimmed.startsWith("max ")) return "0";
+
+  // "AMRAP" (as many reps/rounds as possible) → 0 (countup mode)
+  if (trimmed === "amrap") return "0";
+
+  // "failure", "to failure" → 0 (countup mode)
+  if (trimmed === "failure" || trimmed === "to failure") return "0";
+
+  // "hold" (standalone) → 0 (countup mode)
+  if (trimmed === "hold") return "0";
+
+  // "20-30s", "20-30 sec", "20-30 seconds" — timed range, take lower bound
+  const timedRange = trimmed.match(/^(\d+)\s*[-–]\s*\d+\s*s(?:ec(?:onds?)?)?/);
+  if (timedRange) return timedRange[1];
+
+  // "8s hold", "8s each", "15s", "8sec", "8 sec", "8 seconds", "8 second"
+  const secMatch = trimmed.match(/^(\d+)\s*s(?:ec(?:onds?)?)?\b/);
+  if (secMatch) return secMatch[1];
+
+  // "N each" — strip "each", return number
+  const eachMatch = trimmed.match(/^(\d+)\s+each$/);
+  if (eachMatch) return eachMatch[1];
+
+  // Plain number — pass through as-is
+  if (/^\d+$/.test(trimmed)) return trimmed;
+
+  // Plain rep range like "6-8" — not timed, return null so caller keeps original
+  if (/^\d+\s*[-–]\s*\d+$/.test(trimmed)) return null;
+
+  return null;
+}
+
 // ── Core parser ───────────────────────────────────────────────────────────────
 
 /**
@@ -170,10 +248,20 @@ export function smartParse(rawInput: unknown[][]): Exercise[] {
   // Column immediately left of "exercise" carries day/session info in complex layouts
   const preExCol = exCol > 0 ? exCol - 1 : -1;
 
-  // Seed currentWeek from the very first header row (e.g. "Week 1")
+  // Seed currentWeek/currentDay from the very first header row (e.g. "Week 1")
   let currentWeek = preExCol >= 0 ? cell(rawRows[hIdx], preExCol) : "";
   if (!currentWeek.toLowerCase().startsWith("week")) currentWeek = "";
   let currentDay = "";
+
+  // Pre-scan rows before the first header for week/day context (vertical-block layouts
+  // like "WEEK 1 — BUILD" / "Day 1 · Squat anchor" that appear before the first header row).
+  for (let i = 0; i < hIdx; i++) {
+    const c0 = rawRows[i][exCol] ? rawRows[i][exCol].trim() : (rawRows[i][0]?.trim() ?? "");
+    const wm = c0.match(/^WEEK\s*(\d+)/i);
+    if (wm) currentWeek = `Week ${wm[1]}`;
+    const dm = c0.match(/^Day\s*(\d+)\b/i);
+    if (dm) currentDay = `Day ${dm[1]}`;
+  }
 
   const exercises: Exercise[] = [];
 
@@ -189,6 +277,14 @@ export function smartParse(rawInput: unknown[][]): Exercise[] {
       }
       continue;
     }
+
+    // Vertical-block week markers: "WEEK 1 — BUILD", "WEEK 2 — PEAK", etc.
+    const weekInCell = cellEx.match(/^WEEK\s*(\d+)/i);
+    if (weekInCell) { currentWeek = `Week ${weekInCell[1]}`; continue; }
+
+    // Vertical-block day markers: "Day 1 · Squat anchor", "Day 2 · Deadlift anchor", etc.
+    const dayInCell = cellEx.match(/^Day\s*(\d+)\b/i);
+    if (dayInCell) { currentDay = `Day ${dayInCell[1]}`; continue; }
 
     // Explicit week/day columns (simple layouts)
     if (hasExplicitWeek) {
@@ -215,31 +311,92 @@ export function smartParse(rawInput: unknown[][]): Exercise[] {
     const lc = cellEx.toLowerCase();
     if (lc.includes("rest day") || lc.startsWith("if you") || lc.startsWith("important")) continue;
 
+    // Skip metadata/setup rows common in program templates
+    if (
+      lc.includes("1rm") ||
+      lc.includes("1-rep max") ||
+      lc.startsWith("your ") ||
+      lc === "legend:" ||
+      lc.startsWith("legend") ||
+      lc.startsWith("units") ||
+      lc.startsWith("warm-up sets =") ||
+      /^calisthenics[-\s]/.test(lc) ||
+      /^\d+-day\s/.test(lc)
+    ) continue;
+
+    // Detect side suffix before any other name cleaning
+    const sideResult = extractSide(cellEx);
+    const detectedSide = sideResult.side;
+    const cellExNoSide = sideResult.cleaned;
+
     // Commit to first option when alternatives are listed:
     //   "Glute-Ham Raise [or Nordic Ham Curl]" → "Glute-Ham Raise"
     //   "Pull-ups (or Chin-ups)"               → "Pull-ups"
     //   "Bench Press / Dumbbell Press"          → "Bench Press"
     //   "Deadlift or RDL"                       → "Deadlift"
-    const cleaned = cellEx
+    let cleaned = cellExNoSide
       .replace(/\s*[\[(]or\s+[^\])]+[\])]/gi, "")   // [or ...] or (or ...)
       .replace(/\s*\/\s*.+$/, "")                     // " / alternative"
       .replace(/\s+or\s+.+$/i, "")                    // " or alternative"
       .trim();
 
+    // Strip superset prefixes: "A1: ", "A2: ", "B1: ", "B2: ", etc.
+    cleaned = cleaned.replace(/^[A-Z]\d+:\s*/i, "").trim();
+
+    const exerciseName = cleaned || cellExNoSide;
+
+    // Detect "per side" / "each side" annotations in the notes cell
+    const notesCell = cell(row, ntCol) || '';
+    const perSideFromNote = PER_SIDE_NOTE_RE.test(notesCell);
+
+    const repsRaw = sanitizeNumeric(cell(row, repCol), 1, 100) || cell(row, repCol);
+    const reps = isExerciseTimed(exerciseName)
+      ? (parseTimedReps(repsRaw) ?? repsRaw)
+      : repsRaw;
+
     exercises.push({
-      exercise:   cleaned || cellEx,
-      sets:       sanitizeNumeric(cell(row, setCol), 1, 20),
-      reps:       sanitizeNumeric(cell(row, repCol), 1, 100),
-      weight:     "",              // always ignored — app uses its own 1RM / load engine
-      comments:   cell(row, ntCol),
-      warmUpSets: sanitizeNumeric(cell(row, wuCol), 0, 10),
-      restTime:   sanitizeRestTime(cell(row, rtCol)),
-      week:       currentWeek,
-      day:        currentDay,
+      exercise:    exerciseName,
+      sets:        sanitizeNumeric(cell(row, setCol), 1, 20),
+      reps,
+      weight:      "",              // always ignored — app uses its own 1RM / load engine
+      comments:    notesCell,
+      warmUpSets:  sanitizeNumeric(cell(row, wuCol), 0, 10),
+      restTime:    sanitizeRestTime(cell(row, rtCol)),
+      week:        currentWeek,
+      day:         currentDay,
+      isUnilateral: (detectedSide !== null || perSideFromNote) ? true : undefined,
+      side:         detectedSide,  // 'left', 'right', or null
     });
   }
 
-  return exercises.filter(ex => ex.exercise.length >= 2);
+  const filtered = exercises.filter(ex => ex.exercise.length >= 2);
+
+  // Merge consecutive L/R rows for the same exercise+week+day into one unilateral entry
+  const merged: typeof filtered = [];
+  let i = 0;
+  while (i < filtered.length) {
+    const curr = filtered[i];
+    const next = filtered[i + 1];
+
+    const sameExercise =
+      next !== undefined &&
+      curr.exercise === next.exercise &&
+      curr.week === next.week &&
+      curr.day === next.day &&
+      curr.side === 'L' && next.side === 'R' &&
+      curr.sets === next.sets; // only merge if set counts match
+
+    if (sameExercise) {
+      // Merge: keep first entry, mark as unilateral with no explicit side
+      merged.push({ ...curr, isUnilateral: true, side: null });
+      i += 2; // skip both rows
+    } else {
+      merged.push(curr);
+      i++;
+    }
+  }
+
+  return merged;
 }
 
 // ── Grouping ──────────────────────────────────────────────────────────────────

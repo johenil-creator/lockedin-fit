@@ -26,6 +26,8 @@ import { hapticWorkoutComplete, hapticRankUp, hapticTap } from "../lib/hapticFee
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "../contexts/AuthContext";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { isExerciseTimed } from "../lib/loadEngine/classifier";
+import { loadWorkouts } from "../lib/storage";
 import { InfoTooltip } from "../components/InfoTooltip";
 import { earnFangs } from "../lib/fangsService";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
@@ -33,6 +35,7 @@ import { postActivity } from "../lib/activityService";
 import { updateChallengeProgress } from "../lib/packChallengeService";
 import { updateChallengeScore } from "../lib/friendChallengeService";
 import { updateQuestProgress } from "../lib/questService";
+import { advanceChallengeDay } from "../lib/challengeService";
 import { updateMutualStreak } from "../lib/accountabilityService";
 import { updateWarXp, getActiveWar } from "../lib/packWarService";
 import { dealDamage, getBossStatus } from "../lib/packBossService";
@@ -75,6 +78,12 @@ function formatDuration(seconds: number): string {
   const s = seconds % 60;
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function formatHoldTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 // ── Particle (single dot for burst effect) ───────────────────────────────────
@@ -486,6 +495,14 @@ function AnimatedXPCounter({ targetXP }: { targetXP: number }) {
   );
 }
 
+type TimedStat = {
+  name: string;
+  bestSec: number;
+  totalSec: number;
+  bestLeft?: number;   // best hold for left side (if unilateral)
+  bestRight?: number;  // best hold for right side (if unilateral)
+};
+
 // ── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function WorkoutCompleteScreen() {
@@ -509,6 +526,49 @@ export default function WorkoutCompleteScreen() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // ── Timed exercise stats ──────────────────────────────────────────────────
+  const [timedStats, setTimedStats] = useState<TimedStat[]>([]);
+  const totalHeldSec = timedStats.reduce((sum, t) => sum + t.totalSec, 0);
+
+  useEffect(() => {
+    if (!params) return;
+    loadWorkouts().then((all) => {
+      const session = all.find((w) => w.id === params!.sessionId);
+      if (!session) return;
+      const stats: TimedStat[] = [];
+      for (const ex of session.exercises) {
+        if (!isExerciseTimed(ex.name)) continue;
+        let best = 0;
+        let total = 0;
+        let bestLeft = 0;
+        let bestRight = 0;
+        for (const s of ex.sets) {
+          if (!s.completed) continue;
+          const sec = parseInt(s.reps, 10);
+          if (isNaN(sec) || sec <= 0) continue;
+          if (s.side === 'L') bestLeft = Math.max(bestLeft, sec);
+          else if (s.side === 'R') bestRight = Math.max(bestRight, sec);
+          else {
+            best = Math.max(best, sec); // bilateral fallback
+          }
+          total += sec;
+        }
+        // If any L/R data exists, use the max of L and R as overall best too
+        if (bestLeft > 0 || bestRight > 0) {
+          best = Math.max(best, bestLeft, bestRight);
+        }
+        if (total > 0) stats.push({
+          name: ex.name,
+          bestSec: best,
+          totalSec: total,
+          bestLeft: bestLeft || undefined,
+          bestRight: bestRight || undefined,
+        });
+      }
+      if (stats.length > 0) setTimedStats(stats);
+    }).catch(() => {});
+  }, [params?.sessionId]);
 
   // ── Clean up timeouts on unmount ───────────────────────────────────────────
   useEffect(() => {
@@ -675,12 +735,6 @@ export default function WorkoutCompleteScreen() {
       updateChallengeScore(user.uid, "sessions", 1).catch((e) => { if (__DEV__) console.warn("[workout-complete] 1v1 score (sessions):", e); });
       updateChallengeScore(user.uid, "xp", params.xpAwarded).catch((e) => { if (__DEV__) console.warn("[workout-complete] 1v1 score (xp):", e); });
 
-      // Quest progress (fire-and-forget)
-      updateQuestProgress("sets", params.setsCompleted).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (sets):", e); });
-      updateQuestProgress("sessions", 1).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (sessions):", e); });
-      updateQuestProgress("xp", params.xpAwarded).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (xp):", e); });
-      updateQuestProgress("exercises", params.exerciseCount).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (exercises):", e); });
-
       // Accountability partner mutual streak (fire-and-forget)
       updateMutualStreak(user!.uid).catch((e) => { if (__DEV__) console.warn("[workout-complete] mutual streak:", e); });
 
@@ -705,6 +759,24 @@ export default function WorkoutCompleteScreen() {
         updateEventScore(user!.uid, activeEvt.event.id, params!.setsCompleted).catch((e) => { if (__DEV__) console.warn("[workout-complete] event score:", e); });
       }
       trackEvent("workout_complete").catch((e) => { if (__DEV__) console.warn("[workout-complete] trackEvent:", e); });
+    }
+
+    // Quest progress — local AsyncStorage, no user/fangs gate needed (fire-and-forget)
+    updateQuestProgress("sets", params.setsCompleted).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (sets):", e); });
+    updateQuestProgress("sessions", 1).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (sessions):", e); });
+    updateQuestProgress("xp", params.xpAwarded).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (xp):", e); });
+    updateQuestProgress("exercises", params.exerciseCount).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (exercises):", e); });
+    if (params.streakDays >= 1) {
+      updateQuestProgress("streak_maintain", 1).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (streak_maintain):", e); });
+    }
+    if (params.isPR) {
+      updateQuestProgress("pr_attempt", 1).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (pr_attempt):", e); });
+    }
+    if (params.isCardio && params.durationSeconds) {
+      updateQuestProgress("cardio_minutes", Math.floor(params.durationSeconds / 60)).catch((e) => { if (__DEV__) console.warn("[workout-complete] quest progress (cardio_minutes):", e); });
+    }
+    if (params.challengeId) {
+      advanceChallengeDay(params.challengeId).catch((e) => { if (__DEV__) console.warn("[workout-complete] challenge advance:", e); });
     }
 
     // Button press spring
@@ -817,6 +889,44 @@ export default function WorkoutCompleteScreen() {
           <Text style={[styles.statValue, { color: theme.colors.text }]}>{durationStr}</Text>
         </Animated.View>
       </View>
+
+      {/* Isometric hold total */}
+      {timedStats.length > 0 && (
+        <Animated.View entering={FadeIn.delay(620).duration(300)} style={timedStyles.heldPillWrap}>
+          <View style={[timedStyles.heldPill, { backgroundColor: theme.colors.primary + "20", borderColor: theme.colors.primary + "40" }]}>
+            <Text style={[timedStyles.heldPillText, { color: theme.colors.primary }]}>
+              {formatHoldTime(totalHeldSec)} held
+            </Text>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Skills & Holds summary */}
+      {timedStats.length > 0 && (
+        <Animated.View entering={FadeIn.delay(660).duration(300)} style={timedStyles.cardWrap}>
+          <View style={[timedStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Text style={[timedStyles.cardTitle, { color: theme.colors.muted }]}>SKILLS & HOLDS</Text>
+            {timedStats.map((t) => {
+              const bestDisplay = (t.bestLeft || t.bestRight)
+                ? `${t.bestLeft ? formatHoldTime(t.bestLeft) + ' L' : '—'}  /  ${t.bestRight ? formatHoldTime(t.bestRight) + ' R' : '—'}`
+                : formatHoldTime(t.bestSec);
+              return (
+                <View key={t.name} style={timedStyles.holdRow}>
+                  <Text style={[timedStyles.holdName, { color: theme.colors.text }]} numberOfLines={1}>
+                    {t.name}
+                  </Text>
+                  <Text style={[timedStyles.holdStat, { color: theme.colors.muted }]}>
+                    Best: {bestDisplay}
+                  </Text>
+                  <Text style={[timedStyles.holdStat, { color: theme.colors.muted }]}>
+                    Total: {formatHoldTime(t.totalSec)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </Animated.View>
+      )}
 
       {/* Fangs earned */}
       {(params.fangsEarned ?? 0) > 0 && (
@@ -1106,5 +1216,58 @@ const styles = StyleSheet.create({
   viewAllBadgesText: {
     fontSize: 14,
     fontWeight: "700",
+  },
+});
+
+// ── Timed exercise styles ──────────────────────────────────────────────────
+
+const timedStyles = StyleSheet.create({
+  heldPillWrap: {
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  heldPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  heldPillText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  cardWrap: {
+    width: "100%",
+    marginBottom: spacing.md,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  cardTitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  holdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  holdName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  holdStat: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginLeft: 12,
   },
 });

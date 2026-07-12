@@ -184,6 +184,7 @@ export default function RootLayout() {
                     <Stack.Screen name="plan-builder" />
                     <Stack.Screen name="saved-plans" />
                     <Stack.Screen name="workout-complete" options={{ gestureEnabled: false, animation: "slide_from_bottom" }} />
+                    <Stack.Screen name="plan-complete" options={{ gestureEnabled: false, animation: "slide_from_bottom" }} />
                     <Stack.Screen name="cardio-setup" />
                     <Stack.Screen name="cardio-session" options={{ gestureEnabled: false }} />
                     <Stack.Screen name="profile" />

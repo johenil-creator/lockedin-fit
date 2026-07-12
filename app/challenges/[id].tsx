@@ -19,7 +19,6 @@ import { useToast } from "../../contexts/ToastContext";
 import { useChallenge } from "../../hooks/useChallenge";
 import { useWorkouts } from "../../hooks/useWorkouts";
 import { useStreak, isoWeek } from "../../hooks/useStreak";
-import { useXP } from "../../hooks/useXP";
 
 import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
@@ -33,17 +32,12 @@ import {
   areRewardsLockedToday,
   workDayProgressPct,
   totalVolumeCompleted,
-  detectMilestoneCrossed,
   toDateStr,
-  type ChallengeMilestone,
 } from "../../lib/challengeService";
-import { awardSessionXP } from "../../lib/xpService";
 import {
-  hapticWorkoutComplete,
   hapticSetComplete,
   hapticRankUp,
 } from "../../lib/hapticFeedback";
-import { syncCompletedSession } from "../../lib/healthkit/integration";
 import { makeId } from "../../lib/helpers";
 import { spacing, radius, typography } from "../../lib/theme";
 import type {
@@ -71,20 +65,6 @@ function formatUntilMidnight(now: Date): string {
   return `${h}h ${m}m`;
 }
 
-function milestoneToastMessage(
-  milestone: ChallengeMilestone,
-  xpAwarded: number,
-): string {
-  switch (milestone) {
-    case "quarter":
-      return `25% cleared — momentum locked. +${xpAwarded} XP`;
-    case "half":
-      return `Halfway there. You don't stop now. +${xpAwarded} XP`;
-    case "three_quarter":
-      return `75% done. Finish line in sight. +${xpAwarded} XP`;
-  }
-}
-
 export default function ChallengeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -95,7 +75,6 @@ export default function ChallengeDetailScreen() {
   const { profile, updateProfile } = useProfileContext();
   const { addWorkout } = useWorkouts();
   const { recordActivity } = useStreak();
-  const { xp, setXPRecord } = useXP();
 
   const {
     progress,
@@ -264,11 +243,12 @@ export default function ChallengeDetailScreen() {
   }
 
   /**
-   * Marks today's workout day as complete. Builds a real WorkoutSession so
-   * it appears in history, counts toward the streak, awards XP, and syncs
-   * to Apple Health — same pattern as the 1RM test flow.
+   * Creates an active WorkoutSession from today's challenge day and navigates
+   * to the session screen. XP, streak, and history are handled by the normal
+   * session → workout-complete flow. The challenge day is advanced automatically
+   * in workout-complete when the session finishes.
    */
-  async function handleCompleteWorkoutDay() {
+  async function handleStartSession() {
     if (!def || !progress || !displayDay || !displayDay.sets || saving || lockedUntilTomorrow) return;
     setSaving(true);
     try {
@@ -276,7 +256,7 @@ export default function ChallengeDetailScreen() {
       const sets: SetEntry[] = displayDay.sets.map((s) => ({
         reps: String(s.reps),
         weight: "",
-        completed: true,
+        completed: false,
       }));
       const sessionExercise: SessionExercise = {
         exerciseId: makeId(),
@@ -284,102 +264,26 @@ export default function ChallengeDetailScreen() {
         sets,
         equipment: def.equipment,
         restTime: def.defaultRestSeconds,
+        warmUpSets: 0,
+        notes: def.description,
       };
+      const sessionId = makeId();
       const workoutSession: WorkoutSession = {
-        id: makeId(),
+        id: sessionId,
         name: `${def.title} — Day ${displayDay.dayNumber}`,
         date: now,
         startedAt: now,
-        completedAt: now,
-        isActive: false,
+        isActive: true,
         sessionType: "strength",
         exercises: [sessionExercise],
-        xpClaimed: true,
-        notes: `Day ${displayDay.dayNumber} of ${def.totalDays}`,
+        challengeId: def.id,
       };
 
-      // Reward side effects — skipped entirely when the user has already
-      // earned challenge rewards today (via any challenge). This lets the
-      // schedule still advance below, so abandon→rejoin progresses the new
-      // challenge without being able to farm XP/fangs/streak/history.
-      let xpAwarded = 0;
-      if (!rewardsLocked) {
-        await addWorkout(workoutSession);
-
-        // Streak with freeze + rest-day support
-        const restDays = profile.restDays ?? [];
-        const week = isoWeek();
-        const freezesLeft =
-          profile.freezesResetWeek === week ? profile.freezesRemaining ?? 2 : 2;
-        const { streak: newStreak, freezesUsed } = await recordActivity(
-          new Date(),
-          restDays,
-          freezesLeft,
-        );
-        // Stamp the profile-level completion date so future same-day
-        // completions fall into the rewardsLocked branch above.
-        updateProfile({
-          lastChallengeDayCompletedDate: toDateStr(),
-          ...(freezesUsed > 0 || profile.freezesResetWeek !== week
-            ? {
-                freezesRemaining: freezesLeft - freezesUsed,
-                freezesResetWeek: week,
-              }
-            : {}),
-        });
-
-        // XP
-        const xpResult = awardSessionXP(
-          xp,
-          workoutSession,
-          false,
-          newStreak.current,
-        );
-        await setXPRecord(xpResult.updatedRecord);
-        xpAwarded = xpResult.awarded;
-
-        // Apple Health sync (fire-and-forget)
-        void syncCompletedSession(workoutSession);
-      }
-
-      // Snapshot pct BEFORE advancing so we can detect milestone crossings.
-      const beforePct = workDayProgressPct(progress, def);
-      const { archived, progress: nextProgress } = await advanceDay();
-      const afterPct = nextProgress ? workDayProgressPct(nextProgress, def) : 1;
-      const milestone = detectMilestoneCrossed(beforePct, afterPct);
-
-      if (archived) {
-        void hapticRankUp();
-        fire({ trigger: "challenge_complete" }, 8000);
-        showToast({
-          message: "Challenge complete! Legendary.",
-          type: "success",
-        });
-      } else if (rewardsLocked) {
-        void hapticSetComplete();
-        fire({ trigger: "session_complete" }, 5000);
-        showToast({
-          message: `Day ${displayDay.dayNumber} logged. Rewards already earned today.`,
-          type: "success",
-        });
-      } else if (milestone) {
-        void hapticWorkoutComplete();
-        fire({ trigger: "streak_milestone" }, 7000);
-        showToast({
-          message: milestoneToastMessage(milestone, xpAwarded),
-          type: "success",
-        });
-      } else {
-        void hapticWorkoutComplete();
-        fire({ trigger: "session_complete" }, 6000);
-        showToast({
-          message: `Day ${displayDay.dayNumber} done! +${xpAwarded} XP`,
-          type: "success",
-        });
-      }
+      await addWorkout(workoutSession);
+      router.push(`/session/${sessionId}`);
     } catch (e) {
       showToast({
-        message: e instanceof Error ? e.message : "Couldn't log day.",
+        message: e instanceof Error ? e.message : "Couldn't start session.",
         type: "error",
       });
     } finally {
@@ -536,22 +440,18 @@ export default function ChallengeDetailScreen() {
                       lockedUntilTomorrow
                         ? unlockCountdown
                         : saving
-                        ? "Saving…"
-                        : "Mark Day Complete"
+                        ? "Starting…"
+                        : "Start Today's Workout"
                     }
-                    onPress={handleCompleteWorkoutDay}
+                    onPress={handleStartSession}
                     disabled={saving || lockedUntilTomorrow}
                     loading={saving}
                   />
-                  {lockedUntilTomorrow ? (
+                  {lockedUntilTomorrow && (
                     <Text style={[styles.lockHint, { color: theme.colors.muted }]}>
                       You already completed a day of this challenge today. Come back tomorrow.
                     </Text>
-                  ) : rewardsLocked ? (
-                    <Text style={[styles.lockHint, { color: theme.colors.muted }]}>
-                      Rewards already claimed today — you'll still advance the schedule.
-                    </Text>
-                  ) : null}
+                  )}
                 </View>
               )}
             </Card>

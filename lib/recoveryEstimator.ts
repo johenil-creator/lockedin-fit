@@ -21,6 +21,14 @@
  *   51–79 → Fatigued
  *   80–100→ Overtrained
  *
+ * Isometric / timed exercises:
+ *   Timed exercises (Front Lever, Planche, L-sit, etc.) have their fatigue
+ *   contribution pre-scaled by 0.8 in muscleMapping.ts before reaching this
+ *   estimator.  Isometric holds cause deep muscle tension but less eccentric
+ *   damage than dynamic lifts, so they recover approximately 20% faster.
+ *   No additional adjustment is needed here — the reduced fatigue input
+ *   naturally produces a shorter recovery estimate through the decay model.
+ *
  * Caching:
  *   Results are cached for CACHE_TTL_MS (5 minutes) to avoid redundant
  *   recalculation when the same inputs arrive multiple times in a session.

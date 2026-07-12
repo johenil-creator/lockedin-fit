@@ -19,14 +19,21 @@ export function useRestTimers() {
       const key = `${exId}-${setIdx}`;
       const duration = restTime || 90;
 
-      // Enforce single active rest timer — dismiss any existing ones first
-      Object.keys(intervalsRef.current).forEach((existingKey) => {
-        if (existingKey !== key) {
-          clearInterval(intervalsRef.current[existingKey]);
-          delete intervalsRef.current[existingKey];
+      // Cancel any existing timers for this exercise only (not other exercises)
+      Object.keys(intervalsRef.current)
+        .filter((k) => k.startsWith(exId + '-') && k !== key)
+        .forEach((k) => {
+          clearInterval(intervalsRef.current[k]);
+          delete intervalsRef.current[k];
+        });
+      setRestTimers((prev) => {
+        const next: Record<string, number> = {};
+        for (const k of Object.keys(prev)) {
+          if (!k.startsWith(exId + '-')) next[k] = prev[k];
         }
+        next[key] = duration;
+        return next;
       });
-      setRestTimers(() => ({ [key]: duration }));
 
       // Clear any existing interval for this key
       if (intervalsRef.current[key]) clearInterval(intervalsRef.current[key]);

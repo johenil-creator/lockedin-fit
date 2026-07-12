@@ -1,7 +1,5 @@
 import type { MovementPattern, OrmLiftKey, UserProfile, WorkoutSession } from "../types";
-
-/** Warm-up reps descend as percentage increases. */
-const WARM_UP_REPS = [10, 8, 5, 3];
+import { isExerciseTimed, getExerciseEquipment, getTimedTargetSeconds } from "./classifier";
 
 /**
  * Cross-pattern estimation: when no direct 1RM matches the exercise,
@@ -173,65 +171,154 @@ export function calculateWorkingWeight(
   return rounded > 0 ? rounded : null;
 }
 
+export type WarmUpParams = {
+  /** Known working weight (0 or absent for bodyweight/timed). */
+  workingWeight: number;
+  /** Weight unit for plate rounding. */
+  unit: 'kg' | 'lbs';
+  /** Number of warmup sets to generate. */
+  count: number;
+  /** Target reps string for working sets (e.g. "5", "8-10", "AMRAP"). */
+  targetReps: string;
+  /** Exercise name — used to detect equipment type and timed classification. */
+  exerciseName: string;
+};
+
 /**
- * Build graduated warm-up sets from 50% of 1RM up to ~5% below working
- * intensity. Produces exactly `count` sets, evenly spaced across the range.
+ * Build warmup sets using exercise-type-aware logic.
+ *
+ * Three code paths:
+ * 1. Timed exercises → duration-based warmup (fraction of target seconds)
+ * 2. Bodyweight exercises → rep-only activation sets (no weight ramp)
+ * 3. Weighted exercises → weight ramp with reps driven by working-set target
+ *
+ * Reps are never a fixed 12. They are capped by BOTH the working set rep
+ * target AND the warmup weight percentage, so heavy compound work gets
+ * low-rep warmups (3-5) and light hypertrophy work gets moderate reps (5-6).
  */
-export function buildWarmUpSets(
-  orm: number,
-  modifierFraction: number,
-  workingIntensity: number,
-  unit: 'kg' | 'lbs',
-  count: number = 4,
-): { weight: string; reps: string }[] {
-  return buildGraduatedWarmUps(orm * modifierFraction, 0.50, workingIntensity - 0.05, count, unit);
+export function buildWarmUpSets(params: WarmUpParams): { weight: string; reps: string }[] {
+  const { workingWeight, unit, count, targetReps, exerciseName } = params;
+  if (count <= 0) return [];
+
+  // ── Path 1: Timed exercises ──────────────────────────────────────────────
+  if (isExerciseTimed(exerciseName)) {
+    const targetSecs = getTimedTargetSeconds(targetReps);
+    return buildTimedWarmUps(targetSecs, count);
+  }
+
+  // ── Path 2: Bodyweight exercises ─────────────────────────────────────────
+  const equipment = getExerciseEquipment(exerciseName);
+  if (equipment === 'bodyweight') {
+    const workingReps = parseWorkingReps(targetReps);
+    return buildBodyweightWarmUps(workingReps, count);
+  }
+
+  // ── Path 3: Weighted exercises ───────────────────────────────────────────
+  if (workingWeight <= 0) return [];
+  const workingReps = parseWorkingReps(targetReps);
+  const percentages = getWarmupPercentages(count);
+  return percentages.map((pct) => ({
+    weight: String(Math.max(roundToPlate(workingWeight * pct, unit), 0)),
+    reps: String(getWarmupReps(workingReps, pct)),
+  }));
 }
 
 /**
- * Build graduated warm-up sets from a known working weight (no 1RM needed).
- * Used by Tiers 2 & 3 where we don't have a direct ORM but do have a target weight.
- * Produces exactly `count` sets ramping from 40% to 85% of working weight.
+ * Warmup reps driven by BOTH working-set target reps AND warmup weight %.
+ * Higher percentage → fewer reps (CNS priming, not fatigue accumulation).
+ * Never exceeds the working set rep count.
  */
-export function buildWarmUpsFromWorkingWeight(
-  workingWeight: number,
-  unit: 'kg' | 'lbs',
-  count: number = 3,
-): { weight: string; reps: string }[] {
-  return buildGraduatedWarmUps(workingWeight, 0.40, 0.85, count, unit);
+function getWarmupReps(workingReps: number, warmupPct: number): number {
+  let maxByPct: number;
+  if (warmupPct >= 0.80)      maxByPct = 2;
+  else if (warmupPct >= 0.70) maxByPct = 3;
+  else if (warmupPct >= 0.60) maxByPct = 5;
+  else                         maxByPct = 8; // below 60%: light movement prep
+  return Math.min(workingReps, maxByPct);
 }
 
 /**
- * Shared helper: generates exactly `count` warm-up sets evenly spaced
- * between `lowPct` and `highPct` of `baseWeight`, with descending reps.
+ * Warmup weight percentages for each set count, ramping from light to
+ * heavy and always staying below working weight.
  */
-function buildGraduatedWarmUps(
-  baseWeight: number,
-  lowPct: number,
-  highPct: number,
+function getWarmupPercentages(count: number): number[] {
+  switch (count) {
+    case 1: return [0.60];
+    case 2: return [0.50, 0.75];
+    case 3: return [0.40, 0.60, 0.80];
+    case 4: return [0.40, 0.55, 0.70, 0.85];
+    case 5: return [0.30, 0.45, 0.60, 0.75, 0.85];
+    default: {
+      return Array.from({ length: count }, (_, i) =>
+        0.30 + (0.55 * i) / Math.max(count - 1, 1));
+    }
+  }
+}
+
+/**
+ * Bodyweight exercise warmup: rep-only activation (no weight ramp).
+ * Reps descend from easy activation (~50% of working) toward near-working load.
+ */
+function buildBodyweightWarmUps(
+  workingReps: number,
   count: number,
-  unit: 'kg' | 'lbs',
 ): { weight: string; reps: string }[] {
-  if (count <= 0 || baseWeight <= 0) return [];
+  const fractionsByCount: Record<number, number[]> = {
+    1: [0.50],
+    2: [0.40, 0.70],
+    3: [0.30, 0.50, 0.75],
+  };
+  const fractions = fractionsByCount[count] ??
+    Array.from({ length: count }, (_, i) => 0.30 + (0.45 * i) / Math.max(count - 1, 1));
 
-  // Descending rep scheme: first warm-up is lightest/most reps, last is heaviest/fewest
-  const REP_POOL = [12, 10, 8, 6, 5, 3, 2, 1];
-  // Pick `count` reps spread across the pool
-  const reps: number[] = [];
-  for (let i = 0; i < count; i++) {
-    const idx = Math.round((i / Math.max(count - 1, 1)) * (Math.min(count, REP_POOL.length) - 1));
-    reps.push(REP_POOL[idx]);
+  return fractions.map((frac) => ({
+    weight: '',
+    reps: String(Math.max(Math.round(workingReps * frac), 3)),
+  }));
+}
+
+/**
+ * Timed/isometric exercise warmup: shorter duration holds instead of reps.
+ * For open-ended (max) holds, uses fixed short activation durations.
+ */
+function buildTimedWarmUps(
+  targetSeconds: number,
+  count: number,
+): { weight: string; reps: string }[] {
+  // Open-ended (countup / max) holds: fixed activation durations
+  if (targetSeconds <= 0) {
+    const fixedDurations = [10, 15, 20, 25, 30];
+    return Array.from({ length: Math.min(count, fixedDurations.length) }, (_, i) => ({
+      weight: '',
+      reps: String(fixedDurations[i]),
+    }));
   }
 
-  const step = count === 1 ? 0 : (highPct - lowPct) / (count - 1);
-  const warmUps: { weight: string; reps: string }[] = [];
+  const fractionsByCount: Record<number, number[]> = {
+    1: [0.50],
+    2: [0.40, 0.70],
+    3: [0.30, 0.50, 0.75],
+  };
+  const fractions = fractionsByCount[count] ??
+    Array.from({ length: count }, (_, i) => 0.30 + (0.45 * i) / Math.max(count - 1, 1));
 
-  for (let i = 0; i < count; i++) {
-    const pct = lowPct + step * i;
-    const w = roundToPlate(baseWeight * pct, unit);
-    warmUps.push({ weight: String(Math.max(w, 0)), reps: String(reps[i]) });
-  }
+  return fractions.map((frac) => ({
+    weight: '',
+    reps: String(Math.max(Math.round(targetSeconds * frac), 10)),
+  }));
+}
 
-  return warmUps;
+/**
+ * Parse working reps from a plan reps string.
+ * "5" → 5 | "8-10" → 8 (lower bound) | "AMRAP"/"Max" → 5 (conservative)
+ */
+function parseWorkingReps(repsStr: string): number {
+  const s = repsStr.trim().toLowerCase();
+  if (s === 'amrap' || s === 'max' || s === '') return 5;
+  const rangeMatch = s.match(/^(\d+)\s*[-–]\s*\d+/);
+  if (rangeMatch) return parseInt(rangeMatch[1], 10);
+  const num = parseInt(s, 10);
+  return isNaN(num) || num <= 0 ? 5 : num;
 }
 
 /**
