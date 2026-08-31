@@ -37,8 +37,13 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
-/ios
+# generated native folders — ignore ios/ but whitelist custom native code
+/ios/*
+!/ios/WatchSession.m
+!/ios/LockedInFITWatch Watch App/
+!/ios/LockedInFITDev.xcodeproj/
+/ios/LockedInFITDev.xcodeproj/*
+!/ios/LockedInFITDev.xcodeproj/project.pbxproj
 /android
 
 # Cloud Functions build output
