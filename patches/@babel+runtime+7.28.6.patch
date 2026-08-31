@@ -1,0 +1,15 @@
+diff --git a/node_modules/@babel/runtime/helpers/construct.js b/node_modules/@babel/runtime/helpers/construct.js
+index aee8e70..65b5bfa 100644
+--- a/node_modules/@babel/runtime/helpers/construct.js
++++ b/node_modules/@babel/runtime/helpers/construct.js
+@@ -1,7 +1,9 @@
+ var isNativeReflectConstruct = require("./isNativeReflectConstruct.js");
+ var setPrototypeOf = require("./setPrototypeOf.js");
+ function _construct(t, e, r) {
+-  if (isNativeReflectConstruct()) return Reflect.construct.apply(null, arguments);
++  if (isNativeReflectConstruct()) {
++    try { return Reflect.construct.apply(null, arguments); } catch (_) {}
++  }
+   var o = [null];
+   o.push.apply(o, e);
+   var p = new (t.bind.apply(t, o))();

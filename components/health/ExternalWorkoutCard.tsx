@@ -6,13 +6,19 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import type { HealthExternalWorkout } from '../../lib/healthkit/types';
 
 type Props = {
   workout: HealthExternalWorkout;
+  /** Called when the user taps "Import to Log". Omit to hide the button. */
+  onImport?: () => void;
+  /** When true, shows an "Imported" badge instead of the import button. */
+  imported?: boolean;
+  /** Shows a loading spinner on the import button during async import. */
+  importing?: boolean;
 };
 
 const ACTIVITY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -57,7 +63,7 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-export function ExternalWorkoutCard({ workout }: Props) {
+export function ExternalWorkoutCard({ workout, onImport, imported = false, importing = false }: Props) {
   const { theme } = useAppTheme();
 
   const icon = ACTIVITY_ICONS[workout.activityType] ?? 'fitness';
@@ -107,19 +113,40 @@ export function ExternalWorkoutCard({ workout }: Props) {
         )}
       </View>
 
-      {/* Badge */}
+      {/* Bottom row: Apple Health badge + import action */}
       <View style={styles.badgeRow}>
         <View style={[styles.badge, { backgroundColor: theme.colors.primary + '15' }]}>
           <Ionicons name="heart" size={10} color={theme.colors.primary} />
           <Text style={[styles.badgeText, { color: theme.colors.primary }]}>
-            Detected via Apple Health
+            {workout.source !== 'Apple Health' ? workout.source : 'Apple Health'}
           </Text>
         </View>
-        {workout.source !== 'Apple Health' && (
-          <Text style={[styles.source, { color: theme.colors.muted }]}>
-            {workout.source}
-          </Text>
-        )}
+
+        {imported ? (
+          <View style={[styles.importedBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+            <Ionicons name="checkmark-circle" size={13} color={theme.colors.primary} />
+            <Text style={[styles.importedText, { color: theme.colors.primary }]}>Imported</Text>
+          </View>
+        ) : onImport ? (
+          <Pressable
+            style={[styles.importBtn, { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '40' }]}
+            onPress={onImport}
+            disabled={importing}
+            accessibilityLabel="Import workout to log"
+            accessibilityRole="button"
+          >
+            {importing ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <>
+                <Ionicons name="add-circle-outline" size={14} color={theme.colors.primary} />
+                <Text style={[styles.importBtnText, { color: theme.colors.primary }]}>
+                  Import to Log
+                </Text>
+              </>
+            )}
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -187,7 +214,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  source: {
-    fontSize: 11,
+  importBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  importBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  importedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  importedText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -50,11 +50,12 @@ export const ALL_READ_PERMISSIONS = [
 ] as const;
 
 /**
- * Write permissions — workout write only.
- * Requested separately from read permissions.
+ * Write permissions — workouts and active energy.
+ * ActiveEnergyBurned is required for the Move ring to count workout calories.
  */
 export const WRITE_PERMISSIONS = [
   'Workout',
+  'ActiveEnergyBurned',
 ] as const;
 
 // ── Cache TTLs (ms) ──────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   hapticSetComplete,
   hapticPR,
@@ -76,6 +76,7 @@ import { useRestTimers } from "../../hooks/useRestTimers";
 import { useProfileContext } from "../../contexts/ProfileContext";
 import { useToast } from "../../contexts/ToastContext";
 import { makeId } from "../../lib/helpers";
+import { watchSession } from "../../lib/watchSession";
 import ExerciseFeedbackSheet from "../../components/session/ExerciseFeedbackSheet";
 import { CoachMarks } from "../../components/session/CoachMarks";
 import type {
@@ -216,71 +217,26 @@ async function recordSessionFatigue(
 
 // ── Floating Pause Bar (self-contained timer) ─────────────────────────────
 
-function FloatingPauseBar({
-  startedAt,
-  backgroundMs,
-  onPause,
-}: {
-  startedAt: string;
-  backgroundMs: React.RefObject<number>;
-  onPause: () => void;
-}) {
+function FloatingTimerBar({ startedAt }: { startedAt: string }) {
   const { theme } = useAppTheme();
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const start = new Date(startedAt).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start - (backgroundMs.current ?? 0)) / 1000));
+    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [startedAt]);
 
   return (
-    <Pressable
-      onPress={onPause}
-      style={[styles.floatingPauseBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}
-    >
-      <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: "700", fontFamily: "monospace", marginRight: 10 }}>
+    <View style={[styles.floatingPauseBar, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+      <Text style={{ color: theme.colors.text, fontSize: 16, fontWeight: "700", fontFamily: "monospace" }}>
         {formatElapsed(elapsed)}
       </Text>
-      <Text style={{ color: theme.colors.accent, fontSize: 14, fontWeight: "700" }}>pause</Text>
-    </Pressable>
-  );
-}
-
-// ── Pause Overlay ──────────────────────────────────────────────────────────
-
-function PauseOverlay({
-  visible,
-  onResume,
-}: {
-  visible: boolean;
-  onResume: () => void;
-}) {
-  const { theme } = useAppTheme();
-  if (!visible) return null;
-
-  return (
-    <View style={pauseStyles.overlay}>
-      <View style={[pauseStyles.card, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[pauseStyles.title, { color: theme.colors.text }]}>
-          Session Paused
-        </Text>
-        <Text style={[pauseStyles.subtitle, { color: theme.colors.muted }]}>
-          Welcome back! Your progress has been saved.
-        </Text>
-        <Pressable
-          style={[pauseStyles.resumeBtn, { backgroundColor: theme.colors.primary }]}
-          onPress={onResume}
-        >
-          <Text style={[pauseStyles.resumeBtnText, { color: theme.colors.primaryText }]}>
-            Resume Session
-          </Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
+
 
 // ── Main Screen ─────────────────────────────────────────────────────────────
 
@@ -347,68 +303,426 @@ export default function SessionScreen() {
     setShowCues(false);
   }, []);
 
+  // ── Apple Watch sync ──────────────────────────────────────────────────────
+  // Keep refs so Watch event handlers always read current state without stale closures.
+  // NOTE: sessionRef is assigned directly in the render body (after `session` is declared
+  // at line ~406) because session is defined after this point in the file. A useEffect
+  // would have stale deps due to JS hoisting. See the assignment below.
+  const sessionRef = useRef<WorkoutSession | undefined>(undefined);
+  const activeExerciseIdRef = useRef(activeExerciseId);
+  useEffect(() => { activeExerciseIdRef.current = activeExerciseId; }, [activeExerciseId]);
+  // Last exercise ID actually sent to the Watch — used as fallback when the iPhone
+  // is on the exercise list view (activeExerciseId = null) but the Watch still shows
+  // that exercise's Done button. Without this, Watch Done silently does nothing.
+  const watchExerciseIdRef = useRef<string | null>(null);
+  // Kept current after every render so Watch handlers always call the latest closure.
+  const updateSetRef = useRef<typeof updateSet | null>(null);
+  // No-dep effect: runs after every render, keeps ref pointing at latest closure.
+  useEffect(() => { updateSetRef.current = updateSet; });
+  // endSessionRef — lets the Watch end the session directly without a modal.
+  // Assigned in the render body after `session` is available (same pattern as sessionRef).
+  const endSessionRef = useRef<(autoNavigate?: boolean) => Promise<void>>(async () => {});
+  // restTimers ref — lets onSkipRest read current timers without restating the effect
+  // every second (restTimers changes on every tick, which would remove/re-add the
+  // WatchSkipRest listener 90× per rest period and risk losing it permanently).
+  const restTimersRef = useRef(restTimers);
+  useEffect(() => { restTimersRef.current = restTimers; }, [restTimers]);
+  const { profile: profileForWatch } = useProfileContext();
+
+  // Push workout state to Watch whenever active exercise or session changes
+  useEffect(() => {
+    if (!watchSession.isAvailable || !session?.isActive) return;
+
+    // Cardio session — show activity name with no set info
+    if (session.sessionType === 'cardio') {
+      watchSession.sendWorkoutState({
+        exerciseName: session.name,
+        setIndex: 0,
+        totalSets: 0,
+        targetReps: '',
+        targetWeight: 0,
+        weightUnit: (profileForWatch.weightUnit as 'lb' | 'kg') ?? 'lb',
+      });
+      return;
+    }
+
+    // Strength session — show focused exercise
+    const ex = activeExerciseId
+      ? session?.exercises.find((e) => e.exerciseId === activeExerciseId)
+      : null;
+    if (!ex) {
+      // activeExerciseId is null — check if all exercises are finished
+      const allDone =
+        session.exercises.length > 0 &&
+        session.exercises.every((e) => e.sets.length > 0 && e.sets.every((s) => s.completed));
+      if (allDone) watchSession.sendSessionComplete();
+      return;
+    }
+    const currentSetIdx = ex.sets.findIndex((s) => !s.completed);
+
+    // All sets of this exercise are done — show the next exercise on Watch,
+    // or session complete if this was the last one. Without this, the Watch
+    // gets stuck showing the last completed set with a "Done" button.
+    if (currentSetIdx === -1) {
+      const exIdx = session.exercises.findIndex((e) => e.exerciseId === activeExerciseId);
+      const nextEx = session.exercises.slice(exIdx + 1).find(
+        (e) => e.sets.length > 0 && e.sets.some((s) => !s.completed)
+      );
+      if (nextEx) {
+        const nextSetIdx = nextEx.sets.findIndex((s) => !s.completed);
+        const nextSet = nextEx.sets[nextSetIdx];
+        const nextExIdx = session.exercises.indexOf(nextEx);
+        const nextIsTimed = isExerciseTimed(nextEx.name);
+        watchExerciseIdRef.current = nextEx.exerciseId;
+        watchSession.sendWorkoutState({
+          exerciseName: nextEx.name,
+          setIndex: nextSetIdx,
+          totalSets: nextEx.sets.length,
+          exerciseIndex: nextExIdx,
+          totalExercises: session.exercises.length,
+          targetReps: nextSet?.reps ?? '',
+          targetWeight: parseFloat(nextSet?.weight ?? '0') || 0,
+          weightUnit: (profileForWatch.weightUnit as 'lb' | 'kg') ?? 'lb',
+          isWarmUp: nextSet?.isWarmUp === true,
+          side: nextSet?.side,
+          notes: nextEx.notes,
+          isTimed: nextIsTimed,
+          timerTarget: nextIsTimed ? (getTimedTargetSeconds(nextSet?.reps ?? '') || 0) : 0,
+          timerStartedAt: 0,
+        });
+      } else {
+        // No more exercises with incomplete sets — session complete
+        watchSession.sendSessionComplete();
+      }
+      return;
+    }
+
+    const setIdx = currentSetIdx;
+    const set = ex.sets[setIdx];
+    watchExerciseIdRef.current = ex.exerciseId; // track what the Watch is showing
+    const exIsTimed = isExerciseTimed(ex.name);
+    const exIdx = session.exercises.findIndex((e) => e.exerciseId === activeExerciseId);
+    watchSession.sendWorkoutState({
+      exerciseName: ex.name,
+      setIndex: setIdx,
+      totalSets: ex.sets.length,
+      exerciseIndex: exIdx >= 0 ? exIdx : 0,
+      totalExercises: session.exercises.length,
+      targetReps: set?.reps ?? '',
+      targetWeight: parseFloat(set?.weight ?? '0') || 0,
+      weightUnit: (profileForWatch.weightUnit as 'lb' | 'kg') ?? 'lb',
+      isWarmUp: set?.isWarmUp === true,
+      side: set?.side,
+      notes: ex.notes,
+      isTimed: exIsTimed,
+      timerTarget: exIsTimed ? (getTimedTargetSeconds(set?.reps ?? '') || 0) : 0,
+      timerStartedAt: 0, // reset to idle; updated to Date.now()/1000 when user taps Play
+    });
+  // Use `workouts` (not `session`) as the dep because `session` is declared after this
+  // useEffect call in the file — JS var hoisting makes the dep always evaluate to
+  // undefined, so the effect never re-fires when set data changes. `workouts` is
+  // defined before this point (from useWorkouts()) and changes reference on every
+  // updateWorkout call, so it correctly triggers a re-sync after each set completion.
+  }, [activeExerciseId, workouts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for "Set Done" from Watch — complete current set.
+  // No isAvailable guard — a guard evaluated once at mount could silently prevent
+  // registration if the native module wasn't ready yet. watchSession.onSetDone is
+  // a no-op when the emitter is unavailable, so it's safe to call unconditionally.
+  //
+  // Dedup: transferUserInfo fallback can deliver after sendMessage already succeeded.
+  // We ignore a second set_done within 3 s of the first to prevent double-completion.
+  // Ref to programmatically start a timed exercise from the Watch
+  const startTimerRef = useRef<(() => void) | null>(null);
+
+  const lastSetDoneAtRef = useRef(0);
+  useEffect(() => {
+    return watchSession.onSetDone(() => {
+      const now = Date.now();
+      if (now - lastSetDoneAtRef.current < 3000) return; // dedup duplicate delivery
+      lastSetDoneAtRef.current = now;
+
+      const s = sessionRef.current;
+      const exId = activeExerciseIdRef.current ?? watchExerciseIdRef.current;
+      if (!s || !exId || !updateSetRef.current) return;
+      const ex = s.exercises.find((e) => e.exerciseId === exId);
+      if (!ex) return;
+
+      const setIdx = ex.sets.findIndex((set) => !set.completed);
+      if (setIdx === -1) {
+        // All sets done — advance to next exercise (mirrors iPhone "Next Exercise" button).
+        // Skip the feedback sheet since the Watch has no UI for it.
+        const exIndex = s.exercises.findIndex((e) => e.exerciseId === exId);
+        const nextEx = s.exercises[exIndex + 1];
+        setActiveExerciseId(nextEx ? nextEx.exerciseId : null);
+        return;
+      }
+
+      updateSetRef.current(exId, setIdx, { completed: true });
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for "Skip Rest" from Watch — dismiss active rest timer.
+  useEffect(() => {
+    return watchSession.onSkipRest(() => {
+      const exId = activeExerciseIdRef.current ?? watchExerciseIdRef.current;
+      if (!exId) return;
+      Object.keys(restTimersRef.current)
+        .filter((k) => k.startsWith(exId + '-'))
+        .forEach((k) => dismissRestTimer(k));
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for "End Session" tap from Watch (sent when all exercises are done).
+  // Calls the session-end logic directly — no confirmation modal needed since the
+  // user already confirmed by tapping "End Session" on the Watch.
+  useEffect(() => {
+    return watchSession.onEndSession(() => {
+      endSessionRef.current(true);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for weight/reps adjustments from Watch — adjusts the current incomplete set
+  // of the active exercise. Uses no deps so closures always read fresh state.
+  useEffect(() => {
+    const unsub1 = watchSession.onAdjustWeight(({ delta }) => {
+      const s = sessionRef.current;
+      const exId = activeExerciseIdRef.current;
+      if (!s || !exId) return;
+      const ex = s.exercises.find((e) => e.exerciseId === exId);
+      if (!ex) return;
+      const idx = ex.sets.findIndex((set) => !set.completed);
+      if (idx < 0) return;
+      const current = parseFloat(ex.sets[idx].weight ?? '0') || 0;
+      const newWeight = Math.max(0, current + delta);
+      updateSetRef.current?.(exId, idx, { weight: String(newWeight) });
+    });
+    const unsub2 = watchSession.onAdjustReps(({ delta }) => {
+      const s = sessionRef.current;
+      const exId = activeExerciseIdRef.current;
+      if (!s || !exId) return;
+      const ex = s.exercises.find((e) => e.exerciseId === exId);
+      if (!ex) return;
+      const idx = ex.sets.findIndex((set) => !set.completed);
+      if (idx < 0) return;
+      const current = parseInt(ex.sets[idx].reps ?? '0', 10) || 0;
+      const newReps = Math.max(0, current + delta);
+      updateSetRef.current?.(exId, idx, { reps: String(newReps) });
+    });
+    return () => { unsub1(); unsub2(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for "Start Timer" from Watch — programmatically start the timed exercise.
+  useEffect(() => {
+    return watchSession.onStartTimer(() => {
+      startTimerRef.current?.();
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Workout-complete navigation (user taps Continue) ─────────────────────
   const [pendingCompleteParams, setPendingCompleteParams] = useState<Record<string, any> | null>(null);
 
   // ── End session confirmation modal ──────────────────────────────────────
   const [endModalVisible, setEndModalVisible] = useState(false);
 
-  // ── Auto-pause state ──────────────────────────────────────────────────────
-  const backgroundTimestampRef = useRef<number | null>(null);
-
   const session = workouts.find((w) => w.id === id);
+  // Direct render-body assignment so Watch handlers always see the current session.
+  // Cannot use useEffect([session]) because session is declared after the hooks above,
+  // causing the dep array to always be [undefined] due to JS var hoisting.
+  sessionRef.current = session;
 
-  // Compute initial paused ms synchronously so timers never show wrong value
-  const initialPausedMs = useMemo(() => {
-    if (!session) return 0;
-    let ms = session.totalPausedMs ?? 0;
-    if (session.pausedAt && session.isActive) {
-      ms += Date.now() - new Date(session.pausedAt).getTime();
+  // Core session-end logic — called from the modal "End Session" button AND directly
+  // by the Watch "End Session" tap (no modal in that path). Assigned to a ref so the
+  // Watch event handler (registered with an empty dep array) always calls the current
+  // closure without stale state.
+  const endSessionNow = async (autoNavigate = false) => {
+    if (!session) return;
+
+    // ── Idempotency guard ──────────────────────────────
+    if (session.xpClaimed) {
+      router.replace("/");
+      return;
     }
-    return ms;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totalBackgroundMsRef = useRef(initialPausedMs);
-  const [paused, setPaused] = useState(() => !!(session?.pausedAt && session?.isActive));
+    watchSession.endWorkout();
 
-  // ── Auto-save on app background / restore on foreground ───────────────────
+    const completed: WorkoutSession = {
+      ...session,
+      isActive: false,
+      completedAt: new Date().toISOString(),
+      xpClaimed: true,
+    };
+    await updateWorkout(completed);
+
+    // ── Mark plan day completed ──────────────────────────
+    if (session.planWeek && session.planDay) {
+      markDayCompleted(session.planWeek, session.planDay);
+    }
+
+    // ── Streak (with freeze + rest-day support) ────────
+    const restDays = profile.restDays ?? [];
+    const week = isoWeek();
+    const freezesLeft =
+      profile.freezesResetWeek === week
+        ? (profile.freezesRemaining ?? 2)
+        : 2;
+    const { streak: newStreak, freezesUsed } =
+      await recordActivity(new Date(), restDays, freezesLeft);
+    if (freezesUsed > 0 || profile.freezesResetWeek !== week) {
+      updateProfile({
+        freezesRemaining: freezesLeft - freezesUsed,
+        freezesResetWeek: week,
+      });
+    }
+
+    // ── PR detection (Epley 1RM + bodyweight reps vs prior sessions) ─────
+    const prevSessions = workouts.filter(
+      (w) => w.id !== session.id && !!w.completedAt
+    );
+    const isPR = prevSessions.length > 0 && session.exercises.some((ex) => {
+      const isBW = ex.equipment === "bodyweight";
+
+      let current = 0;
+      for (const s of ex.sets) {
+        if (!s.completed) continue;
+        const w = parseFloat(s.weight);
+        const r = parseFloat(s.reps);
+        if (!isNaN(w) && !isNaN(r) && r > 0) {
+          current = Math.max(current, w * (1 + r / 30));
+        }
+      }
+      if (current > 0) {
+        let prevBest = 0;
+        for (const prev of prevSessions) {
+          for (const pe of prev.exercises) {
+            if (pe.name !== ex.name) continue;
+            for (const s of pe.sets) {
+              if (!s.completed) continue;
+              const w = parseFloat(s.weight);
+              const r = parseFloat(s.reps);
+              if (!isNaN(w) && !isNaN(r) && r > 0) {
+                prevBest = Math.max(prevBest, w * (1 + r / 30));
+              }
+            }
+          }
+        }
+        if (current > prevBest) return true;
+      }
+
+      if (isBW) {
+        let currentMaxReps = 0;
+        for (const s of ex.sets) {
+          if (!s.completed || s.isWarmUp) continue;
+          const r = parseFloat(s.reps);
+          if (!isNaN(r)) currentMaxReps = Math.max(currentMaxReps, r);
+        }
+        if (currentMaxReps <= 0) return false;
+        let prevBestReps = 0;
+        for (const prev of prevSessions) {
+          for (const pe of prev.exercises) {
+            if (pe.name !== ex.name) continue;
+            for (const s of pe.sets) {
+              if (!s.completed || s.isWarmUp) continue;
+              const r = parseFloat(s.reps);
+              if (!isNaN(r)) prevBestReps = Math.max(prevBestReps, r);
+            }
+          }
+        }
+        if (prevBestReps > 0 && currentMaxReps > prevBestReps) return true;
+      }
+
+      return false;
+    });
+
+    // ── XP award ────────────────────────────────────────
+    const xpResult = awardSessionXP(xp, completed, isPR, newStreak.current);
+    await setXPRecord(xpResult.updatedRecord);
+
+    // ── Badges ─────────────────────────────────────
+    const newBadges = checkBadges({
+      session: completed,
+      allWorkouts: [...workouts.filter((w) => w.id !== completed.id), completed],
+      profile,
+      streakDays: newStreak.current,
+    });
+    if (newBadges.length > 0) {
+      await updateProfile({
+        badges: [...(profile.badges ?? []), ...newBadges],
+      });
+    }
+
+    // ── Performance week ────────────────────────────────
+    const weekRecord = buildPerformanceWeek(
+      isoWeekKey(new Date()),
+      [completed],
+      newStreak.current,
+      isPR ? 1 : 0
+    );
+    await savePerformanceRecord(upsertPerformanceWeek(performance, weekRecord));
+
+    // ── Icon mood ──────────────────────────────────────
+    checkIconMood({
+      isSessionActive: false,
+      prHitInLast24h: isPR,
+      streakDays: newStreak.current,
+      lastWorkoutAt: completed.completedAt ?? null,
+    });
+
+    // ── Fatigue + training load (fire-and-forget) ─────────
+    void recordSessionFatigue(
+      completed,
+      [...workouts.filter((w) => w.id !== completed.id), completed],
+    );
+
+    // ── Sync to Apple Health (fire-and-forget) ─────────
+    void syncCompletedSession(completed);
+
+    // ── Cancel streak-at-risk notification ───────────────
+    void cancelStreakRiskReminder();
+
+    // ── Prepare Workout Complete params (user navigates manually) ──
+    const wcParams = buildWorkoutCompleteParams(
+      completed,
+      xpResult,
+      isPR,
+      newStreak.current
+    );
+    if (newBadges.length > 0) {
+      wcParams.newBadges = newBadges;
+    }
+    if (completed.challengeId) {
+      wcParams.challengeId = completed.challengeId;
+    }
+    if (autoNavigate) {
+      router.replace({
+        pathname: "/workout-complete",
+        params: { data: JSON.stringify(wcParams) },
+      });
+    } else {
+      setPendingCompleteParams(wcParams);
+    }
+  };
+  // Keep ref current so the Watch event handler always calls the latest closure.
+  endSessionRef.current = endSessionNow;
+
+  // ── Advance rest timers when returning from background ────────────────────
   useEffect(() => {
+    let bgStartMs: number | null = null;
     const handleAppState = (nextState: AppStateStatus) => {
       if (!session?.isActive) return;
-
       if (nextState === "background" || nextState === "inactive") {
-        backgroundTimestampRef.current = Date.now();
-      } else if (nextState === "active" && backgroundTimestampRef.current) {
-        const bgDuration = Date.now() - backgroundTimestampRef.current;
-        backgroundTimestampRef.current = null;
-
-        // Accumulate background time so elapsed timer excludes it
-        totalBackgroundMsRef.current += bgDuration;
-
-        // Advance rest timers by the time spent in background
+        bgStartMs = Date.now();
+      } else if (nextState === "active" && bgStartMs !== null) {
+        const bgDuration = Date.now() - bgStartMs;
+        bgStartMs = null;
         if (bgDuration > 1000) {
           advanceTimers(Math.floor(bgDuration / 1000));
         }
-
-        setPaused(true);
       }
     };
-
     const sub = AppState.addEventListener("change", handleAppState);
     return () => sub.remove();
   }, [session?.isActive]);
-
-  const handleResumePause = useCallback(() => {
-    setPaused(false);
-    if (session?.pausedAt) {
-      // Pause time was already accumulated on mount — just persist and clear pausedAt
-      updateWorkout({
-        ...session,
-        pausedAt: undefined,
-        totalPausedMs: totalBackgroundMsRef.current,
-      });
-    }
-  }, [session, updateWorkout]);
 
   // Load custom catalog entries into the matcher on mount
   useEffect(() => {
@@ -730,7 +1044,9 @@ export default function SessionScreen() {
         const completedSet = ex.sets[setIdx];
         const skipRest = ex.isUnilateral && completedSet?.side === 'L';
         if (!skipRest) {
-          startRestTimer(exId, setIdx, ex.restTime ?? profile.defaultRestTimer ?? 90);
+          const restDuration = ex.restTime ?? profile.defaultRestTimer ?? 90;
+          startRestTimer(exId, setIdx, restDuration);
+          watchSession.sendRestStart(restDuration);
         }
 
         // PR detection — O(1) lookup against pre-computed baselines
@@ -1197,8 +1513,32 @@ export default function SessionScreen() {
                           locked={locked}
                           isFutureSet={isFutureSet}
                           colors={theme.colors}
+                          startRef={!s.completed && !isFutureSet ? startTimerRef : undefined}
                           onComplete={(actualSeconds: number) => updateSet(activeExercise.exerciseId, i, { completed: true, reps: String(actualSeconds) })}
-                          onTimerStart={(timerTarget) => setHoldOverlay({ visible: true, exerciseName: activeExercise.name, remaining: timerTarget, elapsed: 0, target: timerTarget })}
+                          onTimerStart={(timerTarget) => {
+                            setHoldOverlay({ visible: true, exerciseName: activeExercise.name, remaining: timerTarget, elapsed: 0, target: timerTarget });
+                            // Notify Watch: timer is now running. timerStartedAt anchors the
+                            // Watch's TimelineView so it computes elapsed = now - timerStartedAt.
+                            const currentSetIdx = activeExercise.sets.findIndex((s) => !s.completed);
+                            const syncSetIdx = currentSetIdx === -1 ? activeExercise.sets.length - 1 : currentSetIdx;
+                            const timerExIdx = session!.exercises.findIndex((e) => e.exerciseId === activeExercise.exerciseId);
+                            watchSession.sendWorkoutState({
+                              exerciseName: activeExercise.name,
+                              setIndex: syncSetIdx,
+                              totalSets: activeExercise.sets.length,
+                              exerciseIndex: timerExIdx >= 0 ? timerExIdx : 0,
+                              totalExercises: session!.exercises.length,
+                              targetReps: String(timerTarget || 0),
+                              targetWeight: parseFloat(activeExercise.sets[syncSetIdx]?.weight ?? '0') || 0,
+                              weightUnit: (profileForWatch.weightUnit as 'lb' | 'kg') ?? 'lb',
+                              isWarmUp: activeExercise.sets[syncSetIdx]?.isWarmUp === true,
+                              side: activeExercise.sets[syncSetIdx]?.side,
+                              notes: activeExercise.notes,
+                              isTimed: true,
+                              timerTarget,
+                              timerStartedAt: Date.now() / 1000,
+                            });
+                          }}
                           onTick={(remaining, elapsed) => setHoldOverlay((prev) => ({ ...prev, remaining, elapsed }))}
                           onTimerStop={() => setHoldOverlay((prev) => ({ ...prev, visible: false }))}
                         />
@@ -1262,7 +1602,7 @@ export default function SessionScreen() {
                     {/* Rest timer pill */}
                     {restRemaining != null && restRemaining > 0 && (
                       <Pressable
-                        onPress={() => dismissRestTimer(timerKey)}
+                        onPress={() => { dismissRestTimer(timerKey); watchSession.sendRestDone(); }}
                         style={[styles.restPill, { backgroundColor: theme.colors.accent + "22" }]}
                       >
                         <Text style={[styles.restPillText, { color: theme.colors.accent }]}>
@@ -1459,163 +1799,9 @@ export default function SessionScreen() {
 
             <Pressable
               style={[endModalStyles.btn, { backgroundColor: theme.colors.primary }]}
-              onPress={async () => {
+              onPress={() => {
                 setEndModalVisible(false);
-
-                // ── Idempotency guard ──────────────────────────────
-                if (session.xpClaimed) {
-                  router.replace("/");
-                  return;
-                }
-
-                const completed: WorkoutSession = {
-                  ...session,
-                  isActive: false,
-                  completedAt: new Date().toISOString(),
-                  xpClaimed: true,
-                };
-                await updateWorkout(completed);
-
-                // ── Mark plan day completed ──────────────────────────
-                if (session.planWeek && session.planDay) {
-                  markDayCompleted(session.planWeek, session.planDay);
-                }
-
-                // ── Streak (with freeze + rest-day support) ────────
-                const restDays = profile.restDays ?? [];
-                const week = isoWeek();
-                const freezesLeft =
-                  profile.freezesResetWeek === week
-                    ? (profile.freezesRemaining ?? 2)
-                    : 2;
-                const { streak: newStreak, freezesUsed } =
-                  await recordActivity(new Date(), restDays, freezesLeft);
-                if (freezesUsed > 0 || profile.freezesResetWeek !== week) {
-                  updateProfile({
-                    freezesRemaining: freezesLeft - freezesUsed,
-                    freezesResetWeek: week,
-                  });
-                }
-
-                // ── PR detection (Epley 1RM + bodyweight reps vs prior sessions) ─────
-                const prevSessions = workouts.filter(
-                  (w) => w.id !== session.id && !!w.completedAt
-                );
-                const isPR = prevSessions.length > 0 && session.exercises.some((ex) => {
-                  const isBW = ex.equipment === "bodyweight";
-
-                  let current = 0;
-                  for (const s of ex.sets) {
-                    if (!s.completed) continue;
-                    const w = parseFloat(s.weight);
-                    const r = parseFloat(s.reps);
-                    if (!isNaN(w) && !isNaN(r) && r > 0) {
-                      current = Math.max(current, w * (1 + r / 30));
-                    }
-                  }
-                  if (current > 0) {
-                    let prevBest = 0;
-                    for (const prev of prevSessions) {
-                      for (const pe of prev.exercises) {
-                        if (pe.name !== ex.name) continue;
-                        for (const s of pe.sets) {
-                          if (!s.completed) continue;
-                          const w = parseFloat(s.weight);
-                          const r = parseFloat(s.reps);
-                          if (!isNaN(w) && !isNaN(r) && r > 0) {
-                            prevBest = Math.max(prevBest, w * (1 + r / 30));
-                          }
-                        }
-                      }
-                    }
-                    if (current > prevBest) return true;
-                  }
-
-                  if (isBW) {
-                    let currentMaxReps = 0;
-                    for (const s of ex.sets) {
-                      if (!s.completed || s.isWarmUp) continue;
-                      const r = parseFloat(s.reps);
-                      if (!isNaN(r)) currentMaxReps = Math.max(currentMaxReps, r);
-                    }
-                    if (currentMaxReps <= 0) return false;
-                    let prevBestReps = 0;
-                    for (const prev of prevSessions) {
-                      for (const pe of prev.exercises) {
-                        if (pe.name !== ex.name) continue;
-                        for (const s of pe.sets) {
-                          if (!s.completed || s.isWarmUp) continue;
-                          const r = parseFloat(s.reps);
-                          if (!isNaN(r)) prevBestReps = Math.max(prevBestReps, r);
-                        }
-                      }
-                    }
-                    if (prevBestReps > 0 && currentMaxReps > prevBestReps) return true;
-                  }
-
-                  return false;
-                });
-
-                // ── XP award ────────────────────────────────────────
-                const xpResult = awardSessionXP(xp, completed, isPR, newStreak.current);
-                await setXPRecord(xpResult.updatedRecord);
-
-                // ── Badges ─────────────────────────────────────
-                const newBadges = checkBadges({
-                  session: completed,
-                  allWorkouts: [...workouts.filter((w) => w.id !== completed.id), completed],
-                  profile,
-                  streakDays: newStreak.current,
-                });
-                if (newBadges.length > 0) {
-                  await updateProfile({
-                    badges: [...(profile.badges ?? []), ...newBadges],
-                  });
-                }
-
-                // ── Performance week ────────────────────────────────
-                const weekRecord = buildPerformanceWeek(
-                  isoWeekKey(new Date()),
-                  [completed],
-                  newStreak.current,
-                  isPR ? 1 : 0
-                );
-                await savePerformanceRecord(upsertPerformanceWeek(performance, weekRecord));
-
-                // ── Icon mood ──────────────────────────────────────
-                checkIconMood({
-                  isSessionActive: false,
-                  prHitInLast24h: isPR,
-                  streakDays: newStreak.current,
-                  lastWorkoutAt: completed.completedAt ?? null,
-                });
-
-                // ── Fatigue + training load (fire-and-forget) ─────────
-                void recordSessionFatigue(
-                  completed,
-                  [...workouts.filter((w) => w.id !== completed.id), completed],
-                );
-
-                // ── Sync to Apple Health (fire-and-forget) ─────────
-                void syncCompletedSession(completed);
-
-                // ── Cancel streak-at-risk notification ───────────────
-                void cancelStreakRiskReminder();
-
-                // ── Prepare Workout Complete params (user navigates manually) ──
-                const wcParams = buildWorkoutCompleteParams(
-                  completed,
-                  xpResult,
-                  isPR,
-                  newStreak.current
-                );
-                if (newBadges.length > 0) {
-                  wcParams.newBadges = newBadges;
-                }
-                if (completed.challengeId) {
-                  wcParams.challengeId = completed.challengeId;
-                }
-                setPendingCompleteParams(wcParams);
+                endSessionNow();
               }}
             >
               <Text style={[endModalStyles.btnText, { color: theme.colors.primaryText }]}>End Session</Text>
@@ -1782,17 +1968,10 @@ export default function SessionScreen() {
         }}
       />
 
-      {/* Floating pause bar — hide when paused or end-session modal is open */}
-      {session.isActive && session.startedAt && !paused && !endModalVisible && (
-        <FloatingPauseBar
-          startedAt={session.startedAt}
-          backgroundMs={totalBackgroundMsRef}
-          onPause={() => setPaused(true)}
-        />
+      {/* Floating timer bar */}
+      {session.isActive && session.startedAt && !endModalVisible && (
+        <FloatingTimerBar startedAt={session.startedAt} />
       )}
-
-      {/* Auto-pause overlay */}
-      <PauseOverlay visible={paused && !!session.isActive} onResume={handleResumePause} />
 
       {/* Replace exercise picker */}
       <ExercisePicker
@@ -2104,42 +2283,3 @@ const endModalStyles = StyleSheet.create({
   },
 });
 
-const pauseStyles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 100,
-  },
-  card: {
-    borderRadius: 16,
-    padding: 32,
-    alignItems: "center",
-    width: "85%",
-    maxWidth: 340,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  resumeBtn: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    width: "100%",
-    alignItems: "center",
-  },
-  resumeBtnText: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-});

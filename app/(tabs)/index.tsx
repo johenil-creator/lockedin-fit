@@ -47,6 +47,13 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { useWeekInReview } from "../../hooks/useWeekInReview";
 import { WeekInReviewCard } from "../../components/insights/WeekInReviewCard";
 import { scheduleStreakRiskIfNeeded } from "../../lib/notifications";
+import {
+  computeDecayCheck,
+  applyXPDecay,
+  getLastWorkoutDate,
+  DECAY_GRACE_DAYS,
+} from "../../lib/xpDecay";
+import { rankDisplayName } from "../../lib/rankService";
 import { useAppIcon } from "../../hooks/useAppIcon";
 import { loadMealPrefs, loadMealPlan } from "../../lib/mealStorage";
 import { recipeMap } from "../../src/data/recipeCatalog";
@@ -564,6 +571,45 @@ function detectRecentPR(workouts: ReturnType<typeof useWorkouts>["workouts"]): b
   return !!last.prAwarded;
 }
 
+// ── Decay warning banner ──────────────────────────────────────────────────────
+
+function DecayWarningBanner({ daysUntilDecay, onPress }: { daysUntilDecay: number; onPress: () => void }) {
+  const { theme } = useAppTheme();
+  const AMBER = "#B45309";
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Rank at risk — tap to start a session"
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        backgroundColor: AMBER + "18",
+        borderColor: AMBER + "55",
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        marginBottom: 12,
+      }}
+    >
+      <Ionicons name="warning-outline" size={18} color={AMBER} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: AMBER, fontWeight: "700", fontSize: 13 }}>
+          {daysUntilDecay === 0
+            ? "XP decay active — rank at risk"
+            : `Rank at risk — ${daysUntilDecay} day${daysUntilDecay !== 1 ? "s" : ""} until XP loss`}
+        </Text>
+        <Text style={{ color: AMBER, opacity: 0.8, fontSize: 12, marginTop: 2 }}>
+          Train today to stop the bleeding. Tap to start a session.
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={14} color={AMBER} />
+    </Pressable>
+  );
+}
+
 // ── Plan celebration guard ─────────────────────────────────────────────────────
 // Module-level so it survives component remounts (e.g. navigating back from plan-complete).
 // Stores the planName for which the celebration was already shown this session.
@@ -586,7 +632,7 @@ export default function HomeScreen() {
   const [streakSheetOpen, setStreakSheetOpen] = useState(false);
   const [huntSheetOpen, setHuntSheetOpen] = useState(false);
   const { hydrated, profileRef } = useProfileContext();
-  const { xp, rank, progress, toNext, nextTier, bandCurrent, bandTotal } = useXP();
+  const { xp, loading: xpLoading, rank, progress, toNext, nextTier, bandCurrent, bandTotal, setXPRecord } = useXP();
   const { streak, daysSinceActivity, restoreStreak, breakStreakIfStale } = useStreak();
   useAppIcon(streak.current, daysSinceActivity);
   const { show: showRewardedAd } = useRewardedAd();
@@ -610,6 +656,8 @@ export default function HomeScreen() {
   const onboardingCheckDone = useRef(false);
   const planCelebrationShown = useRef(false);
   const isFirstFocus        = useRef(true);
+  const decayChecked        = useRef(false);
+  const [decayWarningDays, setDecayWarningDays] = useState(-1); // -1 = hidden, 0 = active, N = countdown
   // Module-level guard: survives component remounts within the same JS session.
   // Prevents plan-complete from firing again when the user navigates back to home.
 
@@ -659,11 +707,55 @@ export default function HomeScreen() {
     }, [reloadWorkouts])
   );
 
+  // Reset decay check on each focus so it re-evaluates when the user returns
+  useFocusEffect(useCallback(() => { decayChecked.current = false; }, []));
+
+  // ── XP decay check — runs once per focus after data loads ─────────────────
+  useEffect(() => {
+    if (decayChecked.current) return;
+    if (xpLoading || workoutsLoading) return;
+    decayChecked.current = true;
+
+    const today = new Date().toLocaleDateString('en-CA'); // local date, not UTC
+    const lastDate = getLastWorkoutDate(workouts);
+    const check = computeDecayCheck(xp, lastDate, today);
+
+    // Update warning banner state
+    // daysUntilDecay=0 shows "XP decay active" text; positive shows countdown
+    if (check.shouldWarn) {
+      setDecayWarningDays(check.daysUntilDecay);
+    } else if (check.shouldDecay) {
+      setDecayWarningDays(0); // banner shows "XP decay active — rank at risk"
+    } else {
+      setDecayWarningDays(-1); // hide banner
+    }
+
+    if (check.shouldDecay && !check.alreadyAppliedToday) {
+      const prevRank = xp.rank;
+      const decayed = applyXPDecay(xp, today);
+      void setXPRecord(decayed);
+
+      const demoted = decayed.rank !== prevRank;
+      setTimeout(() => {
+        if (demoted) {
+          fire({ trigger: "rank_down" });
+          Alert.alert(
+            "Rank Lost",
+            `You've dropped from ${rankDisplayName(prevRank)} to ${rankDisplayName(decayed.rank)} due to inactivity.\n\nEvery day you miss costs ${50} XP. Train today to start climbing back.`,
+            [{ text: "Time to train", style: "default" }],
+          );
+        } else {
+          fire({ trigger: "xp_decay_warning" });
+        }
+      }, 600);
+    }
+  }, [xpLoading, workoutsLoading, workouts, xp, setXPRecord, fire]);
+
   // ── Streak-risk notification: schedule/cancel based on today's activity ────
   useFocusEffect(
     useCallback(() => {
       if (workoutsLoading) return;
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = new Date().toLocaleDateString('en-CA'); // local date, not UTC
       const workedOutToday = workouts.some(
         (w) => w.completedAt && w.completedAt.slice(0, 10) === todayStr,
       );
@@ -945,6 +1037,16 @@ export default function HomeScreen() {
           />
         </Animated.View>
 
+
+        {/* DECAY WARNING BANNER — shown when rank is at risk (days 5+) or decay is active */}
+        {decayWarningDays >= 0 && (
+          <Animated.View entering={sectionEnter(80)}>
+            <DecayWarningBanner
+              daysUntilDecay={decayWarningDays}
+              onPress={handleStartSession}
+            />
+          </Animated.View>
+        )}
 
         {/* LOCKE PANEL — wolf personality + hunt sheet trigger */}
         {has1RM && (

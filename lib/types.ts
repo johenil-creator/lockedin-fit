@@ -83,6 +83,8 @@ export type Exercise = {
   notes?: string;
   isUnilateral?: boolean;
   side?: 'L' | 'R' | null;
+  /** Parsed equipment/variation alternatives — e.g. ["Barbell Curl", "Dumbbell Curl"]. Present when the spreadsheet row listed multiple options. */
+  alternatives?: string[];
 };
 
 export type ProgressionRule = {
@@ -223,12 +225,13 @@ export type XPHistoryEntry = {
 };
 
 export type XPRecord = {
-  total: number;         // lifetime XP — never decreases
+  total: number;
   rank: RankLevel;
   history: XPHistoryEntry[];
   awardedMilestones?: string[];  // permanent record of streak milestones awarded
   todayXP?: number;       // XP earned today
   todayDate?: string;     // ISO date string (YYYY-MM-DD) for resetting daily count
+  lastDecayDate?: string; // YYYY-MM-DD of last calendar day decay was applied
 };
 
 export type PerformanceWeek = {
@@ -297,6 +300,8 @@ export type LockeTrigger =
   | 'streak_milestone'
   | 'inactivity'
   | 'rank_up'
+  | 'rank_down'
+  | 'xp_decay_warning'
   | 'challenge_complete'
   | 'onboarding'
   | '1rm_test'

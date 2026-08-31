@@ -54,15 +54,15 @@ export function useXP() {
     await saveXP(record);
     setXP(record);
 
-    // Fire-and-forget sync the delta XP to Firebase
-    if (delta > 0) {
-      const user = auth.currentUser;
-      if (user) {
+    const user = auth.currentUser;
+    if (user) {
+      // Sync positive XP delta to weekly leaderboard
+      if (delta > 0) {
         syncWeeklyXP(user.uid, getCurrentWeekKey(), delta).catch(() => {});
-        // Sync rank to user doc when it changes so social features show correct rank
-        if (record.rank !== oldRank) {
-          queueSocialWrite("users", user.uid, { rank: record.rank }).catch(() => {});
-        }
+      }
+      // Sync rank whenever it changes (covers both rank-ups and demotions)
+      if (record.rank !== oldRank) {
+        queueSocialWrite("users", user.uid, { rank: record.rank }).catch(() => {});
       }
     }
   }, []);

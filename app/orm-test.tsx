@@ -36,6 +36,7 @@ import { hasAcceptedOrmDisclaimer, markOrmDisclaimerAccepted } from "../lib/stor
 import { makeId } from "../lib/helpers";
 import { awardSessionXP } from "../lib/xpService";
 import { syncCompletedSession } from "../lib/healthkit/integration";
+import { watchSession } from "../lib/watchSession";
 import type { WorkoutSession, SessionExercise, SetEntry, OrmTestSession } from "../lib/types";
 
 // ── Progress Bar ────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ export default function OrmTestScreen() {
   const [exitModalVisible, setExitModalVisible] = useState(false);
   const [setsVisible, setSetsVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const watchInitiatedRef = useRef(false);
   const [tipExpanded, setTipExpanded] = useState(false);
   const [safetyExpanded, setSafetyExpanded] = useState(false);
 
@@ -153,6 +155,7 @@ export default function OrmTestScreen() {
   function startRestTimer(setIdx: number) {
     // Clear any existing timer
     if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    watchSession.sendRestStart(REST_DURATION);
     const key = `set-${setIdx}`;
     setRestTimer({ key, remaining: REST_DURATION });
     restIntervalRef.current = setInterval(() => {
@@ -173,6 +176,7 @@ export default function OrmTestScreen() {
       restIntervalRef.current = null;
     }
     setRestTimer(null);
+    watchSession.sendRestDone();
   }
 
   // Cleanup on unmount
@@ -230,6 +234,141 @@ export default function OrmTestScreen() {
   const allLiftsComplete =
     ormTest.session?.lifts.every((l) => l.completed) ?? false;
 
+  // ── Watch sync ──────────────────────────────────────────────────────────────
+
+  /** Push current 1RM lift/set state to Watch. */
+  function syncWatchState() {
+    if (!watchSession.isAvailable || !currentLift) return;
+    const nextIdx = currentLift.sets.findIndex((s) => !s.completed);
+    const setIdx = nextIdx >= 0 ? nextIdx : currentLift.sets.length - 1;
+    const set = currentLift.sets[setIdx];
+    const pctLabel = set?.prescribedReps === 'amrap'
+      ? 'AMRAP'
+      : set?.prescribedPct === 0
+        ? 'Bar'
+        : `${Math.round((set?.prescribedPct ?? 0) * 100)}%`;
+    watchSession.sendWorkoutState({
+      exerciseName: `1RM: ${currentLift.liftLabel}`,
+      setIndex: setIdx,
+      totalSets: currentLift.sets.length,
+      exerciseIndex: liftIndex,
+      totalExercises: ormTest.session?.lifts.length ?? 4,
+      targetReps: set?.prescribedReps === 'amrap'
+        ? (set?.reps ? String(set.reps) : 'MAX')
+        : String(set?.prescribedReps ?? ''),
+      targetWeight: parseFloat(set?.weight ?? '0') || 0,
+      weightUnit: (unit === 'lbs' ? 'lb' : 'kg') as 'lb' | 'kg',
+      notes: pctLabel,
+    });
+  }
+
+  // Derive current set values so the sync fires when reps/weight change (e.g. AMRAP entry)
+  const currentSetIdx = currentLift?.sets.findIndex((s) => !s.completed) ?? -1;
+  const currentSetReps = currentSetIdx >= 0 ? currentLift?.sets[currentSetIdx]?.reps : undefined;
+  const currentSetWeight = currentSetIdx >= 0 ? currentLift?.sets[currentSetIdx]?.weight : undefined;
+
+  // Sync Watch whenever the active lift, set, or set values change
+  useEffect(() => {
+    if (ormTest.session?.status !== 'in_progress' || !currentLift) return;
+    if (setsVisible) {
+      // Sets are visible — sync current set/weight/reps
+      syncWatchState();
+    } else {
+      // Between lifts (estimate input screen) — tell Watch to show keypad
+      // so the user can enter their estimated 1RM directly from the wrist.
+      watchSession.sendWorkoutState({
+        exerciseName: currentLift.liftLabel,
+        setIndex: 0,
+        totalSets: 1,
+        exerciseIndex: liftIndex,
+        totalExercises: ormTest.session?.lifts.length ?? 4,
+        targetReps: '',
+        targetWeight: 0,
+        weightUnit: (unit === 'lbs' ? 'lb' : 'kg') as 'lb' | 'kg',
+        isAwaitingEstimate: true,
+      });
+    }
+  }, [liftIndex, currentLift?.sets.filter((s) => s.completed).length, setsVisible, currentSetReps, currentSetWeight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for Watch commands
+  useEffect(() => {
+    const unsub1 = watchSession.onSetDone(() => {
+      if (!currentLift) return;
+      const nextIndex = currentLift.sets.findIndex((s) => !s.completed);
+      if (nextIndex >= 0 && !restTimer) {
+        // Complete the next incomplete set
+        ormTest.completeSet(liftIndex, nextIndex);
+        impact(ImpactStyle.Medium);
+        // Check if this was the last set — if so, skip rest and advance
+        const remainingAfter = currentLift.sets.filter(
+          (s, i) => !s.completed && i !== nextIndex
+        ).length;
+        if (remainingAfter === 0) {
+          // Last set done — auto-advance to next lift (no rest needed)
+          handleCompleteLift();
+        } else {
+          startRestTimer(nextIndex);
+        }
+      } else if (nextIndex < 0) {
+        // All sets complete — auto-advance to next lift
+        handleCompleteLift();
+      }
+    });
+    const unsub2 = watchSession.onSkipRest(() => {
+      dismissRestTimer();
+    });
+    const unsub3 = watchSession.onAdjustWeight(({ delta }) => {
+      if (!currentLift) return;
+      const idx = currentLift.sets.findIndex((s) => !s.completed);
+      if (idx < 0) return;
+      const current = parseFloat(currentLift.sets[idx].weight ?? '0') || 0;
+      const newWeight = Math.max(0, current + delta);
+      ormTest.updateSetWeight(liftIndex, idx, String(newWeight));
+    });
+    const unsub4 = watchSession.onAdjustReps(({ delta }) => {
+      if (!currentLift) return;
+      const idx = currentLift.sets.findIndex((s) => !s.completed);
+      if (idx < 0) return;
+      const current = parseInt(currentLift.sets[idx].reps ?? '0', 10) || 0;
+      const newReps = Math.max(0, current + delta);
+      ormTest.updateSetReps(liftIndex, idx, String(newReps));
+    });
+    const unsub5 = watchSession.onSubmitEstimate(({ value }) => {
+      if (!currentLift || setsVisible) return;
+      const parsed = parseFloat(value);
+      if (!parsed || parsed <= 0) return;
+      ormTest.setEstimatedInput(liftIndex, value);
+      // Small delay so the state updates before generating sets
+      setTimeout(() => {
+        ormTest.generateSets(liftIndex);
+        setSetsVisible(true);
+      }, 50);
+    });
+    const unsub6 = watchSession.onEndSession(() => {
+      // User tapped "Save to Profile" on Watch after all lifts complete
+      watchInitiatedRef.current = true;
+      handleFinish();
+    });
+    const unsub7 = watchSession.onUpdateWeights(async () => {
+      // User tapped "Update" on Watch weight update prompt
+      const count = await recalculateWeights(profile, workouts);
+      if (count > 0) showToast({ message: `Updated weights for ${count} exercise${count !== 1 ? "s" : ""}`, type: "success" });
+      watchSession.endWorkout();
+      navigateOut();
+    });
+    const unsub8 = watchSession.onSkipUpdateWeights(() => {
+      // User tapped "Skip" on Watch weight update prompt
+      watchSession.endWorkout();
+      navigateOut();
+    });
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); unsub6(); unsub7(); unsub8(); };
+  }); // no deps — always uses latest closure values
+
+  // End Watch session when test finishes or user exits
+  useEffect(() => {
+    return () => { watchSession.endWorkout(); };
+  }, []);
+
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   function handlePickUnit(picked: "kg" | "lbs") {
@@ -249,15 +388,28 @@ export default function OrmTestScreen() {
     if (nextIndex >= 0) {
       ormTest.completeSet(liftIndex, nextIndex);
       impact(ImpactStyle.Medium);
-      startRestTimer(nextIndex);
+      // Check if this was the last set — skip rest and advance
+      const remainingAfter = currentLift.sets.filter(
+        (s, i) => !s.completed && i !== nextIndex
+      ).length;
+      if (remainingAfter === 0) {
+        handleCompleteLift();
+      } else {
+        startRestTimer(nextIndex);
+      }
     }
   }
 
   async function handleCompleteLift() {
     dismissRestTimer();
     try {
-      await ormTest.completeLift();
+      const updated = await ormTest.completeLift();
       setSetsVisible(false);
+      // Check the RETURNED session (not stale React state) for completion
+      const allDone = updated?.lifts.every((l) => l.completed) ?? false;
+      if (allDone) {
+        watchSession.sendSessionComplete({ completionLabel: 'Save to Profile' });
+      }
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Something went wrong.");
     }
@@ -356,22 +508,30 @@ export default function OrmTestScreen() {
       }
 
       if (exercises.length > 0) {
-        Alert.alert(
-          "Update Plan Weights",
-          "Update your plan weights with your new 1RM data?",
-          [
-            { text: "Skip", style: "cancel", onPress: () => navigateOut() },
-            {
-              text: "Update",
-              onPress: async () => {
-                const count = await recalculateWeights(profile, workouts);
-                if (count > 0) showToast({ message: `Updated weights for ${count} exercise${count !== 1 ? "s" : ""}`, type: "success" });
-                navigateOut();
+        if (watchInitiatedRef.current) {
+          // Watch-initiated — send prompt to Watch instead of Alert
+          watchSession.sendWeightUpdatePrompt();
+        } else {
+          Alert.alert(
+            "Update Plan Weights",
+            "Update your plan weights with your new 1RM data?",
+            [
+              { text: "Skip", style: "cancel", onPress: () => navigateOut() },
+              {
+                text: "Update",
+                onPress: async () => {
+                  const count = await recalculateWeights(profile, workouts);
+                  if (count > 0) showToast({ message: `Updated weights for ${count} exercise${count !== 1 ? "s" : ""}`, type: "success" });
+                  navigateOut();
+                },
               },
-            },
-          ]
-        );
+            ]
+          );
+        }
       } else {
+        if (watchInitiatedRef.current) {
+          watchSession.endWorkout();
+        }
         navigateOut();
       }
     } catch (e) {

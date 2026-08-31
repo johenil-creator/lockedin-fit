@@ -29,13 +29,13 @@ export function useHealthWeightSync() {
     if (Platform.OS !== 'ios' || !hydrated) return;
 
     async function syncWeight() {
-      // Only sync if HealthKit permissions were granted
-      const grant = await getCached<{
-        tiers: { minimum: boolean };
-      }>('permission-status');
-      if (!grant?.tiers?.minimum) return;
-
       try {
+        // Only sync if HealthKit permissions were granted
+        const grant = await getCached<{
+          tiers: { minimum: boolean };
+        }>('permission-status');
+        if (!grant?.tiers?.minimum) return;
+
         const AppleHealthKit =
           require('react-native-health') as import('react-native-health').AppleHealthKit;
 

@@ -29,6 +29,78 @@ export type ValidationResult =
 /** Reject files larger than this. */
 export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
+// ── Alternative-name parsing ──────────────────────────────────────────────────
+
+/**
+ * Equipment-only prefixes — when a name consists solely of one of these words,
+ * it carries no noun and needs the noun extracted from the second alternative.
+ * e.g. "Barbell or Dumbbell Curls" → partA="Barbell", partB="Dumbbell Curls"
+ *      → altA = "Barbell Curls", altB = "Dumbbell Curls"
+ */
+const EQUIPMENT_PREFIX_RE = /^(barbell|dumbbell|cable|band|machine|smith|kettlebell|bodyweight|bw|ez[- ]?bar|trap[- ]?bar|hex[- ]?bar)$/i;
+
+/**
+ * Parse exercise names that list alternatives (e.g. "Barbell or Dumbbell Curl",
+ * "Pull-ups (or Chin-ups)", "Bench Press / Dumbbell Press").
+ *
+ * Returns `primary` (the name to use by default) and `alternatives` (full list,
+ * including primary) when multiple options exist; just `primary` when the name
+ * is unambiguous.
+ */
+function parseAlternativeNames(raw: string): { primary: string; alternatives?: string[] } {
+  // Pattern 1: "Name [or Alternative]" / "Name (or Alternative)"
+  const bracketMatch = raw.match(/^(.+?)\s*[\[(]or\s+([^\])]+)[\])]\s*$/i);
+  if (bracketMatch) {
+    const a = bracketMatch[1].trim();
+    const b = bracketMatch[2].trim();
+    return { primary: a, alternatives: [a, b] };
+  }
+
+  // Pattern 2: "Name / Alternative" — treat slash as OR
+  const slashIdx = raw.indexOf('/');
+  if (slashIdx > 0) {
+    const a = raw.slice(0, slashIdx).trim();
+    const b = raw.slice(slashIdx + 1).trim();
+    if (a.length >= 2 && b.length >= 2) {
+      return { primary: a, alternatives: [a, b] };
+    }
+  }
+
+  // Pattern 3: "EquipWord or EquipWord? Noun" — e.g. "Barbell or Dumbbell Curls"
+  const orMatch = raw.match(/^(.+?)\s+or\s+(.+)$/i);
+  if (orMatch) {
+    const partA = orMatch[1].trim();
+    const partB = orMatch[2].trim();
+    if (EQUIPMENT_PREFIX_RE.test(partA)) {
+      // partA is equipment-only; extract noun from partB
+      const bWords = partB.split(/\s+/);
+      if (EQUIPMENT_PREFIX_RE.test(bWords[0]) && bWords.length > 1) {
+        const noun = bWords.slice(1).join(' ');
+        const altA = `${partA} ${noun}`;
+        return { primary: altA, alternatives: [altA, partB] };
+      }
+      // partB doesn't start with an equipment word — use partB as-is for altB
+      const altA = partA; // e.g. "Barbell" alone — imperfect but user will see the choice
+      return { primary: altA, alternatives: [altA, partB] };
+    }
+    // Generic "A or B" — both parts are full exercise names
+    return { primary: partA, alternatives: [partA, partB] };
+  }
+
+  return { primary: raw };
+}
+
+// ── Isometric-note detection ──────────────────────────────────────────────────
+
+/**
+ * Returns true when a notes/comments cell indicates the set should be held
+ * isometrically (time-based) rather than counted in reps.
+ */
+const ISOMETRIC_NOTE_RE = /\b(iso(?:metric)?(?:\s+hold)?|static\s+hold)\b/i;
+function notesIndicateTimed(notes: string): boolean {
+  return ISOMETRIC_NOTE_RE.test(notes);
+}
+
 // ── Side-detection ────────────────────────────────────────────────────────────
 
 // Matches side suffixes like "(Left)", "(R)", "- Left Leg", " L", " R"
@@ -329,25 +401,25 @@ export function smartParse(rawInput: unknown[][]): Exercise[] {
     const detectedSide = sideResult.side;
     const cellExNoSide = sideResult.cleaned;
 
-    // Commit to first option when alternatives are listed:
-    //   "Glute-Ham Raise [or Nordic Ham Curl]" → "Glute-Ham Raise"
-    //   "Pull-ups (or Chin-ups)"               → "Pull-ups"
-    //   "Bench Press / Dumbbell Press"          → "Bench Press"
-    //   "Deadlift or RDL"                       → "Deadlift"
-    let cleaned = cellExNoSide
-      .replace(/\s*[\[(]or\s+[^\])]+[\])]/gi, "")   // [or ...] or (or ...)
-      .replace(/\s*\/\s*.+$/, "")                     // " / alternative"
-      .replace(/\s+or\s+.+$/i, "")                    // " or alternative"
-      .trim();
-
     // Strip superset prefixes: "A1: ", "A2: ", "B1: ", "B2: ", etc.
-    cleaned = cleaned.replace(/^[A-Z]\d+:\s*/i, "").trim();
+    const stripped = cellExNoSide.replace(/^[A-Z]\d+:\s*/i, "").trim();
 
-    const exerciseName = cleaned || cellExNoSide;
+    // Parse alternative names (e.g. "Barbell or Dumbbell Curl" → two options)
+    const { primary: baseName, alternatives: rawAlts } = parseAlternativeNames(stripped || cellExNoSide);
 
     // Detect "per side" / "each side" annotations in the notes cell
     const notesCell = cell(row, ntCol) || '';
     const perSideFromNote = PER_SIDE_NOTE_RE.test(notesCell);
+
+    // When notes indicate isometric and the name doesn't already trigger timed
+    // detection, append "(Isometric)" so isExerciseTimed() returns true everywhere
+    // (session screen, XP calc, muscle mapping, etc.) without changing the core name.
+    const timedByNote = notesIndicateTimed(notesCell) && !isExerciseTimed(baseName);
+    const suffix = timedByNote ? ' (Isometric)' : '';
+
+    const exerciseName = baseName + suffix;
+    // Apply the same suffix to each alternative so all options are consistently timed
+    const alternatives = rawAlts?.map(a => a + suffix);
 
     const repsRaw = sanitizeNumeric(cell(row, repCol), 1, 100) || cell(row, repCol);
     const reps = isExerciseTimed(exerciseName)
@@ -365,7 +437,8 @@ export function smartParse(rawInput: unknown[][]): Exercise[] {
       week:        currentWeek,
       day:         currentDay,
       isUnilateral: (detectedSide !== null || perSideFromNote) ? true : undefined,
-      side:         detectedSide,  // 'left', 'right', or null
+      side:         detectedSide,
+      alternatives,
     });
   }
 

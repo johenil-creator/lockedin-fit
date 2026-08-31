@@ -197,9 +197,9 @@ export function useOrmTest(
     });
   }, []);
 
-  const completeLift = useCallback(async () => {
+  const completeLift = useCallback(async (): Promise<OrmTestSession | null> => {
     const prev = sessionRef.current;
-    if (!prev) return;
+    if (!prev) return null;
 
     const lift = prev.lifts[prev.currentLiftIndex];
     // Calculate finalOrm from set 7 (index 6)
@@ -231,6 +231,7 @@ export function useOrmTest(
     sessionRef.current = updated;
     setSession(updated);
     await saveOrmTest(updated);
+    return updated;
   }, []);
 
   const finishTest = useCallback(async () => {

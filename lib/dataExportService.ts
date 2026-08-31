@@ -6,10 +6,11 @@
  * the system share sheet.
  */
 
-import { Share } from "react-native";
+import { Share, Alert } from "react-native";
 import { httpsCallable } from "firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
+import * as DocumentPicker from "expo-document-picker";
 import { functions, isFirebaseConfigured } from "./firebase";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -119,4 +120,50 @@ export async function exportAndShare(userId: string | null): Promise<void> {
     message: json,
     title: "LockedInFIT Data Export",
   });
+}
+
+// ── Restore from backup ──────────────────────────────────────────────────────
+
+/**
+ * Pick a LockedInFIT backup JSON file and restore all local data from it.
+ * Returns true if restore succeeded, false if user cancelled or it failed.
+ */
+export async function restoreFromBackup(): Promise<boolean> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: "application/json",
+    copyToCacheDirectory: true,
+  });
+
+  if (result.canceled || !result.assets?.[0]) return false;
+
+  const uri = result.assets[0].uri;
+  const raw = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.UTF8,
+  });
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    Alert.alert("Invalid File", "The selected file is not a valid LockedInFIT backup.");
+    return false;
+  }
+
+  const localData: Record<string, any> = parsed?.localData;
+  if (!localData || typeof localData !== "object") {
+    Alert.alert("Invalid Backup", "This file does not contain LockedInFIT backup data.");
+    return false;
+  }
+
+  const pairs: [string, string][] = Object.entries(localData)
+    .filter(([key]) => key.startsWith("@lockedinfit/"))
+    .map(([key, value]) => [key, typeof value === "string" ? value : JSON.stringify(value)]);
+
+  if (pairs.length === 0) {
+    Alert.alert("Empty Backup", "No data found in this backup file.");
+    return false;
+  }
+
+  await AsyncStorage.multiSet(pairs);
+  return true;
 }

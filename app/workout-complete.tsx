@@ -28,6 +28,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useAppTheme } from "../contexts/ThemeContext";
 import { isExerciseTimed } from "../lib/loadEngine/classifier";
 import { loadWorkouts } from "../lib/storage";
+import { triggerBackup } from "../lib/cloudBackup";
 import { InfoTooltip } from "../components/InfoTooltip";
 import { earnFangs } from "../lib/fangsService";
 import { useInterstitialAd } from "../hooks/useInterstitialAd";
@@ -530,6 +531,10 @@ export default function WorkoutCompleteScreen() {
   // ── Timed exercise stats ──────────────────────────────────────────────────
   const [timedStats, setTimedStats] = useState<TimedStat[]>([]);
   const totalHeldSec = timedStats.reduce((sum, t) => sum + t.totalSec, 0);
+
+  useEffect(() => {
+    triggerBackup();
+  }, []);
 
   useEffect(() => {
     if (!params) return;

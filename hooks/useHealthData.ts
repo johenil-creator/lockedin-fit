@@ -255,7 +255,7 @@ export function useHealthData(): UseHealthDataReturn {
   // ── Initial load ───────────────────────────────────────────────────────
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
-    syncHealthData();
+    syncHealthData().catch(() => {});
   }, [syncHealthData]);
 
   // ── Foreground refresh ─────────────────────────────────────────────────
@@ -267,7 +267,7 @@ export function useHealthData(): UseHealthDataReturn {
         const now = Date.now();
         if (now - lastForegroundSync.current > FOREGROUND_DEBOUNCE_MS) {
           lastForegroundSync.current = now;
-          syncHealthData(true);
+          syncHealthData(true).catch(() => {});
         }
       }
     };

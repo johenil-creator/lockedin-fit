@@ -19,7 +19,7 @@ import { isSignedIn, signOut, signInWithGoogle, getStoredEmail } from "../lib/go
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { deleteAccount, clearLocalData as deleteLocalData } from "../lib/accountDeletion";
-import { exportAndShare } from "../lib/dataExportService";
+import { exportAndShare, restoreFromBackup } from "../lib/dataExportService";
 
 const KG_TO_LBS = 2.20462;
 const LBS_TO_KG = 0.453592;
@@ -46,6 +46,7 @@ export default function SettingsScreen() {
   const { theme, isDark, toggleTheme } = useAppTheme();
   const { profile, updateProfile } = useProfileContext();
   const [exporting, setExporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const { user, signOut: authSignOut } = useAuth();
   const { showToast } = useToast();
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -113,6 +114,37 @@ export default function SettingsScreen() {
     } finally {
       setExporting(false);
     }
+  }
+
+  async function handleRestore() {
+    if (restoring) return;
+    Alert.alert(
+      "Restore from Backup",
+      "This will overwrite your current data with the backup. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Restore",
+          onPress: async () => {
+            setRestoring(true);
+            try {
+              const success = await restoreFromBackup();
+              if (success) {
+                Alert.alert(
+                  "Restore Complete",
+                  "Your data has been restored. Please close and reopen the app to see your data.",
+                  [{ text: "OK" }]
+                );
+              }
+            } catch {
+              Alert.alert("Restore Failed", "Could not restore your data. Please try again.");
+            } finally {
+              setRestoring(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -332,6 +364,15 @@ export default function SettingsScreen() {
             </Text>
           </View>
           <Text style={[typography.caption, { color: theme.colors.muted }]}>{exporting ? "Exporting…" : "JSON"}</Text>
+        </Pressable>
+        <Pressable style={styles.row} onPress={handleRestore} disabled={restoring}>
+          <View>
+            <Text style={[typography.body, { color: theme.colors.text }]}>Restore from Backup</Text>
+            <Text style={[typography.caption, { color: theme.colors.muted }]}>
+              Import a LockedInFIT export file
+            </Text>
+          </View>
+          <Text style={[typography.caption, { color: theme.colors.muted }]}>{restoring ? "Restoring…" : "JSON"}</Text>
         </Pressable>
         <Pressable style={styles.row} onPress={() => router.push("/onboarding?retake=1")}>
           <Text style={[typography.body, { color: theme.colors.text }]}>Retake 1RM Setup</Text>

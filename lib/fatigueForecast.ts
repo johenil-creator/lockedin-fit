@@ -46,7 +46,7 @@ const DEFAULT_HOURS_UNTIL_SESSION = 12;
  * Fatigue points per primary muscle per working set.
  * Mirrors BASE_FATIGUE_PER_SET in muscleMapping.ts — must stay in sync.
  */
-const BASE_FATIGUE_PER_SET = 8;
+const BASE_FATIGUE_PER_SET = 10;
 
 /** Neutral RPE denominator: RPE 7 set → 1.0× multiplier. */
 const RPE_NEUTRAL = 7;

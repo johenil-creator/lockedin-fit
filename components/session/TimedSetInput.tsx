@@ -31,6 +31,8 @@ type Props = {
   onTick?: (remaining: number, elapsed: number) => void;
   /** Called when the timer pauses, stops early, or auto-completes. */
   onTimerStop?: () => void;
+  /** Mutable ref that will be set to a function to programmatically start the timer. */
+  startRef?: React.MutableRefObject<(() => void) | null>;
 };
 
 type TimerState = "idle" | "running" | "paused" | "completed";
@@ -59,6 +61,7 @@ function TimedSetInputInner({
   onTimerStart,
   onTick,
   onTimerStop,
+  startRef,
 }: Props) {
   const isCountup = targetSeconds === 0;
   const target = isCountup ? 0 : targetSeconds || 60;
@@ -83,6 +86,12 @@ function TimedSetInputInner({
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
+  // Mutable refs that mirror elapsed/remaining state so we can read current
+  // values inside setInterval without relying on state-updater closures.
+  // Calling parent setState (onTick/onComplete) from inside a state updater
+  // is a React violation ("setState during render") — refs avoid that.
+  const elapsedRef   = useRef(0);
+  const remainingRef = useRef(0);
 
   // Urgency pulse animation
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -149,46 +158,47 @@ function TimedSetInputInner({
   // Core timer
   useEffect(() => {
     if (timerState === "running") {
+      // Sync refs from current state so both fresh starts and resumes work correctly.
+      elapsedRef.current   = actualElapsed;
+      remainingRef.current = remaining;
       startTimeRef.current = Date.now();
 
       if (isCountup) {
-        // Count UP mode
+        // Count UP mode — all callbacks called directly in the interval body,
+        // never inside a state-updater function (which React treats as render).
         intervalRef.current = setInterval(() => {
-          setActualElapsed((el) => {
-            const next = el + 1;
-            if (next % 10 === 0) impact(ImpactStyle.Light);
-            onTickRef.current?.(0, next);
-            return next;
-          });
+          elapsedRef.current += 1;
+          const next = elapsedRef.current;
+          if (next % 10 === 0) impact(ImpactStyle.Light);
+          onTickRef.current?.(0, next);
+          setActualElapsed(next);
         }, 1000);
       } else {
         // Count DOWN mode
         intervalRef.current = setInterval(() => {
-          setRemaining((prev) => {
-            if (prev <= 1) {
-              clearInterval(intervalRef.current!);
-              intervalRef.current = null;
-              notification(NotificationType.Success);
-              setActualElapsed((el) => {
-                const finalElapsed = el + 1;
-                onCompleteRef.current(finalElapsed);
-                onTimerStopRef.current?.();
-                return finalElapsed;
-              });
-              setTimerState("completed");
-              return 0;
-            }
-            const next = prev - 1;
+          elapsedRef.current += 1;
+          const nextEl = elapsedRef.current;
+
+          if (remainingRef.current <= 1) {
+            clearInterval(intervalRef.current!);
+            intervalRef.current = null;
+            notification(NotificationType.Success);
+            remainingRef.current = 0;
+            setRemaining(0);
+            setActualElapsed(nextEl);
+            setTimerState("completed");
+            onCompleteRef.current(nextEl);
+            onTimerStopRef.current?.();
+          } else {
+            const next = remainingRef.current - 1;
+            remainingRef.current = next;
             if (next === 3) impact(ImpactStyle.Light);
             else if (next === 2) impact(ImpactStyle.Medium);
             else if (next === 1) impact(ImpactStyle.Heavy);
-            setActualElapsed((el) => {
-              const nextEl = el + 1;
-              onTickRef.current?.(next, nextEl);
-              return nextEl;
-            });
-            return next;
-          });
+            onTickRef.current?.(next, nextEl);
+            setRemaining(next);
+            setActualElapsed(nextEl);
+          }
         }, 1000);
       }
     }
@@ -222,6 +232,12 @@ function TimedSetInputInner({
       setTimerState("running");
     }
   }, [completed, isFutureSet, locked, adjustedTarget, timerState, isCountup]);
+
+  // Expose handlePlay to parent via ref for programmatic start (e.g. from Watch)
+  useEffect(() => {
+    if (startRef) startRef.current = handlePlay;
+    return () => { if (startRef) startRef.current = null; };
+  }, [handlePlay, startRef]);
 
   const handlePause = useCallback(() => {
     impact(ImpactStyle.Light);

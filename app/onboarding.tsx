@@ -25,6 +25,7 @@ import { NameStep } from "../components/onboarding/NameStep";
 import { UnitStep } from "../components/onboarding/UnitStep";
 import { ExplainStep } from "../components/onboarding/ExplainStep";
 import { HealthStep } from "../components/onboarding/HealthStep";
+import { AccountStep } from "../components/onboarding/AccountStep";
 import { StepSlide, onboardingStyles as styles } from "../components/onboarding/shared";
 import { sanitizeWeight } from "../lib/sanitizeWeight";
 import { spacing } from "../lib/theme";
@@ -39,9 +40,9 @@ const LIFT_KEY_MAP: Record<string, LiftKey> = {
   "Overhead Press": "ohp",
 };
 
-type StepKey = "welcome" | "name" | "unit" | "explain" | "health" | "manual";
+type StepKey = "welcome" | "name" | "unit" | "explain" | "health" | "manual" | "account";
 
-const STEP_ORDER: StepKey[] = ["welcome", "unit", "health", "name", "explain", "manual"];
+const STEP_ORDER: StepKey[] = ["welcome", "unit", "health", "name", "explain", "manual", "account"];
 const VISIBLE_STEPS: StepKey[] = Platform.OS === "ios"
   ? STEP_ORDER
   : STEP_ORDER.filter((s) => s !== "health");
@@ -98,7 +99,11 @@ export default function OnboardingScreen() {
 
   async function skip() {
     await updateProfile({ name: userName.trim() || profile.name, weightUnit: unit, onboardingComplete: true });
-    router.replace("/");
+    if (retake === "1") {
+      router.replace("/");
+    } else {
+      setStep("account");
+    }
   }
 
   async function handleManualSave() {
@@ -116,24 +121,32 @@ export default function OnboardingScreen() {
     await updateProfile(updatedProfile);
 
     const has1RM = Object.values(manual1RM).some((v) => v && parseFloat(v) > 0);
+    const goNext = () => {
+      if (retake === "1") {
+        router.replace("/");
+      } else {
+        setStep("account");
+      }
+    };
+
     if (has1RM && exercises.length > 0) {
       Alert.alert(
         "Update Plan Weights",
         "Update your plan weights with your new 1RM data?",
         [
-          { text: "Skip", style: "cancel", onPress: () => router.replace("/") },
+          { text: "Skip", style: "cancel", onPress: goNext },
           {
             text: "Update",
             onPress: async () => {
               const count = await recalculateWeights(updatedProfile, workouts);
               if (count > 0) showToast({ message: `Updated weights for ${count} exercise${count !== 1 ? "s" : ""}`, type: "success" });
-              router.replace("/");
+              goNext();
             },
           },
         ]
       );
     } else {
-      router.replace("/");
+      goNext();
     }
   }
 
@@ -208,6 +221,20 @@ export default function OnboardingScreen() {
           onManual={() => setStep("manual")}
           onSkip={skip}
           onBack={() => setStep("name")}
+        />
+      </View>
+    );
+  }
+
+  // ── Account step ─────────────────────────────────────────────────────────────
+
+  if (step === "account") {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+        <ProgressDots current={stepIndex("account")} total={VISIBLE_STEPS.length} />
+        <AccountStep
+          onComplete={() => router.replace("/")}
+          onBack={() => setStep("manual")}
         />
       </View>
     );

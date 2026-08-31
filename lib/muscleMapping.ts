@@ -41,7 +41,7 @@ function stripSideSuffix(name: string): string {
 // ── Constants ────────────────────────────────────────────────────────────────
 
 /** Fatigue points a primary muscle accrues per completed working set (0-100 scale). */
-const BASE_FATIGUE_PER_SET = 8;
+const BASE_FATIGUE_PER_SET = 10;
 
 /**
  * Neutral RPE used as the denominator when scaling fatigue.
@@ -229,7 +229,7 @@ export function computeSessionFatigue(session: WorkoutSession): MuscleFatigueMap
       const timedVolume = completedSets.length * avgSecondsHeld * 0.5;
       // Scale by intensity like normal sets, normalised per-set so the formula
       // stays on the same 0-100 fatigue scale as dynamic exercises.
-      const perSetLoad = (timedVolume / completedSets.length) * (intensity / RPE_NEUTRAL);
+      const perSetLoad = (timedVolume / completedSets.length) * intensity;
       const primaryLoad   = perSetLoad;
       const secondaryLoad = perSetLoad * SECONDARY_CREDIT;
 

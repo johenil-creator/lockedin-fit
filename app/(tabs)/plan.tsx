@@ -60,10 +60,25 @@ type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
 function ExerciseCard({ exercise: ex }: { exercise: Exercise }) {
   const { theme } = useAppTheme();
+  const hasAlts = ex.alternatives && ex.alternatives.length > 1;
+  const displayName = ex.exercise.replace(/\s*\(Isometric\)$/, '');
+  const isIsometric = ex.exercise.endsWith('(Isometric)');
   return (
     <Card style={exStyles.card}>
       <View style={exStyles.top}>
-        <Text style={[exStyles.name, { color: theme.colors.text }]}>{ex.exercise}</Text>
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+          <Text style={[exStyles.name, { color: theme.colors.text }]}>{displayName}</Text>
+          {isIsometric && (
+            <View style={{ backgroundColor: theme.colors.accent + "20", borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 }}>
+              <Text style={{ color: theme.colors.accent, fontSize: 10, fontWeight: "700" }}>ISO</Text>
+            </View>
+          )}
+          {hasAlts && (
+            <View style={{ backgroundColor: theme.colors.primary + "18", borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 }}>
+              <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: "700" }}>CHOOSE</Text>
+            </View>
+          )}
+        </View>
         <View style={exStyles.badges}>
           {ex.sets   && <Badge label={`${ex.sets} sets`} />}
           {ex.reps   && <Badge label={`${ex.reps} reps`} />}
@@ -297,7 +312,7 @@ function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart, o
           </View>
 
           <View style={dcStyles.headerRight}>
-            {!isLocked && !isNextUp && !isCompleted && (
+            {!isLocked && !isCompleted && (
               <Ionicons
                 name={isExpanded ? "chevron-up" : "chevron-down"}
                 size={16}
@@ -310,16 +325,18 @@ function DayCard({ dayGroup, state, isStarting, isExpanded, onToggle, onStart, o
         {/* Next-up: show exercises + prominent CTA */}
         {isNextUp && (
           <View style={{ marginTop: 10 }}>
-            {previewNames.map((name, i) => (
+            {(isExpanded ? dayGroup.exercises.map(e => e.exercise) : previewNames).map((name, i) => (
               <View key={i} style={dcStyles.nextUpExRow}>
                 <View style={[dcStyles.nextUpDot, { backgroundColor: theme.colors.primary }]} />
                 <Text style={[dcStyles.nextUpExName, { color: theme.colors.text }]}>{name}</Text>
               </View>
             ))}
-            {moreCount > 0 && (
-              <Text style={[dcStyles.nextUpMore, { color: theme.colors.muted }]}>
-                +{moreCount} more
-              </Text>
+            {moreCount > 0 && !isExpanded && (
+              <Pressable onPress={onToggle} style={{ paddingVertical: 2 }}>
+                <Text style={[dcStyles.nextUpMore, { color: theme.colors.primary }]}>
+                  +{moreCount} more
+                </Text>
+              </Pressable>
             )}
             <Pressable
               style={[dcStyles.startBtn, { backgroundColor: theme.colors.primary, opacity: isStarting ? 0.5 : 1 }]}
@@ -821,6 +838,7 @@ export default function PlanScreen() {
   const [expandedDays, setExpandedDays]           = useState<Record<string, boolean>>({});
   const [recalculating, setRecalculating]         = useState(false);
   const [ormPromptData, setOrmPromptData]         = useState<{ week: string; day: string; exs: Exercise[] } | null>(null);
+  const [equipPickerData, setEquipPickerData]     = useState<{ week: string; day: string; exs: Exercise[]; choices: Record<number, string> } | null>(null);
   const [editingDay, setEditingDay]               = useState<{ week: string; day: string } | null>(null);
   const [editPickerVisible, setEditPickerVisible] = useState(false);
   const [menuVisible, setMenuVisible]             = useState(false);
@@ -1003,6 +1021,16 @@ export default function PlanScreen() {
           { text: "Resume Session", onPress: () => router.push(`/session/${active.id}`) },
         ]
       );
+      return;
+    }
+
+    // If any exercises have equipment alternatives, ask the user to choose first
+    const hasAmbiguous = exs.some(e => e.alternatives && e.alternatives.length > 1);
+    if (hasAmbiguous) {
+      // Pre-fill choices with the primary (first) option for each exercise
+      const defaultChoices: Record<number, string> = {};
+      exs.forEach((e, i) => { if (e.alternatives && e.alternatives.length > 1) defaultChoices[i] = e.alternatives[0]; });
+      setEquipPickerData({ week, day, exs, choices: defaultChoices });
       return;
     }
 
@@ -1321,6 +1349,77 @@ export default function PlanScreen() {
             <Text style={[ormStyles.skipText, { color: theme.colors.muted }]}>Skip for now</Text>
           </Pressable>
         </View>
+      </AppBottomSheet>
+
+      {/* Equipment choice picker — shown when exercises list alternatives (e.g. "Barbell or Dumbbell") */}
+      <AppBottomSheet
+        visible={!!equipPickerData}
+        onClose={() => setEquipPickerData(null)}
+        snapPoints={["60%"]}
+      >
+        {equipPickerData && (() => {
+          const ambiguous = equipPickerData.exs
+            .map((e, i) => ({ e, i }))
+            .filter(({ e }) => e.alternatives && e.alternatives.length > 1);
+          return (
+            <View style={{ paddingHorizontal: 4, paddingBottom: 16 }}>
+              <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: "800", marginBottom: 4 }}>
+                Choose Your Equipment
+              </Text>
+              <Text style={{ color: theme.colors.muted, fontSize: 13, marginBottom: 20 }}>
+                Your plan lists options for {ambiguous.length === 1 ? "one exercise" : `${ambiguous.length} exercises`}. Pick what you have available.
+              </Text>
+              {ambiguous.map(({ e, i }) => (
+                <View key={i} style={{ marginBottom: 20 }}>
+                  <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" }}>
+                    {e.exercise.replace(/\s*\(Isometric\)$/, '')}
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                    {e.alternatives!.map((alt) => {
+                      const chosen = equipPickerData.choices[i] ?? e.alternatives![0];
+                      const isChosen = chosen === alt;
+                      return (
+                        <Pressable
+                          key={alt}
+                          onPress={() => setEquipPickerData(prev => prev ? ({ ...prev, choices: { ...prev.choices, [i]: alt } }) : prev)}
+                          style={{
+                            paddingVertical: 10,
+                            paddingHorizontal: 16,
+                            borderRadius: 10,
+                            borderWidth: 1.5,
+                            backgroundColor: isChosen ? theme.colors.primary + "18" : theme.colors.surface,
+                            borderColor: isChosen ? theme.colors.primary : theme.colors.border,
+                          }}
+                        >
+                          <Text style={{ color: isChosen ? theme.colors.primary : theme.colors.text, fontWeight: isChosen ? "700" : "500", fontSize: 14 }}>
+                            {alt.replace(/\s*\(Isometric\)$/, '')}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+              <Pressable
+                style={{ backgroundColor: theme.colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 4 }}
+                onPress={() => {
+                  const data = equipPickerData;
+                  setEquipPickerData(null);
+                  // Apply choices: replace exercise name with chosen alternative
+                  const resolved = data.exs.map((e, i) => {
+                    const chosen = data.choices[i];
+                    if (!chosen) return e;
+                    return { ...e, exercise: chosen, alternatives: undefined };
+                  });
+                  if (!has1RM) { setOrmPromptData({ week: data.week, day: data.day, exs: resolved }); return; }
+                  doStartSession(data.week, data.day, resolved);
+                }}
+              >
+                <Text style={{ color: theme.colors.primaryText, fontWeight: "700", fontSize: 16 }}>Start Session</Text>
+              </Pressable>
+            </View>
+          );
+        })()}
       </AppBottomSheet>
 
       {/* Edit day — exercise picker */}

@@ -237,18 +237,6 @@ function MuscleOverlaySvg({
 }) {
   return (
     <Svg width={width} height={height} viewBox={viewBox}>
-      {entries.map(({ muscle, d, glowColor, glowOpacity, glowRadius }, i) =>
-        glowColor !== null ? (
-          <Path
-            key={`${prefix}g-${muscle}-${i}`}
-            d={d}
-            fill="none"
-            stroke={glowColor}
-            strokeWidth={glowRadius * 2}
-            strokeOpacity={glowOpacity}
-          />
-        ) : null,
-      )}
       {entries.map(({ muscle, d, fill, fillOpacity }, i) => (
         <Path
           key={`${prefix}-${muscle}-${i}`}
@@ -678,29 +666,13 @@ function MuscleHeatmapInner({
         resizeMode="contain"
       />
 
-      {/* ── SVG overlay: glow underlays + muscle fills ─────────────────── */}
+      {/* ── SVG overlay: muscle fills ──────────────────────────────────── */}
       <Svg
         width={width}
         height={height}
         viewBox={svgViewBox}
         style={StyleSheet.absoluteFill}
       >
-        {/* Glow stroke underlays for static muscles (rendered behind fills) */}
-        {staticEntries.map(
-          ({ muscle, d, glowColor, glowOpacity, glowRadius }, i) =>
-            glowColor !== null && (
-              <Path
-                key={`g-${muscle}-${i}`}
-                d={d}
-                fill="none"
-                stroke={glowColor}
-                strokeWidth={glowRadius * 2}
-                strokeOpacity={glowOpacity}
-              />
-            ),
-        )}
-
-        {/* Static muscle fills */}
         {staticEntries.map(({ muscle, d, fill, fillOpacity }, i) => (
           <Path
             key={`s-${muscle}-${i}`}
@@ -776,7 +748,7 @@ function MuscleHeatmapInner({
         </Animated.View>
       )}
 
-      {/* ── Plan border overlay: pulsing dashed border ────────────────────── */}
+      {/* ── Plan border overlay: pulsing solid glow border ───────────────── */}
       {hasPlanBorders && (
         <Animated.View style={[StyleSheet.absoluteFill, planBorderStyle]} pointerEvents="none">
           <Svg width={width} height={height} viewBox={svgViewBox}>
@@ -784,10 +756,8 @@ function MuscleHeatmapInner({
               <Path
                 key={`b-${muscle}-${i}`}
                 d={d}
-                fill="none"
-                stroke={theme.colors.primary}
-                strokeWidth={2}
-                strokeDasharray={[4, 3]}
+                fill={theme.colors.primary}
+                fillOpacity={0.18}
               />
             ))}
           </Svg>

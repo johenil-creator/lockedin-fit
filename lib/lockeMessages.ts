@@ -412,6 +412,42 @@ const MESSAGES: Partial<Record<LockeTrigger, MessageSet>> = {
     ],
   },
 
+  xp_decay_warning: {
+    savage: [
+      "Your rank is bleeding. Get back in the gym.",
+      "You're about to drop a rank. Not on my watch.",
+      "Inactivity has a cost. The clock is ticking.",
+    ],
+    disappointed: [
+      "You're close to losing your rank. One session stops it.",
+      "The decay has started. Show up before it costs you more.",
+      "Your XP is draining. Don't let it take your rank.",
+    ],
+    intense: [
+      "The clock is ticking on your rank. Move.",
+      "You've built too much to lose it now. Train.",
+      "Absence is costing you. Get back on the hunt.",
+    ],
+  },
+
+  rank_down: {
+    savage: [
+      "You let it slip. Now earn it back.",
+      "Rank dropped. Inactivity has consequences.",
+      "That rank cost you. Pain teaches what comfort won't.",
+    ],
+    disappointed: [
+      "You dropped a rank. Absence has its price.",
+      "Rank lost. The path back starts with one session.",
+      "It slipped away. Get back in the gym and take it.",
+    ],
+    intense: [
+      "Demoted. Use the anger. Train.",
+      "Rank down. The comeback is always harder — and more satisfying.",
+      "You know what to do. Stop resting and start hunting.",
+    ],
+  },
+
   fuel_weekly_refresh: {
     neutral: [
       "New week. New fuel. Same discipline.",

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -35,6 +35,8 @@ import { LockeCommentary } from "../../components/progress/LockeCommentary";
 import { spacing, radius } from "../../lib/theme";
 import { isExerciseTimed, isExerciseUnilateral } from "../../lib/loadEngine/classifier";
 import type { WorkoutSession, SetEntry } from "../../lib/types";
+import { useHealthData } from "../../hooks/useHealthData";
+import { useAutoImportWorkouts } from "../../hooks/useAutoImportWorkouts";
 
 /** Format whole seconds as M:SS (e.g. 90 → "1:30", 15 → "0:15") */
 function fmtDuration(totalSeconds: number): string {
@@ -97,14 +99,96 @@ function exerciseSetSummary(
   return reps.join(", ");
 }
 
+// ── Apple Watch auto-import toast ────────────────────────────────────────────
+
+function AppleWatchToast({
+  visible,
+  count,
+  xp,
+  onDismiss,
+}: {
+  visible: boolean;
+  count: number;
+  xp: number;
+  onDismiss: () => void;
+}) {
+  const { theme } = useAppTheme();
+
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(onDismiss, 3500);
+    return () => clearTimeout(t);
+  }, [visible, onDismiss]);
+
+  if (!visible || count === 0) return null;
+
+  const label = count === 1
+    ? 'Apple Watch workout synced'
+    : `${count} Apple Watch workouts synced`;
+
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(250)}
+      style={[
+        toastStyles.wrap,
+        { backgroundColor: theme.colors.surface, borderColor: theme.colors.primary + '40' },
+      ]}
+    >
+      <Ionicons name="watch-outline" size={18} color={theme.colors.primary} />
+      <View style={toastStyles.textBlock}>
+        <Text style={[toastStyles.title, { color: theme.colors.text }]}>{label}</Text>
+        <Text style={[toastStyles.sub, { color: theme.colors.primary }]}>+{xp} XP added</Text>
+      </View>
+      <Ionicons name="checkmark-circle" size={18} color={theme.colors.primary} />
+    </Animated.View>
+  );
+}
+
+const toastStyles = StyleSheet.create({
+  wrap: {
+    position: 'absolute',
+    top: 0,
+    left: 16,
+    right: 16,
+    zIndex: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+  textBlock: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sub: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function WorkoutLogScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { workouts, loading, deleteWorkout, reload } = useWorkouts();
+  const { workouts, loading, deleteWorkout, reload, addWorkout } = useWorkouts();
   const { profile } = useProfileContext();
-  const { streak } = useStreak();
-  const { rank } = useXP();
+  const { streak, recordActivity } = useStreak();
+  const { rank, awardXP } = useXP();
+  const { externalWorkouts } = useHealthData();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -116,6 +200,22 @@ export default function WorkoutLogScreen() {
 
   // Track which date groups are expanded (keyed by date string like "2026-04-10")
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  // Auto-import Apple Watch workouts silently on detection
+  const { autoImportedCount, autoImportedXP, resetAutoImport } = useAutoImportWorkouts({
+    externalWorkouts,
+    addWorkout,
+    awardXP,
+    recordActivity,
+  });
+
+  // Show a toast when workouts are auto-imported
+  const [showImportToast, setShowImportToast] = useState(false);
+  useEffect(() => {
+    if (autoImportedCount > 0) {
+      setShowImportToast(true);
+    }
+  }, [autoImportedCount]);
 
   const exerciseNames = useMemo(() => getUniqueExerciseNames(workouts), [workouts]);
 
@@ -223,6 +323,14 @@ export default function WorkoutLogScreen() {
 
   return (
       <View style={[styles.container, { backgroundColor: theme.colors.bg, paddingTop: insets.top + spacing.md }]}>
+        {/* Apple Watch auto-import toast */}
+        <AppleWatchToast
+          visible={showImportToast}
+          count={autoImportedCount}
+          xp={autoImportedXP}
+          onDismiss={() => { setShowImportToast(false); resetAutoImport(); }}
+        />
+
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Log</Text>
           <ProfileButton />
