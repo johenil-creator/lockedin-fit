@@ -7,7 +7,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: IS_DEV ? "LockedIn FIT (Dev)" : "LockedIn FIT",
   slug: "lockedinfit",
   owner: "johenilh",
-  version: "2.3.0",
+  version: "2.3.1",
   orientation: "portrait",
   icon: "./assets/icons/icon_default.png",
   userInterfaceStyle: "automatic",
@@ -82,6 +82,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-tracking-transparency",
     "expo-asset",
     "expo-font",
+    "./plugins/withWatchApp",
     [
       "react-native-google-mobile-ads",
       {
