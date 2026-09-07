@@ -1,15 +1,11 @@
 diff --git a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Methods_Workout.m b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Methods_Workout.m
-index 1a2b3c4..5d6e7f8 100644
+index c1c4f42..252af47 100644
 --- a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Methods_Workout.m
 +++ b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Methods_Workout.m
-@@ -139,7 +139,22 @@ - (void)workout_save: (NSDictionary *)input callback: (RCTResponseSenderBlock)ca
-         if (!success) {
-             NSLog(@"An error occured saving the workout %@. The error was: %@.", workout, error);
-             callback(@[RCTMakeError(@"An error occured saving the workout", error, nil)]);
--
+@@ -145,6 +145,21 @@ - (void)workout_save: (NSDictionary *)input callback: (RCTResponseSenderBlock)ca
+ 
              return;
          }
--        callback(@[[NSNull null], [[workout UUID] UUIDString]]);
 +        // Also save an ActiveEnergyBurned sample so the Move ring reflects workout calories.
 +        // The legacy HKWorkout initializer only sets totalEnergyBurned as workout metadata;
 +        // the ring reads HKQuantityTypeIdentifierActiveEnergyBurned samples separately.
@@ -25,11 +21,9 @@ index 1a2b3c4..5d6e7f8 100644
 +                }
 +            }];
 +        }
-+        callback(@[[NSNull null], [[workout UUID] UUIDString]]);
+         callback(@[[NSNull null], [[workout UUID] UUIDString]]);
      };
-
-     [self.healthStore saveObject:workout withCompletion:completion];
-
+ 
 diff --git a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Utils.m b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Utils.m
 index 307056d..23864de 100644
 --- a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Utils.m
