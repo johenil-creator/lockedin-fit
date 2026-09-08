@@ -391,5 +391,12 @@ pbx = insertBefore(
     `\t\t};\n`
 );
 
+// 17) Patch RNGoogleMobileAds script to not fail when Info.plist is missing
+// (Expo config plugin already handles GADApplicationIdentifier)
+pbx = pbx.replace(
+  /echo \\"error: unable to locate Info\.plist to set properties\. App will crash without GADApplicationIdentifier set\.\\"\\n  exit 1/,
+  'echo \\"warning: unable to locate Info.plist to set properties. Skipping GADApplicationIdentifier injection.\\"\\n  exit 0'
+);
+
 fs.writeFileSync(pbxprojPath, pbx, "utf8");
 console.log("injectWatchTarget: Watch target injected successfully");
