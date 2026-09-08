@@ -295,7 +295,7 @@ const watchDebugConfig =
   `\t\t\t\t\t"@executable_path/Frameworks",\n` +
   `\t\t\t\t);\n` +
   `\t\t\t\tLOCALIZATION_PREFERS_STRING_CATALOGS = YES;\n` +
-  `\t\t\t\tMARKETING_VERSION = 2.3.1;\n` +
+  `\t\t\t\tMARKETING_VERSION = 2.3.2;\n` +
   `\t\t\t\tMTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;\n` +
   `\t\t\t\tMTL_FAST_MATH = YES;\n` +
   `\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = "${watchBundleId}";\n` +
@@ -351,7 +351,7 @@ const watchReleaseConfig =
   `\t\t\t\t\t"@executable_path/Frameworks",\n` +
   `\t\t\t\t);\n` +
   `\t\t\t\tLOCALIZATION_PREFERS_STRING_CATALOGS = YES;\n` +
-  `\t\t\t\tMARKETING_VERSION = 2.3.1;\n` +
+  `\t\t\t\tMARKETING_VERSION = 2.3.2;\n` +
   `\t\t\t\tMTL_FAST_MATH = YES;\n` +
   `\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = "${watchBundleId}";\n` +
   `\t\t\t\tPRODUCT_NAME = "$(TARGET_NAME)";\n` +
